@@ -127,3 +127,4 @@ docker-compose.yml
 # Other
 .DS_Store
 node_modules/
+/app/worker-service/.env

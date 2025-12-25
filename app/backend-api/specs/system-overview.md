@@ -24,3 +24,7 @@ The Backend API is a stateless service that exposes a set of RESTful endpoints. 
 ## Worker Service Communication
 
 The Backend API communicates with the **Worker Service** via a **Message Broker**. When a new log is submitted, the Backend API creates a new job and sends it to the **Message Broker**. The **Worker Service** then picks up the job, processes it, and updates the status of the log in the **Database**. The Backend API can then read the status of the log from the **Database** and report it to the client.
+
+## Google Gemini Communication
+
+The Backend API will send error logs to the Google Gemini API for analysis. This will be done via a direct HTTP request to the Google Gemini API. The Google Gemini API will return a summary of the error, which will be stored in the database and displayed in the admin panel. The `GEMINI_API_KEY` environment variable will be used to authenticate with the Google Gemini API.

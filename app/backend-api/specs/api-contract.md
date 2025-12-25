@@ -38,12 +38,6 @@ All endpoints, unless otherwise specified, require a valid JWT to be included in
     -   **Description:** Retrieves the details of a specific log.
     -   **Response:** ` { "id": "string", "status": "string", "timestamp": "datetime", "content": "string" } `
 
-### Status Reporting
-
--   **`GET /status/{id}`**
-    -   **Description:** Retrieves the status of a specific log by its ID.
-    -   **Response:** ` { "status": "string" } `
-
 ### Fixes
 
 -   **`GET /fixes/{id}`**
