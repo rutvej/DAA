@@ -40,6 +40,11 @@ All endpoints, unless otherwise specified, require a valid JWT to be included in
 
 ### Fixes
 
+-   **`POST /fixes`**
+    -   **Description:** Updates the analysis status of a log.
+    -   **Request Body:** ` { "log_id": "string", "status": "string", "pull_request_url": "string" } `
+    -   **Response:** ` { "status": "success" } `
+
 -   **`GET /fixes/{id}`**
     -   **Description:** Retrieves the details of a specific fix.
     -   **Response:** ` { "id": "string", "logId": "string", "timestamp": "datetime", "generatedFix": "string" } `

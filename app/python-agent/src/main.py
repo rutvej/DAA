@@ -11,7 +11,7 @@ from models import Job
 from tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
 from tools.file_system_tool import read_file, write_file, list_files
 from tools.llm_tool import get_instructions
-from tools.database_tool import update_analysis
+from tools.database_tool import AnalysisUpdater
 
 
 # --- Configuration ---
@@ -52,13 +52,15 @@ def process_job(job: Job):
     """
     Processes a single job.
     """
-    # 1. Initialize the agent
-    tools = [clone_repo, create_branch, commit, push, create_pull_request, read_file, write_file, list_files, get_instructions, update_analysis]
+    analysis_updater = AnalysisUpdater(job.log_id)
+    analysis_updater.update_analysis_processing()
+
+    tools = [clone_repo, create_branch, commit, push, create_pull_request, read_file, write_file, list_files, get_instructions]
+    
     logger = logging.getLogger(__name__)
     print("api key:", os.environ.get("GEMINI_API_KEY"))
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", logger=logger, google_api_key=os.environ.get("GEMINI_API_KEY"))
     
-    # 2. Create the prompt
     prompt_template = """
     You are a helpful assistant that fixes errors in code.
     You have access to the following tools:
@@ -72,47 +74,29 @@ def process_job(job: Job):
     ... (this Thought/Action/Action Input/Observation can repeat N times)
     Thought: I now know the final answer
     Final Answer: the final answer to the original input question
-    Here is an example of how to use the tools:
-    Thought: I need to read the file main.py to understand the code.
-    Action: read_file
-    Action Input: /tmp/test-app/main.py
-    Observation: The file main.py contains a function that divides by zero.
-    Thought: I need to write a fix to the file main.py.
-    Action: write_file
-    Action Input: /tmp/test-app/main.py,def divide(a, b):
-        if b == 0:
-            return 0
-        return a / b
-    Observation: The file main.py has been written.
-    Thought: I now know the final answer.
-    Final Answer: I have fixed the error in the file main.py.
     Begin!
     Question: {input}
     Thought:{agent_scratchpad}
     """
     prompt = ChatPromptTemplate.from_template(prompt_template)
     
-    # 3. Create the agent
     agent = create_react_agent(llm, tools, prompt)
     agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.info(f"Processing job {job.id} for app {job.app_name}")
 
-    # 4. Run the agent
     try:
         result = agent_executor.invoke({
-            "input": f"Fix the error in the {job.app_name} application. Here is the error log: {job.error_log}. \
-You must provide the repo_path and branch_name as a single string, separated by a comma, for the create_branch and push tools. \
-You must provide the repo_path and message as a single string, separated by a comma. \
-You must provide the repo_path, title, and description as a single string, separated by a comma, for the create_pull_request tool. \
-The log_id is {job.log_id}. \
-The branch name should be descriptive of the fix being implemented. \
-When calling the write_file function, you must provide both the file_path and the content arguments. \
-Before you begin, you must call the update_analysis function with the log_id and the status 'processing'. \
-After you have finished, you must call the update_analysis function with the log_id and the status 'completed'."
+            "input": f"Fix the error in the {job.app_name} application. Here is the error log: {job.error_log}."
         })
         logging.info(f"Agent execution result: {result}")
+        
+        pull_request_url = result.get("output")
+
+        analysis_updater.set_pull_request_url(pull_request_url)
+        analysis_updater.update_analysis_completed()
+
     except Exception as e:
         logging.error(f"Error during agent execution: {e}", exc_info=True)
 

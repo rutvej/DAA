@@ -99,18 +99,20 @@ def push(repo_path_and_branch_name: str) -> None:
     repo.git.push("--set-upstream", "origin", branch_name.strip())
 
 
-class CreatePullRequestInput(BaseModel):
-    repo_path_title_and_description: str = Field(description="The path to the repository, the title of the pull request, and the description, separated by commas.")
 
 
-@tool(args_schema=CreatePullRequestInput)
-def create_pull_request(repo_path: str, title: str, description: str) -> None:
+
+@tool
+def create_pull_request(repo_path: str, title: str, description: str) -> str:
     """Creates a pull request.
 
     Args:
         repo_path: The path to the repository.
         title: The title of the pull request.
         description: The description of the pull request.
+
+    Returns:
+        The URL of the pull request.
     """
     repo = _get_repo(repo_path.strip())
     branch_name = repo.active_branch.name
@@ -120,4 +122,4 @@ def create_pull_request(repo_path: str, title: str, description: str) -> None:
                                      'target_branch': 'master',
                                      'title': title.strip(),
                                      'description': description.strip()})
-    print(f"Created pull request: {mr.web_url}")
+    return mr.web_url
