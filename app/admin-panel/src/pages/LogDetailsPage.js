@@ -9,7 +9,7 @@ const LogDetailsPage = () => {
 
   useEffect(() => {
     const fetchLog = async () => {
-      const response = await fetch(`/logs/${id}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/logs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();

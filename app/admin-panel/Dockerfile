@@ -20,9 +20,10 @@ FROM nginx:1.21.6-alpine
 
 # Copy the build output from the builder stage
 COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Expose port 5002
+EXPOSE 5002
 
 # Start Nginx when the container launches
 CMD ["nginx", "-g", "daemon off;"]

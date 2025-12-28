@@ -9,7 +9,7 @@ const FixViewerPage = () => {
 
   useEffect(() => {
     const fetchFix = async () => {
-      const response = await fetch(`/fixes/${id}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/fixes/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await response.json();
