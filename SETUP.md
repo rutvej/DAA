@@ -38,6 +38,17 @@ Follow these steps to set up the environment manually:
     *   Replace `<your_gitlab_private_token>` with the token you created in the previous step.
     *   Replace `<your_gemini_api_key>` with your Gemini API key.
 
+8. **Send a dummy log to the backend-api:**
+    ```bash
+    curl -X POST "http://localhost:8000/logs/" -H "Content-Type: application/json" -H "Authorization: Bearer <your_token>" -d '{"content": "{\"message\": \"test error\"}", "app_name": "test-app"}'
+    ```
+
+7.  **Create a new user and get a token:**
+    ```bash
+    curl -X POST "http://localhost:8000/auth/register" -H "Content-Type: application/json" -d '{"username": "testuser", "password": "testpassword"}'
+    curl -X POST "http://localhost:8000/auth/login" -H "Content-Type: application/json" -d '{"username": "testuser", "password": "testpassword"}'
+    ```
+
 6.  **Restart the services:**
     ```bash
     docker-compose restart

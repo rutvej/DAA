@@ -1,4 +1,4 @@
-.PHONY: setup test
+PHONY: setup test lint format
 
 setup:
 	uv venv
@@ -6,3 +6,9 @@ setup:
 
 test:
 	. .venv/bin/activate && python3 -m unittest discover tests
+
+lint:
+	. .venv/bin/activate && ruff check .
+
+format:
+	. .venv/bin/activate && ruff format .

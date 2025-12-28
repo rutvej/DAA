@@ -42,6 +42,8 @@ class Fix(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
     generatedFix = Column(Text)
     isApproved = Column(Boolean, default=False)
+    status = Column(String, default="Pending")
+    pull_request_url = Column(String)
 
     log = relationship("Log")
 

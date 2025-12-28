@@ -8,6 +8,7 @@ import pika
 import os
 from typing import List
 from datetime import datetime
+from fastapi.security import OAuth2PasswordBearer
 
 router = APIRouter()
 
@@ -28,16 +29,27 @@ class LogResponse(BaseModel):
 class LogDetailsResponse(LogResponse):
     content: str
 
-def get_current_user(token: str = Depends(lambda x: x)):
-    # This is a placeholder for a real authentication implementation
-    # In a real application, you would decode the JWT and get the user
-    return User(username="testuser")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+import jwt
+from routers.auth import SECRET_KEY, ALGORITHM
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        user_id: str = payload.get("id")
+        if username is None or user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return {"username": username, "id": user_id}
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     if not log.content or not isinstance(log.content, str):
         raise HTTPException(status_code=400, detail="Invalid log content")
-    db_log = DBLog(content=log.content, userId=current_user.username, app_name=log.app_name)
+    db_log = DBLog(content=log.content, userId=current_user["id"], app_name=log.app_name)
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
@@ -45,16 +57,16 @@ def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: User
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
         channel = connection.channel()
-        channel.queue_declare(queue='fix_jobs')
+        channel.queue_declare(queue='fix_jobs', durable=True)
         job_data = {
-            "id": db_log.id,
-            "log_id": db_log.id,
+            "id": str(db_log.id),
+            "log_id": str(db_log.id),
             "app_name": db_log.app_name,
             "status": "pending",
             "created_at": db_log.timestamp.isoformat(),
             "updated_at": db_log.timestamp.isoformat(),
             "error_log": {
-                "id": db_log.id,
+                "id": str(db_log.id),
                 "app_name": db_log.app_name,
                 "content": db_log.content,
                 "stack_trace": "",

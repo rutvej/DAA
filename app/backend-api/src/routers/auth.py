@@ -42,6 +42,6 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     if not db_user or not pwd_context.verify(user.password, db_user.passwordHash):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 
-    to_encode = {"sub": db_user.username, "exp": time.time() + ACCESS_TOKEN_EXPIRE_MINUTES * 60}
+    to_encode = {"sub": db_user.username, "id": db_user.id, "exp": time.time() + ACCESS_TOKEN_EXPIRE_MINUTES * 60}
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return {"token": encoded_jwt}

@@ -13,7 +13,6 @@ class FixResponse(BaseModel):
     generatedFix: str
 
 class AnalysisReport(BaseModel):
-    log_id: str
     status: str = None
     pull_request_url: str = None
 
@@ -24,20 +23,20 @@ def get_fix(id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Fix not found")
     return fix
 
-@router.post("/analysis")
-def post_analysis(report: AnalysisReport, db: Session = Depends(get_db)):
-    fix = db.query(DBFix).filter(DBFix.logId == report.log_id).first()
+@router.post("/analysis/{log_id}")
+def post_analysis(log_id: str, report: AnalysisReport, db: Session = Depends(get_db)):
+    fix = db.query(DBFix).filter(DBFix.logId == log_id).first()
     if fix is None:
         fix = DBFix(
-            logId=report.log_id,
+            logId=log_id,
             status=report.status,
             pull_request_url=report.pull_request_url,
         )
         db.add(fix)
     else:
-        if report.status:
+        if report.status is not None:
             fix.status = report.status
-        if report.pull_request_url:
+        if report.pull_request_url is not None:
             fix.pull_request_url = report.pull_request_url
     db.commit()
     return {"status": "success"}

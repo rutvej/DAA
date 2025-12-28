@@ -7,3 +7,5 @@ langchain-core
 langchain==0.1.11
 pydantic
 langchain-google-genai
+langchainhub
+python-gitlab

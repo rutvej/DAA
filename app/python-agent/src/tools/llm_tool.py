@@ -1,11 +1,21 @@
+import logging
 from langchain.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from typing import Dict
 
+
 @tool
 def get_instructions(error_log: dict, codebase: Dict[str, str]) -> str:
-    """Gets instructions from the LLM to fix the error."""
-    llm = ChatGoogleGenerativeAi(model="gemini-pro")
+    """Gets instructions from the LLM to fix the error.
+
+    Args:
+        error_log: The error log to fix.
+        codebase: The codebase to fix the error in.
+
+    Returns:
+        A set of instructions to fix the error.
+    """
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", logger=logging.getLogger(__name__))
     prompt = f"""
     Here is an error log:
     {error_log}
@@ -20,7 +30,7 @@ def get_instructions(error_log: dict, codebase: Dict[str, str]) -> str:
     commit('Fix bug')
     create_pull_request('Fix bug', 'This PR fixes a bug')
     """
+    logging.info(f"Prompt: {prompt}")
     response = llm.invoke(prompt)
     return response.content
-
 
