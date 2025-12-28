@@ -102,24 +102,44 @@ def push(repo_path_and_branch_name: str) -> None:
 
 
 
-@tool
-def create_pull_request(repo_path: str, title: str, description: str) -> str:
+class CreatePullRequestInput(BaseModel):
+    data: str = Field(description='A JSON string containing `repo_path`, `title`, and `description`.')
+
+
+@tool(args_schema=CreatePullRequestInput)
+def create_pull_request(data: str) -> str:
     """Creates a pull request.
 
     Args:
-        repo_path: The path to the repository.
-        title: The title of the pull request.
-        description: The description of the pull request.
+        data: A JSON string containing `repo_path`, `title`, and `description`.
 
     Returns:
         The URL of the pull request.
     """
+    import json
+    input_data = json.loads(data)
+    repo_path = input_data.get("repo_path")
+    title = input_data.get("title")
+    description = input_data.get("description")
+
+    if not all([repo_path, title, description]):
+        return "Error: 'repo_path', 'title', and 'description' are required."
+
     repo = _get_repo(repo_path.strip())
     branch_name = repo.active_branch.name
     gl = gitlab.Gitlab(f"http://{os.getenv('GITLAB_HOST','gitlab')}", private_token=os.getenv('GITLAB_PRIVATE_TOKEN'))
-    project = gl.projects.get(f"{os.getenv('GITLAB_USER','root')}/{repo.working_dir.split('/')[-1]}")
-    mr = project.mergerequests.create({'source_branch': branch_name,
-                                     'target_branch': 'master',
-                                     'title': title.strip(),
-                                     'description': description.strip()})
+    project_name = repo.working_dir.split('/')[-1]
+    project = gl.projects.get(f"{os.getenv('GITLAB_USER','root')}/{project_name}")
+    
+    # Check if a merge request already exists
+    mrs = project.mergerequests.list(source_branch=branch_name)
+    if mrs:
+        return mrs[0].web_url
+
+    mr = project.mergerequests.create({
+        'source_branch': branch_name,
+        'target_branch': 'master',
+        'title': title.strip(),
+        'description': description.strip()
+    })
     return mr.web_url

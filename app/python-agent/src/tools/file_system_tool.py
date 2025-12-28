@@ -1,4 +1,5 @@
 import os
+import json
 from langchain.tools import tool
 from typing import List
 from pydantic.v1 import BaseModel, Field
@@ -33,24 +34,32 @@ def read_file(file_path: str) -> str:
 
 
 class WriteFileInput(BaseModel):
-    file_path: str = Field(description="The path of the file to write to.")
-    content: str = Field(description="The content to write to the file.")
+    data: str = Field(description="A JSON string containing 'file_path' and 'content'. Example: {\"file_path\": \"/app/main.py\", \"content\": \"print('hello')\"}")
 
 
 @tool(args_schema=WriteFileInput)
-def write_file(file_path: str, content: str) -> None:
+def write_file(data: str) -> str:
     """Writes content to a file.
     
     Args:
-        file_path: The path of the file to write to.
-        content: The content to write to the file.
+        data: A JSON string containing 'file_path' and 'content'.
     """
     try:
+        input_data = json.loads(data)
+        file_path = input_data.get("file_path")
+        content = input_data.get("content")
+        
+        if not file_path or content is None:
+            return "Error: 'file_path' and 'content' are required in the JSON string."
+
         full_path = get_full_path(file_path.strip())
         with open(full_path, "w") as f:
             f.write(content.strip())
-    except ValueError:
-        return "Invalid input format. Please provide the file path and content separated by a comma."
+        return "File written successfully."
+    except json.JSONDecodeError:
+        return "Error: Invalid JSON string."
+    except Exception as e:
+        return f"Error writing file: {e}"
 
 
 @tool
