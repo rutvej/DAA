@@ -19,6 +19,59 @@ See `docs/architecture.md` for an overview and pointers to detailed specs under 
    cp .env.example .env
    ```
 2. Fill in values in `.env` (see configuration section below).
+3. Run the guided demo setup:
+   ```bash
+   python3 app/demo-setup/main.py
+   ```
+4. Open the admin panel at `http://localhost:5003`.
+5. Register and log in using the Admin Panel UI.
+
+For a manual bring-up flow, see `SETUP.md`. For detailed platform docs, see `docs/quickstart.md`.
+
+## Demo Setup
+The repo includes a guided demo CLI at `app/demo-setup/main.py` that automates the local end-to-end setup for:
+- Docker services
+- local GitLab project/token setup for `test-app`
+- backend demo user creation and `DAA_TOKEN` generation
+- restarting or recreating services when fresh env values are required
+- interactive test-app error triggering and merge request monitoring
+
+Run it with:
+```bash
+python3 app/demo-setup/main.py
+```
+
+Useful options:
+```bash
+python3 app/demo-setup/main.py --list-only
+python3 app/demo-setup/main.py --start-step 5
+```
+
+The demo CLI uses `app/test-app` as the sample application and lets you trigger built-in scenarios such as `attribute-error`, `import-error`, `index-error`, `name-error`, `key-error`, `type-error`, `value-error`, and `new-error`.
+
+Minimum `.env` values for the demo:
+- `GEMINI_API_KEY`: required for the Python agent to analyze logs and generate fixes.
+- `GITLAB_PRIVATE_TOKEN`: optional if omitted or invalid; the demo can create and refresh one automatically.
+- `GITLAB_ROOT_PASSWORD`: used for local GitLab root login.
+- `POSTGRES_PASSWORD`: password for the local Postgres container.
+- `SECRET_KEY`: backend JWT signing key.
+
+The demo script fills in safe local defaults for several other variables, including `REPO_NAME=test-app`, `RABBITMQ_HOST=rabbitmq`, and `GITLAB_HOST=gitlab`.
+
+What to expect during the demo:
+- `test-app` captures an exception and posts it to `backend-api`
+- `backend-api` stores the log and publishes a job to RabbitMQ
+- `python-agent` consumes the job, analyzes the code, pushes a branch to local GitLab, and opens a merge request
+- the demo CLI watches for the new log and merge request URL
+
+If you update tokens in `.env`, rerun the demo CLI so containers are recreated with the new values.
+
+## Manual Quickstart
+1. Copy environment template:
+   ```bash
+   cp .env.example .env
+   ```
+2. Fill in values in `.env` (see configuration section below).
 3. Start services:
    ```bash
    docker-compose up -d
@@ -26,7 +79,7 @@ See `docs/architecture.md` for an overview and pointers to detailed specs under 
 4. Open the admin panel at `http://localhost:5003`.
 5. Register and log in using the Admin Panel UI.
 
-For detailed steps (including GitLab setup), see `docs/quickstart.md`.
+For detailed steps (including GitLab setup), see `docs/quickstart.md` and `SETUP.md`.
 
 ## Configuration
 Key variables required in `.env`:
