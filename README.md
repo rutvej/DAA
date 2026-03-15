@@ -13,6 +13,51 @@ DAA is a multi-service platform that ingests error logs, routes them to an LLM-p
 ## Architecture
 See `docs/architecture.md` for an overview and pointers to detailed specs under `app/*/specs`.
 
+## Workflow Diagram
+The diagram below shows the main end-to-end path from an application error to an auto-generated merge request:
+
+```mermaid
+flowchart LR
+    subgraph Producers["Error Source"]
+        SDK["DAA SDK"]
+        TestApp["Test App"]
+    end
+
+    subgraph Platform["DAA Platform"]
+        Backend["backend-api<br/>auth + log ingestion + fix status"]
+        DB[("PostgreSQL<br/>logs + fix records")]
+        MQ[("RabbitMQ<br/>processing queue")]
+        Agent["python-agent<br/>LLM analysis + code changes"]
+        Admin["admin-panel<br/>monitoring UI"]
+    end
+
+    subgraph External["External Services"]
+        GitLab["GitLab repo"]
+        LLM["Gemini API"]
+    end
+
+    SDK -->|"send error log"| Backend
+    TestApp -->|"trigger exception and submit log"| Backend
+
+    Backend -->|"store log + pending status"| DB
+    Backend -->|"publish analysis job"| MQ
+
+    MQ -->|"deliver queued job"| Agent
+    Agent -->|"read job details / update fix status"| Backend
+    Agent -->|"analyze error and request fix strategy"| LLM
+    Agent -->|"clone repo, create branch, push fix, open MR"| GitLab
+
+    Admin -->|"fetch logs and fix status"| Backend
+    Backend -->|"return current status + MR link"| Admin
+```
+
+Readable as 5 steps:
+1. A client app sends an error log to `backend-api`.
+2. `backend-api` stores the log in PostgreSQL and queues work in RabbitMQ.
+3. `python-agent` consumes the job, asks Gemini for a fix strategy, and updates status.
+4. `python-agent` pushes a fix branch to GitLab and opens a merge request.
+5. `admin-panel` reads the latest log status and merge request link from `backend-api`.
+
 ## Quickstart
 1. Copy environment template:
    ```bash
