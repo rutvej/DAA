@@ -1,21 +1,47 @@
+import json
 import logging
+import os
+
 from langchain.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
-from typing import Dict
+from pydantic.v1 import BaseModel, Field
 
 
-@tool
-def get_instructions(error_log: dict, codebase: Dict[str, str]) -> str:
+class GetInstructionsInput(BaseModel):
+    data: str = Field(
+        description="A JSON string containing `error_log` and `codebase`. "
+        "Example: {\"error_log\": {...}, \"codebase\": {\"main.py\": \"...\"}}"
+    )
+
+
+@tool(args_schema=GetInstructionsInput)
+def get_instructions(data: str) -> str:
     """Gets instructions from the LLM to fix the error.
 
     Args:
-        error_log: The error log to fix.
-        codebase: The codebase to fix the error in.
+        data: A JSON string containing `error_log` and `codebase`.
 
     Returns:
         A set of instructions to fix the error.
     """
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", logger=logging.getLogger(__name__))
+    try:
+        input_data = json.loads(data)
+    except json.JSONDecodeError:
+        return "Error: Invalid JSON string. Expected `error_log` and `codebase`."
+
+    error_log = input_data.get("error_log")
+    codebase = input_data.get("codebase")
+
+    if not isinstance(error_log, dict):
+        return "Error: `error_log` must be a JSON object."
+    if not isinstance(codebase, dict):
+        return "Error: `codebase` must be a JSON object mapping file paths to file contents."
+
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.5-flash",
+        logger=logging.getLogger(__name__),
+        google_api_key=os.environ.get("GEMINI_API_KEY"),
+    )
     prompt = f"""
     Here is an error log:
     {error_log}
@@ -33,4 +59,3 @@ def get_instructions(error_log: dict, codebase: Dict[str, str]) -> str:
     logging.info(f"Prompt: {prompt}")
     response = llm.invoke(prompt)
     return response.content
-

@@ -13,8 +13,8 @@ COPY requirements.txt .
 # Install any needed packages specified in requirements.txt
 RUN uv pip install --system --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application's code into the container
-COPY ./src .
+# Copy the application code into the container as a package
+COPY ./src ./src
 COPY ./tests ./tests
 
 # Make port 80 available to the world outside this container
@@ -25,4 +25,4 @@ ENV PYTHONPATH "${PYTHONPATH}:/app"
 ENV NAME World
 
 # Run uvicorn when the container launches
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "80"]

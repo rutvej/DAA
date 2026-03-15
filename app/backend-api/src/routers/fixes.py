@@ -1,10 +1,13 @@
 import logging
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from database import get_db, Fix as DBFix, Log as DBLog
-from datetime import datetime
-import re
+
+from ..database import Fix as DBFix
+from ..database import Log as DBLog
+from ..database import get_db
 
 router = APIRouter()
 

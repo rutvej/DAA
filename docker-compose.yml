@@ -1,0 +1,129 @@
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
+  postgres_data:
+  secrets:
+
+services:
+  gitlab:
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'gitlab.example.com'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://gitlab.example.com'
+        gitlab_rails['initial_root_password'] = "${GITLAB_ROOT_PASSWORD}"
+    ports:
+      - '8082:80'
+      - '8443:443'
+      - '2224:22'
+    volumes:
+      - 'gitlab_config:/etc/gitlab'
+      - 'gitlab_logs:/var/log/gitlab'
+      - 'gitlab_data:/var/opt/gitlab'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: yourdb
+      POSTGRES_USER: youruser
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-demo_postgres_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-api:
+    build:
+      context: ./app/backend-api
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
+    ports:
+      - "8000:80"
+    environment:
+      - DATABASE_URL=postgresql://youruser:${POSTGRES_PASSWORD:-demo_postgres_password}@postgres/yourdb
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - secrets:/var/run/secrets
+
+  python-agent:
+    build:
+      context: ./app/python-agent
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      backend-api:
+        condition: service_started
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - DAA_BACKEND_API_URL=http://backend-api:80
+      - GITLAB_PRIVATE_TOKEN=${GITLAB_PRIVATE_TOKEN}
+      - GIT_REPO_URL=${GIT_REPO_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    env_file:
+      - .env
+    volumes:
+      - secrets:/var/run/secrets
+
+  test-app:
+    build:
+      context: .
+      dockerfile: app/test-app/Dockerfile
+    restart: on-failure
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./app/daa-sdk:/app/daa-sdk
+      - secrets:/var/run/secrets
+    environment:
+      - DAA_BACKEND_API_URL=http://backend-api:80
+      - DAA_TOKEN=${DAA_TOKEN}
+      - REPO_NAME=test-app
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      backend-api:
+        condition: service_started
+
+  admin-panel:
+    build:
+      context: ./app/admin-panel
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "5003:5002"
+    env_file:
+      - ./app/admin-panel/.env
+    depends_on:
+      - backend-api

@@ -1,4 +1,5 @@
 import unittest
+import json
 from unittest.mock import patch
 from src.tools.llm_tool import get_instructions
 
@@ -12,11 +13,16 @@ class TestLlmTool(unittest.TestCase):
         mock_llm.invoke.return_value.content = 'Fix the division by zero error.'
 
         # Act
-        instructions = get_instructions.run({'error_log': error_log, 'codebase': ''})
+        instructions = get_instructions.run({
+            'data': json.dumps({
+                'error_log': {'message': error_log},
+                'codebase': {'main.py': 'print("hello")'}
+            })
+        })
 
         # Assert
         self.assertEqual(instructions, 'Fix the division by zero error.')
-        mock_chat_google.assert_called_once_with(model='gemini-pro', temperature=0.7)
+        mock_chat_google.assert_called_once_with(model='gemini-2.5-flash', logger=unittest.mock.ANY)
         mock_llm.invoke.assert_called_once()
 
 if __name__ == '__main__':

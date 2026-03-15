@@ -3,9 +3,8 @@ urllib3==1.26.18
 GitPython==3.1.24
 pika
 langchain-community==0.0.29
-langchain-core
+langchain-core==0.1.53
 langchain==0.1.11
 pydantic
-langchain-google-genai
-langchainhub
-python-gitlab
+langchain-google-genai==1.0.4
+python-gitlab==4.5.0

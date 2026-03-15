@@ -1,14 +1,18 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
-from database import get_db, Log as DBLog
-from routers.auth import User
-import pika
 import os
-from typing import List
 from datetime import datetime
+from typing import List
+
+import jwt
+import pika
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy.orm import Session
+
+from ..database import Log as DBLog
+from ..database import get_db
+from .auth import ALGORITHM, SECRET_KEY
 
 router = APIRouter()
 
@@ -22,17 +26,12 @@ class LogResponse(BaseModel):
     id: str
     status: str
     timestamp: str
-
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LogDetailsResponse(LogResponse):
     content: str
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-import jwt
-from routers.auth import SECRET_KEY, ALGORITHM
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
     try:

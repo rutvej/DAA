@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage';
 import LogsPage from './pages/LogsPage';
 import LogDetailsPage from './pages/LogDetailsPage';
 import FixViewerPage from './pages/FixViewerPage';
+import SystemHealthPage from './pages/SystemHealthPage';
 
 
 // Layout
@@ -27,21 +28,37 @@ const Header = () => {
   const { logout } = useContext(AuthContext);
   return (
     <header className="header">
-      <div className="logo">Admin Panel</div>
+      <div className="logo">
+        <span className="logo-mark">DAA</span>
+        <div>
+          <p className="logo-title">Admin Panel</p>
+          <p className="logo-subtitle">Operations Console</p>
+        </div>
+      </div>
       <div className="user-info">
         <span>Welcome, Admin</span>
-        <button onClick={logout}>Logout</button>
+        <button className="ghost-btn" onClick={logout}>Logout</button>
       </div>
     </header>
   );
 };
 
-const Sidebar = () => (
-  <nav className="sidebar">
-    <NavLink to="/dashboard">Dashboard</NavLink>
-    <NavLink to="/logs">Logs</NavLink>
-  </nav>
-);
+const Sidebar = () => {
+  const navClass = ({ isActive }) => (isActive ? 'active' : undefined);
+  return (
+    <nav className="sidebar">
+      <div className="nav-section">
+        <p className="nav-title">Overview</p>
+        <NavLink to="/dashboard" className={navClass}>Dashboard</NavLink>
+        <NavLink to="/health" className={navClass}>System Health</NavLink>
+      </div>
+      <div className="nav-section">
+        <p className="nav-title">Workflow</p>
+        <NavLink to="/logs" className={navClass}>Logs</NavLink>
+      </div>
+    </nav>
+  );
+};
 
 const AppRoutes = () => {
   const { token } = useContext(AuthContext);
@@ -58,6 +75,7 @@ const AppRoutes = () => {
               <MainLayout>
                 <Routes>
                   <Route path="/dashboard" element={<DashboardPage />} />
+                  <Route path="/health" element={<SystemHealthPage />} />
                   <Route path="/logs" element={<LogsPage />} />
                   <Route path="/logs/:id" element={<LogDetailsPage />} />
                   <Route path="/fix/:id" element={<FixViewerPage />} />

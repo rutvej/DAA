@@ -110,7 +110,7 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-- # Pyre type checker
+# Pyre type checker
 .pyre/
 
 # Environments
@@ -123,7 +123,6 @@ dmypy.json
 
 # Docker
 .dockerignore
-docker-compose.yml
 
 # Other
 .DS_Store

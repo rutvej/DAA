@@ -4,6 +4,21 @@ import gitlab
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 
+
+def _build_repo_url(app_name: str) -> str:
+    """Builds the authenticated GitLab repository URL for PAT-based auth."""
+    gitlab_user = os.getenv("GITLAB_USER", "root")
+    gitlab_token = os.getenv("GITLAB_PRIVATE_TOKEN")
+    gitlab_host = os.getenv("GITLAB_HOST", "gitlab")
+    return f"http://{gitlab_user}:{gitlab_token}@{gitlab_host}:80/{gitlab_user}/{app_name}.git"
+
+
+def _split_repo_input(value: str) -> tuple[str, str]:
+    """Splits a `repo_path,<payload>` tool input without breaking on later commas."""
+    repo_path, payload = value.split(",", 1)
+    return repo_path.strip(), payload.strip()
+
+
 def _get_repo(repo_path: str) -> git.Repo:
     """Gets the repository object.
 
@@ -28,10 +43,11 @@ def clone_repo(app_name: str) -> str:
     """
     if ":" in app_name:
         app_name = app_name.split(":")[1].strip()
-    repo_url = f"http://oauth2:{os.getenv('GITLAB_PRIVATE_TOKEN')}@gitlab:80/{os.getenv('GITLAB_USER','root')}/{app_name}.git"
+    repo_url = _build_repo_url(app_name)
     temp_dir = f"/tmp/{app_name}"
     if os.path.exists(temp_dir):
         repo = _get_repo(temp_dir)
+        repo.remotes.origin.set_url(repo_url)
     else:
         repo = git.Repo.clone_from(repo_url, temp_dir)
     with repo.config_writer() as git_config:
@@ -51,9 +67,8 @@ def create_branch(repo_path_and_branch_name: str) -> None:
     Args:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
-    repo_path, branch_name = repo_path_and_branch_name.split(',')
-    repo = _get_repo(repo_path.strip())
-    branch_name = branch_name.strip()
+    repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
+    repo = _get_repo(repo_path)
     
     # Delete the branch if it exists locally
     if branch_name in repo.branches:
@@ -77,10 +92,10 @@ def commit(repo_path_and_message: str) -> None:
     Args:
         repo_path_and_message: A string containing the repository path and the commit message, separated by a comma.
     """
-    repo_path, message = repo_path_and_message.split(',')
-    repo = _get_repo(repo_path.strip())
+    repo_path, message = _split_repo_input(repo_path_and_message)
+    repo = _get_repo(repo_path)
     repo.git.add(A=True)
-    repo.git.commit(m=message.strip())
+    repo.git.commit(m=message)
 
 
 class PushInput(BaseModel):
@@ -94,9 +109,9 @@ def push(repo_path_and_branch_name: str) -> None:
     Args:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
-    repo_path, branch_name = repo_path_and_branch_name.split(',')
-    repo = _get_repo(repo_path.strip())
-    repo.git.push("--set-upstream", "origin", branch_name.strip())
+    repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
+    repo = _get_repo(repo_path)
+    repo.git.push("--set-upstream", "origin", branch_name)
 
 
 
