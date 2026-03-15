@@ -1,17 +1,18 @@
 import os
-import pika
 import json
-import sys
 import logging
-from langchain import hub
-from langchain.agents import create_react_agent, AgentExecutor
+import sys
+
+import pika
+from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
-from models import Job
-from tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
-from tools.file_system_tool import read_file, write_file, list_files
-from tools.llm_tool import get_instructions
-from tools.database_tool import AnalysisUpdater
+
+from .models import Job
+from .tools.database_tool import AnalysisUpdater
+from .tools.file_system_tool import list_files, read_file, write_file
+from .tools.git_tool import clone_repo, commit, create_branch, create_pull_request, push
+from .tools.llm_tool import get_instructions
 
 
 # --- Configuration ---
@@ -65,6 +66,11 @@ def process_job(job: Job):
     You are a helpful assistant that fixes errors in code.
     You have access to the following tools:
     {tools}
+    Tool usage rules:
+    - `create_branch`, `commit`, and `push` each take a single comma-separated string.
+    - `write_file` takes a JSON string in the `data` field with `file_path` and `content`.
+    - `create_pull_request` takes a JSON string in the `data` field with `repo_path`, `title`, and `description`.
+    - `get_instructions` takes a JSON string in the `data` field with `error_log` and `codebase`.
     Use the following format:
     Question: the input question you must answer
     Thought: you should always think about what to do
@@ -110,4 +116,3 @@ if __name__ == "__main__":
             sys.exit(0)
         except SystemExit:
             os._exit(0)
-

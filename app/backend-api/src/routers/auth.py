@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from database import get_db, User
-from passlib.context import CryptContext
-import jwt
-import time
 import os
+import time
+
+import jwt
+from fastapi import APIRouter, Depends, HTTPException
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from ..database import User, get_db
 
 router = APIRouter()
 

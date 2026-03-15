@@ -4,8 +4,9 @@ from src.tools.git_tool import clone_repo, create_branch, commit, push, create_p
 
 class TestGitTool(unittest.TestCase):
 
+    @patch('src.tools.git_tool.os.path.exists', return_value=False)
     @patch('src.tools.git_tool.git.Repo')
-    def test_clone_repo(self, mock_repo):
+    def test_clone_repo(self, mock_repo, mock_exists):
         # Arrange
         app_name = 'test-app'
         expected_path = f"/tmp/{app_name}"
@@ -16,7 +17,22 @@ class TestGitTool(unittest.TestCase):
 
         # Assert
         self.assertEqual(result, expected_path)
-        mock_repo.clone_from.assert_called_once_with(f"http://oauth2:{None}@gitlab:80/root/{app_name}.git", expected_path)
+        mock_repo.clone_from.assert_called_once_with(f"http://root:{None}@gitlab:80/root/{app_name}.git", expected_path)
+
+    @patch('src.tools.git_tool.os.path.exists', return_value=True)
+    @patch('src.tools.git_tool._get_repo')
+    def test_clone_repo_updates_existing_remote(self, mock_get_repo, mock_exists):
+        app_name = 'test-app'
+        mock_repo = MagicMock()
+        mock_get_repo.return_value = mock_repo
+
+        result = clone_repo(app_name)
+
+        self.assertEqual(result, f"/tmp/{app_name}")
+        mock_get_repo.assert_called_once_with(f"/tmp/{app_name}")
+        mock_repo.remotes.origin.set_url.assert_called_once_with(
+            f"http://root:{None}@gitlab:80/root/{app_name}.git"
+        )
 
     @patch('src.tools.git_tool._get_repo')
     def test_create_branch(self, mock_get_repo):

@@ -2,6 +2,12 @@
 
 Follow these steps to set up the environment manually:
 
+You can also use the guided demo CLI, which follows the same steps in the same order:
+
+```bash
+python3 app/demo-setup/main.py
+```
+
 1.  **Start the services:**
     ```bash
     docker-compose up -d
@@ -44,10 +50,9 @@ Follow these steps to set up the environment manually:
     *   Replace `<your_gemini_api_key>` with your Gemini API key.
     *   Replace `<your_secure_password>` with a secure password of your choice.
 
-
-8. **Send a dummy log to the backend-api:**
+6.  **Restart the services:**
     ```bash
-    curl -X POST "http://localhost:8000/logs/" -H "Content-Type: application/json" -H "Authorization: Bearer <your_token>" -d '{"content": "{\"message\": \"test error\"}", "app_name": "test-app"}'
+    docker-compose restart
     ```
 
 7.  **Create a new user and get a token:**
@@ -56,7 +61,7 @@ Follow these steps to set up the environment manually:
     curl -X POST "http://localhost:8000/auth/login" -H "Content-Type: application/json" -d '{"username": "testuser", "password": "testpassword"}'
     ```
 
-6.  **Restart the services:**
+8. **Send a dummy log to the backend-api:**
     ```bash
-    docker-compose restart
+    curl -X POST "http://localhost:8000/logs/" -H "Content-Type: application/json" -H "Authorization: Bearer <your_token>" -d '{"content": "{\"message\": \"test error\"}", "app_name": "test-app"}'
     ```
