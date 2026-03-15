@@ -12,6 +12,13 @@ def _build_repo_url(app_name: str) -> str:
     gitlab_host = os.getenv("GITLAB_HOST", "gitlab")
     return f"http://{gitlab_user}:{gitlab_token}@{gitlab_host}:80/{gitlab_user}/{app_name}.git"
 
+
+def _split_repo_input(value: str) -> tuple[str, str]:
+    """Splits a `repo_path,<payload>` tool input without breaking on later commas."""
+    repo_path, payload = value.split(",", 1)
+    return repo_path.strip(), payload.strip()
+
+
 def _get_repo(repo_path: str) -> git.Repo:
     """Gets the repository object.
 
@@ -60,9 +67,8 @@ def create_branch(repo_path_and_branch_name: str) -> None:
     Args:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
-    repo_path, branch_name = repo_path_and_branch_name.split(',')
-    repo = _get_repo(repo_path.strip())
-    branch_name = branch_name.strip()
+    repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
+    repo = _get_repo(repo_path)
     
     # Delete the branch if it exists locally
     if branch_name in repo.branches:
@@ -86,10 +92,10 @@ def commit(repo_path_and_message: str) -> None:
     Args:
         repo_path_and_message: A string containing the repository path and the commit message, separated by a comma.
     """
-    repo_path, message = repo_path_and_message.split(',')
-    repo = _get_repo(repo_path.strip())
+    repo_path, message = _split_repo_input(repo_path_and_message)
+    repo = _get_repo(repo_path)
     repo.git.add(A=True)
-    repo.git.commit(m=message.strip())
+    repo.git.commit(m=message)
 
 
 class PushInput(BaseModel):
@@ -103,9 +109,9 @@ def push(repo_path_and_branch_name: str) -> None:
     Args:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
-    repo_path, branch_name = repo_path_and_branch_name.split(',')
-    repo = _get_repo(repo_path.strip())
-    repo.git.push("--set-upstream", "origin", branch_name.strip())
+    repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
+    repo = _get_repo(repo_path)
+    repo.git.push("--set-upstream", "origin", branch_name)
 
 
 
