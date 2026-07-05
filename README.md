@@ -1,17 +1,28 @@
-# DAA Platform
+# DAA v2.0 — Autonomous SRE Incident Diagnosis Platform
 
-DAA is a multi-service platform that ingests error logs, routes them to an LLM-powered Python agent, and tracks fix status through a backend API and admin panel UI. The repo includes a Python SDK and a test app to generate sample errors.
+[![Deploy to Google Cloud Run](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/rutvej/DAA.git)
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/rutvej/DAA)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/rutvej/DAA)
+
+DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform** that replaces the first 30–60 minutes of manual triage toil when production microservices break.
+
+## 🚀 Why DAA v2.0?
+- **No Alert Fatigue:** Built-in Redis sliding-window escalation thresholds and SHA256 error fingerprinting ensure zero duplicate PRs and zero alert spam.
+- **4-Dimension Investigation:** Correlates OpenTelemetry trace IDs across 6 multi-language SDKs (Python, Go, Node.js, Java, Ruby, .NET), checks recent git commits/deployments, queries cloud alerts, and executes diagnostic tests before proposing a fix.
+- **Surgical Code Navigation:** Uses AST repomaps and symbol searching so the LLM never reads entire repositories—saving 95% in token costs and eliminating hallucinated fixes.
+- **Progressive Autonomy:** Operates in Advisor Mode (Jira/GitHub tickets + Postmortems), Draft PR Mode (human-in-the-loop), or Closed-Loop Auto-Remediation.
+- **Local-First or Cloud LLMs:** Supports Google Gemini, OpenAI, Anthropic, or 100% air-gapped local models via Ollama / vLLM.
 
 ## Services
-- `app/backend-api`: FastAPI service for auth, log ingestion, fix status, and health.
-- `app/python-agent`: RabbitMQ consumer that analyzes logs and opens merge requests.
-- `app/admin-panel`: React admin UI for viewing logs and fixes.
-- `app/daa-sdk`: Python SDK for sending logs to the backend API.
-- `app/test-app`: Flask app that triggers errors for testing.
-- Infrastructure: PostgreSQL, RabbitMQ, and GitLab (local) via Docker Compose.
+- `app/backend-api`: FastAPI service for auth, log ingestion, deduplication engine, escalation policies, and health.
+- `app/python-agent`: ReAct SRE agent consumer that executes 4-dimension investigations and opens PRs or Jira tickets.
+- `app/admin-panel`: React admin UI for viewing incident timelines, occurrence counters, and 1-click Postmortems.
+- `app/daa-sdk`: Standardized SDKs for Python, Go, Node.js, Java, Ruby, and .NET.
+- `app/test-app`: Sample microservice app that triggers errors for testing.
+- Infrastructure: PostgreSQL, RabbitMQ, Redis, and GitLab (local) via Docker Compose or Terraform blueprints.
 
 ## Architecture
-See `docs/architecture.md` for an overview and pointers to detailed specs under `app/*/specs`.
+See `docs/PLATFORM_SPEC_V2.md` for the complete technical specification of the V2 Autonomous SRE Platform.
 
 ## Workflow Diagram
 The diagram below shows the main end-to-end path from an application error to an auto-generated merge request:

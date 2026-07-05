@@ -3,8 +3,8 @@ import logging
 import os
 
 from langchain.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic.v1 import BaseModel, Field
+from ..llm_config import get_llm
 
 
 class GetInstructionsInput(BaseModel):
@@ -37,11 +37,7 @@ def get_instructions(data: str) -> str:
     if not isinstance(codebase, dict):
         return "Error: `codebase` must be a JSON object mapping file paths to file contents."
 
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
-        logger=logging.getLogger(__name__),
-        google_api_key=os.environ.get("GEMINI_API_KEY"),
-    )
+    llm = get_llm()
     prompt = f"""
     Here is an error log:
     {error_log}

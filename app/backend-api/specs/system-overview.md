@@ -1,30 +1,42 @@
 # Backend API - System Overview
 
-The Backend API is the central component of the system, responsible for handling all incoming requests from the client applications (Admin Panel and potentially other clients), managing the workflow of error log processing, and providing status updates.
+The Backend API is the central component of the system, responsible for handling all incoming requests from the client applications (Admin Panel, SDKs, and Cloud integrations), managing the workflow of error log processing, and providing status updates.
 
 ## Key Responsibilities
 
--   **Log Ingestion:** Receives error logs and queues them for processing.
+-   **Log Ingestion:** Receives error logs and queues them for processing. Supports webhook ingestion from major cloud logging services.
 -   **Workflow Orchestration:** Interacts with the **Message Broker** to send jobs to the **Worker Service**.
 -   **Status Management:** Tracks the status of each job and provides updates to the clients.
--   **Data Persistence:** Communicates with the **Database** to store and retrieve information.
--   **Authentication and Authorization:** Secures the API and ensures that only authorized users can access the resources.
+-   **Data Persistence:** Communicates with the **Database** to store logs, fixes, project connections, and active alerts.
+-   **Authentication and Authorization:** Secures the API and ensures that only authorized users can access resources.
+-   **Project Connection management:** Allows users to link repositories (GitHub/GitLab) and Jira settings dynamically.
+-   **Alert Ingestion:** Receives active system/infrastructure alerts to correlate with application failures.
 
 ## Technology Stack
 
--   **Framework:** Node.js with Express.js, Python with FastAPI, or Go with Gin.
--   **Database:** PostgreSQL or MongoDB.
--   **Message Broker:** RabbitMQ or Redis.
+-   **Framework:** Python with FastAPI.
+-   **Database:** PostgreSQL.
+-   **Message Broker:** RabbitMQ.
 -   **Authentication:** JWT (JSON Web Tokens).
 
 ## Architecture
 
-The Backend API is a stateless service that exposes a set of RESTful endpoints. It is designed to be horizontally scalable to handle a large number of requests. It communicates with the other components of the system (Database, Message Broker) to perform its tasks.
+The Backend API is a stateless service that exposes a set of RESTful endpoints. It is designed to be horizontally scalable and deployable to container-based cloud platforms like Google Cloud Run, AWS ECS, or Azure Container Apps via automated Terraform blueprints.
 
-## Worker Service Communication
+## Dynamic LLM and Local Model Support
 
-The Backend API communicates with the **Worker Service** via a **Message Broker**. When a new log is submitted, the Backend API creates a new job and sends it to the **Message Broker**. The **Worker Service** then picks up the job, processes it, and updates the status of the log in the **Database**. The Backend API can then read the status of the log from the **Database** and report it to the client.
+Instead of a single hardcoded LLM, the platform supports multiple LLMs:
+- **Google Gemini** (via API key)
+- **OpenAI** (via API key)
+- **Ollama / Local Models** (Llama3, Mistral, etc., pulled locally during initial setup)
 
-## Google Gemini Communication
+## Automated Testing & Remediation Verification
 
-The Backend API will send error logs to the Google Gemini API for analysis. This will be done via a direct HTTP request to the Google Gemini API. The Google Gemini API will return a summary of the error, which will be stored in the database and displayed in the admin panel. The `GEMINI_API_KEY` environment variable will be used to authenticate with the Google Gemini API.
+To ensure code changes do not break target codebases, the agent runs tests locally using a dynamic `run_tests` runner tool and iterates on code improvements.
+
+## Postmortem & Remediation Reports
+
+On success, the agent generates:
+1. A Git Pull Request containing the proposed fix.
+2. A comprehensive markdown **Postmortem Report** summarizing the issue, root cause, alert correlation, fix details, test verification, and future prevention steps. Users can view and download this report with a single click.
+

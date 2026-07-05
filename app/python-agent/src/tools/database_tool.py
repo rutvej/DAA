@@ -13,6 +13,7 @@ class AnalysisUpdater:
     def __init__(self, log_id: str):
         self.log_id = str(log_id)
         self.pull_request_url = None
+        self.postmortem = None
 
     def update_analysis_processing(self) -> None:
         """Updates the analysis status to 'processing'."""
@@ -23,8 +24,18 @@ class AnalysisUpdater:
         """Sets the pull request URL."""
         self.pull_request_url = url
 
+    def set_postmortem(self, postmortem: str) -> None:
+        """Sets the generated postmortem report."""
+        self.postmortem = postmortem
+
     def update_analysis_completed(self) -> None:
-        """Updates the analysis status to 'completed' and includes the pull request URL."""
-        data = {"log_id": self.log_id, "status": "completed", "pull_request_url": self.pull_request_url}
+        """Updates the analysis status to 'completed' and includes the pull request URL and postmortem."""
+        data = {
+            "log_id": self.log_id, 
+            "status": "completed", 
+            "pull_request_url": self.pull_request_url,
+            "postmortem": self.postmortem
+        }
         _send_request(data)
+
 
