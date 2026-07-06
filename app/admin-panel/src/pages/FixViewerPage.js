@@ -13,11 +13,10 @@ const FixViewerPage = () => {
   const [approveSuccess, setApproveSuccess] = useState('');
 
   const fetchFix = async () => {
-    setError('');
     try {
       const data = await fixesApi.get({ token, id });
       setFix(data);
-      if (data.logId) {
+      if (data.logId && !log) {
         const logData = await logsApi.get({ token, id: data.logId });
         setLog(logData);
       }
@@ -26,9 +25,41 @@ const FixViewerPage = () => {
     }
   };
 
+  // Initial load
   useEffect(() => {
     fetchFix();
   }, [token, id]);
+
+  // Real-time polling while agent is running
+  useEffect(() => {
+    let intervalId = null;
+    const isRunning = fix && (
+      fix.status === 'processing' || 
+      fix.status === 'Pending' || 
+      fix.status === 'processing_remediation' ||
+      !fix.status
+    );
+    
+    if (isRunning) {
+      intervalId = setInterval(() => {
+        const pollFix = async () => {
+          try {
+            const data = await fixesApi.get({ token, id });
+            setFix(data);
+          } catch (err) {
+            console.error("Error polling live logs:", err);
+          }
+        };
+        pollFix();
+      }, 1500);
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [token, id, fix?.status]);
 
   const handleApprove = async () => {
     setIsApproving(true);

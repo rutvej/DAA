@@ -151,21 +151,37 @@ def load_mcp_tools() -> list:
 
 
 class ExecutionLogCallbackHandler(BaseCallbackHandler):
-    def __init__(self):
+    def __init__(self, log_id):
         super().__init__()
+        self.log_id = str(log_id)
         self.logs = []
+
+    def _send_log_line(self, line: str):
+        import requests
+        backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
+        url = f"{backend_url}/fixes/{self.log_id}/append-log"
+        try:
+            requests.post(url, json={"log_line": line}, timeout=3.0)
+        except Exception:
+            pass
 
     def on_agent_action(self, action, **kwargs):
         tool_input_str = str(action.tool_input)
         tool_input_str = scrub_secrets(tool_input_str)
-        self.logs.append(f"🤖 **Thought:** {action.log.strip()}\n🛠️ **Action:** `{action.tool}` with input:\n```json\n{tool_input_str}\n```")
+        line = f"🤖 **Thought:** {action.log.strip()}\n🛠️ **Action:** `{action.tool}` with input:\n```json\n{tool_input_str}\n```"
+        self.logs.append(line)
+        self._send_log_line(line)
 
     def on_tool_end(self, output, **kwargs):
         output_str = scrub_secrets(str(output))
-        self.logs.append(f"👁️ **Observation:**\n```\n{output_str.strip()}\n```")
+        line = f"👁️ **Observation:**\n```\n{output_str.strip()}\n```"
+        self.logs.append(line)
+        self._send_log_line(line)
 
     def on_agent_finish(self, finish, **kwargs):
-        self.logs.append(f"🏁 **Finished Investigation:** {finish.log.strip()}")
+        line = f"🏁 **Finished Investigation:** {finish.log.strip()}"
+        self.logs.append(line)
+        self._send_log_line(line)
 
 
 # --- Agent Initialization ---
@@ -306,7 +322,7 @@ def process_job(job: Job):
 
     try:
         scrubbed_log = scrub_secrets(str(job.error_log))
-        callback_handler = ExecutionLogCallbackHandler()
+        callback_handler = ExecutionLogCallbackHandler(job.log_id)
         result = agent_executor.invoke(
             {"input": f"Investigate across all 4 dimensions and remediate the outage in {job.app_name}. Here is the scrubbed error log: {scrubbed_log}."},
             config={"callbacks": [callback_handler]}

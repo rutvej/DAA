@@ -216,4 +216,28 @@ def post_analysis(report: AnalysisReport, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success"}
 
+class AppendLogRequest(BaseModel):
+    log_line: str
+
+@router.post("/{log_id}/append-log")
+def append_log(log_id: str, payload: AppendLogRequest, db: Session = Depends(get_db)):
+    fix = db.query(DBFix).filter(DBFix.logId == log_id).first()
+    if fix is None:
+        fix = DBFix(
+            logId=log_id,
+            status="processing",
+            postmortem=payload.log_line + "\n\n",
+            pull_request_url=""
+        )
+        db.add(fix)
+    else:
+        if not fix.postmortem:
+            fix.postmortem = ""
+        # Append the line
+        fix.postmortem += payload.log_line + "\n\n"
+        if fix.status == "Pending":
+            fix.status = "processing"
+    db.commit()
+    return {"status": "success"}
+
 
