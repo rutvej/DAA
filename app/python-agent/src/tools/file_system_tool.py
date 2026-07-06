@@ -5,15 +5,18 @@ from typing import List
 from pydantic.v1 import BaseModel, Field
 
 
-ROOT_DIR = "/app"
+ROOT_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
 
 def get_full_path(file_path: str) -> str:
     """Returns the full path of a file."""
-    if file_path.startswith("/tmp"):
+    if file_path.startswith("/tmp") or file_path.startswith("/home"):
         return file_path
     if os.path.isabs(file_path):
+        if file_path.startswith(ROOT_DIR):
+            return file_path
         return os.path.join(ROOT_DIR, file_path[1:])
     return os.path.join(ROOT_DIR, file_path)
+
 
 @tool
 def read_file(file_path: str) -> str:

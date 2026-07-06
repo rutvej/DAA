@@ -1,0 +1,11 @@
+{
+  "name": "daa-sdk",
+  "version": "1.0.0",
+  "description": "JavaScript/Node.js SDK for integrating with the Daa (Developer Agentic Assistant) platform",
+  "main": "index.js",
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "author": "DAA Team",
+  "license": "MIT"
+}

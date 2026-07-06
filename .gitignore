@@ -60,6 +60,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+*.db
 
 # Flask stuff:
 instance/
@@ -128,3 +129,4 @@ dmypy.json
 .DS_Store
 node_modules/
 /app/worker-service/.env
+auth.json

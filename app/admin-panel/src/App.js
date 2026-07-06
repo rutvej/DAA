@@ -9,6 +9,8 @@ import LogsPage from './pages/LogsPage';
 import LogDetailsPage from './pages/LogDetailsPage';
 import FixViewerPage from './pages/FixViewerPage';
 import SystemHealthPage from './pages/SystemHealthPage';
+import IncidentsPage from './pages/IncidentsPage';
+import ApplicationsPage from './pages/ApplicationsPage';
 
 
 // Layout
@@ -53,8 +55,13 @@ const Sidebar = () => {
         <NavLink to="/health" className={navClass}>System Health</NavLink>
       </div>
       <div className="nav-section">
-        <p className="nav-title">Workflow</p>
-        <NavLink to="/logs" className={navClass}>Logs</NavLink>
+        <p className="nav-title">Incidents</p>
+        <NavLink to="/incidents" className={navClass}>Active Incidents</NavLink>
+        <NavLink to="/logs" className={navClass}>Error Logs</NavLink>
+      </div>
+      <div className="nav-section">
+        <p className="nav-title">Configuration</p>
+        <NavLink to="/applications" className={navClass}>Applications</NavLink>
       </div>
     </nav>
   );
@@ -79,6 +86,8 @@ const AppRoutes = () => {
                   <Route path="/logs" element={<LogsPage />} />
                   <Route path="/logs/:id" element={<LogDetailsPage />} />
                   <Route path="/fix/:id" element={<FixViewerPage />} />
+                  <Route path="/incidents" element={<IncidentsPage />} />
+                  <Route path="/applications" element={<ApplicationsPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </MainLayout>

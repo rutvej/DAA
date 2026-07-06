@@ -39,7 +39,7 @@ const LogsPage = () => {
         <div>
           <p className="eyebrow">Log viewer</p>
           <h1>Logs</h1>
-          <p className="subtle">Track ingestion, processing, and completion states.</p>
+          <p className="subtle">Track ingestion, escalation, and suppression states.</p>
         </div>
         <div className="badge-row">
           <span className="badge badge-info">Page {page}</span>
@@ -61,10 +61,9 @@ const LogsPage = () => {
           }}
         >
           <option value="">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="In Progress">In Progress</option>
-          <option value="Completed">Completed</option>
-          <option value="Failed">Failed</option>
+          <option value="Logged (Threshold not reached)">Logged (Threshold not reached)</option>
+          <option value="Escalated to Agent">Escalated to Agent</option>
+          <option value="Suppressed (Deduplicated)">Suppressed (Deduplicated)</option>
         </select>
       </div>
       {isLoading ? (

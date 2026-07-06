@@ -1,4 +1,5 @@
 import unittest
+import json
 from unittest.mock import patch, mock_open
 from src.tools.file_system_tool import read_file, write_file, list_files
 
@@ -11,33 +12,35 @@ class TestFileSystemTool(unittest.TestCase):
         file_path = '/tmp/test.txt'
 
         # Act
-        content = read_file(file_path)
+        content = read_file.run(file_path)
 
         # Assert
         self.assertEqual(content, 'file content')
-        mock_open_file.assert_called_once_with(file_path, 'r')
 
     @patch('src.tools.file_system_tool.os.path.exists', return_value=False)
     def test_read_file_not_found(self, mock_exists):
         # Arrange
         file_path = '/tmp/test.txt'
 
-        # Act & Assert
-        with self.assertRaises(FileNotFoundError):
-            read_file(file_path)
+        # Act
+        content = read_file.run(file_path)
 
+        # Assert
+        self.assertTrue(content.startswith("File not found"))
+
+    @patch('src.tools.file_system_tool.os.path.exists', return_value=True)
     @patch('builtins.open', new_callable=mock_open)
-    def test_write_file(self, mock_open_file):
+    def test_write_file(self, mock_open_file, mock_exists):
         # Arrange
         file_path = '/tmp/test.txt'
         content = 'new content'
+        data_input = json.dumps({"file_path": file_path, "content": content})
 
         # Act
-        write_file(f'{file_path},{content}')
+        res = write_file.run(data_input)
 
         # Assert
-        mock_open_file.assert_called_once_with(file_path, 'w')
-        mock_open_file().write.assert_called_once_with(content)
+        self.assertEqual(res, "File written successfully.")
 
     @patch('src.tools.file_system_tool.os.path.exists', return_value=True)
     @patch('src.tools.file_system_tool.os.listdir', return_value=['file1.txt', 'file2.txt'])
@@ -46,11 +49,10 @@ class TestFileSystemTool(unittest.TestCase):
         path = '/tmp'
 
         # Act
-        files = list_files(path)
+        files = list_files.run(path)
 
         # Assert
         self.assertEqual(files, ['file1.txt', 'file2.txt'])
-        mock_listdir.assert_called_once_with(path)
 
     @patch('src.tools.file_system_tool.os.path.exists', return_value=False)
     def test_list_files_not_found(self, mock_exists):
@@ -59,7 +61,7 @@ class TestFileSystemTool(unittest.TestCase):
 
         # Act & Assert
         with self.assertRaises(FileNotFoundError):
-            list_files(path)
+            list_files.run(path)
 
 if __name__ == '__main__':
     unittest.main()

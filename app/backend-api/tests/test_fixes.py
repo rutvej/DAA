@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
-from main import app
-from database import get_db, Fix, Log
+from src.main import app
+from src.database import get_db, Fix, Log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import uuid
@@ -22,11 +22,11 @@ app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 def setup():
-    from database import Base
+    from src.database import Base
     Base.metadata.create_all(bind=engine)
 
 def teardown():
-    from database import Base
+    from src.database import Base
     Base.metadata.drop_all(bind=engine)
 
 def test_get_fix():

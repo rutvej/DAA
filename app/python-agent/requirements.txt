@@ -3,8 +3,10 @@ urllib3==1.26.18
 GitPython==3.1.24
 pika
 langchain-community==0.0.29
-langchain-core==0.1.53
+langchain-core>=0.1.45,<0.2.0
 langchain==0.1.11
 pydantic
 langchain-google-genai==1.0.4
+langchain-openai==0.0.8
 python-gitlab==4.5.0
+psycopg2-binary
