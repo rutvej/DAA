@@ -36,11 +36,17 @@ DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform*
 
 ## ⚡ Quickstart & Setup Guide
 
-For detailed guides on setting up local testing infrastructure, configuring LLM providers (Gemini, Vertex, Claude, OpenAI, Ollama, Codex, agy), and running automated multi-service tests, please refer to:
+### 📦 1-Line Installer (Linux / macOS / WSL)
+To download, install, and configure DAA in one command, run:
+```bash
+curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash
+```
+
+For detailed manual guides on setting up local testing infrastructure, configuring LLM providers (Gemini, Vertex, Claude, OpenAI, Ollama, Codex, agy), and running automated multi-service tests, please refer to:
 
 👉 **[SETUP.md](SETUP.md)**
 
-### Brief Quickstart
+### Brief Quickstart (Manual Setup)
 
 1. **Start Local Infrastructure:**
    ```bash

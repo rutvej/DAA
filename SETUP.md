@@ -2,6 +2,14 @@
 
 This guide details the end-to-end installation, local infrastructure setup, LLM provider onboarding, and test verification for the **DAA Autonomous SRE Platform**.
 
+## 📦 0. Unified 1-Line Installer
+
+To quickly setup your DAA SRE environment, install all dependencies, and run the configuration setup wizard:
+```bash
+curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash
+```
+This script will check your operating system's requirements, install Python dependencies, configure the `daa` CLI client, and prompt the wizard to initialize connection configs.
+
 ---
 
 ## 🛠️ 1. Local Testing Infrastructure

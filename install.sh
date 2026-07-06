@@ -27,6 +27,17 @@ echo -e "${RESET}"
 echo -e "${BOLD}Starting DAA Platform installation...${RESET}"
 echo "--------------------------------------------------------"
 
+# OS Detection
+OS_TYPE="$(uname -s)"
+case "${OS_TYPE}" in
+    Linux*)     OS="Linux";;
+    Darwin*)    OS="Mac";;
+    CYGWIN*|MINGW*|MSYS*) OS="Windows";;
+    *)          OS="Unknown"
+esac
+
+echo -e "Detected Operating System: ${CYAN}${OS}${RESET}"
+
 # 1. Check prerequisites
 echo -e "\n${BOLD}Step 1: Checking System Dependencies...${RESET}"
 
@@ -39,10 +50,46 @@ check_cmd() {
     return 0
 }
 
-check_cmd "docker" || exit 1
-check_cmd "docker-compose" || exit 1
-check_cmd "python3" || exit 1
-check_cmd "pip3" || exit 1
+check_compose() {
+    if command -v docker-compose &> /dev/null; then
+        echo -e "${GREEN}✔${RESET} docker-compose is installed."
+        return 0
+    elif docker compose version &> /dev/null; then
+        echo -e "${GREEN}✔${RESET} docker compose plugin is installed."
+        return 0
+    else
+        echo -e "${RED}✖ Error: Docker Compose is required but not installed.${RESET}"
+        return 1
+    fi
+}
+
+MISSING_DEPS=0
+check_cmd "docker" || MISSING_DEPS=1
+check_compose || MISSING_DEPS=1
+check_cmd "python3" || MISSING_DEPS=1
+check_cmd "pip3" || MISSING_DEPS=1
+
+if [ $MISSING_DEPS -ne 0 ]; then
+    echo -e "\n${YELLOW}💡 Setup Tips for Missing Dependencies:${RESET}"
+    if [ "$OS" = "Mac" ]; then
+        echo "  - Install Homebrew (https://brew.sh) if not installed."
+        echo "  - Install Python & Pip: brew install python"
+        echo "  - Install Docker Desktop for Mac: brew install --cask docker"
+    elif [ "$OS" = "Linux" ]; then
+        echo "  - For Debian/Ubuntu:"
+        echo "      sudo apt-get update"
+        echo "      sudo apt-get install -y python3 python3-pip docker.io docker-compose"
+        echo "  - For CentOS/RHEL/Fedora:"
+        echo "      sudo dnf install -y python3 python3-pip docker docker-compose"
+    elif [ "$OS" = "Windows" ]; then
+        echo "  - Running DAA directly on native Windows Git Bash is not fully supported."
+        echo "  - Please install Windows Subsystem for Linux (WSL) and Docker Desktop:"
+        echo "      https://docs.microsoft.com/en-us/windows/wsl/install"
+    else
+        echo "  - Please install Docker, Docker Compose, Python 3, and Pip for your operating system."
+    fi
+    exit 1
+fi
 
 # 2. Virtual Environment Setup
 echo -e "\n${BOLD}Step 2: Configuring Python Virtual Environment...${RESET}"
@@ -74,7 +121,7 @@ echo "--------------------------------------------------------"
 echo -e "${GREEN}🎉 DAA Platform installation was successful!${RESET}"
 echo "--------------------------------------------------------"
 
-read -p "Would you like to run the guided setup wizard now? [Y/n]: " run_wizard
+read -p "Would you like to run the guided setup wizard now? [Y/n]: " run_wizard < /dev/tty
 run_wizard=${run_wizard:-Y}
 
 if [[ "$run_wizard" =~ ^[Yy]$ ]]; then
