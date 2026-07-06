@@ -1,4 +1,5 @@
 import unittest
+import json
 from unittest.mock import patch, MagicMock
 from src.tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
 
@@ -10,14 +11,16 @@ class TestGitTool(unittest.TestCase):
         # Arrange
         app_name = 'test-app'
         expected_path = f"/tmp/{app_name}"
-        mock_repo.clone_from.return_value = None
+        mock_repo_instance = MagicMock()
+        mock_repo.clone_from.return_value = mock_repo_instance
 
         # Act
-        result = clone_repo(app_name)
+        result = clone_repo.run(app_name)
 
         # Assert
         self.assertEqual(result, expected_path)
-        mock_repo.clone_from.assert_called_once_with(f"http://root:{None}@gitlab:80/root/{app_name}.git", expected_path)
+        mock_repo.clone_from.assert_called_once_with("http://root:None@gitlab:80/root/test-app.git", expected_path)
+        mock_repo_instance.config_writer.assert_called_once()
 
     @patch('src.tools.git_tool.os.path.exists', return_value=True)
     @patch('src.tools.git_tool._get_repo')
@@ -26,12 +29,12 @@ class TestGitTool(unittest.TestCase):
         mock_repo = MagicMock()
         mock_get_repo.return_value = mock_repo
 
-        result = clone_repo(app_name)
+        result = clone_repo.run(app_name)
 
         self.assertEqual(result, f"/tmp/{app_name}")
         mock_get_repo.assert_called_once_with(f"/tmp/{app_name}")
         mock_repo.remotes.origin.set_url.assert_called_once_with(
-            f"http://root:{None}@gitlab:80/root/{app_name}.git"
+            "http://root:None@gitlab:80/root/test-app.git"
         )
 
     @patch('src.tools.git_tool._get_repo')
@@ -43,7 +46,7 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.return_value = mock_repo
 
         # Act
-        create_branch(f'{repo_path},{branch_name}')
+        create_branch.run(f'{repo_path},{branch_name}')
 
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
@@ -58,7 +61,7 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.return_value = mock_repo
 
         # Act
-        commit.run({'repo_path': repo_path, 'message': message})
+        commit.run(f'{repo_path},{message}')
 
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
@@ -74,7 +77,7 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.return_value = mock_repo
 
         # Act
-        push.run({'repo_path': repo_path, 'branch_name': branch_name})
+        push.run(f'{repo_path},{branch_name}')
 
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
@@ -95,9 +98,10 @@ class TestGitTool(unittest.TestCase):
         mock_gitlab.return_value = mock_gl
         mock_project = MagicMock()
         mock_gl.projects.get.return_value = mock_project
+        mock_project.mergerequests.list.return_value = [] # Fix MagicMock truthiness
 
         # Act
-        create_pull_request.run({'repo_path': repo_path, 'title': title, 'description': description})
+        create_pull_request.run(json.dumps({'repo_path': repo_path, 'title': title, 'description': description}))
 
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
@@ -105,7 +109,7 @@ class TestGitTool(unittest.TestCase):
         mock_gl.projects.get.assert_called_once_with('root/test-app')
         mock_project.mergerequests.create.assert_called_once_with({
             'source_branch': 'fix-bug',
-            'target_branch': 'main',
+            'target_branch': 'master',
             'title': title,
             'description': description
         })

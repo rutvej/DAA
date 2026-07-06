@@ -1,5 +1,5 @@
-import React, { useState, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useContext } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 import { authApi } from '../services/api';
 
@@ -9,6 +9,13 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useContext(AuthContext);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,6 +24,7 @@ const LoginPage = () => {
     try {
       const data = await authApi.login({ username, password });
       login(data.token);
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed.');
     } finally {

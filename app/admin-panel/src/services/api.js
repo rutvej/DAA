@@ -1,4 +1,4 @@
-const API_BASE = process.env.REACT_APP_API_URL || '';
+const API_BASE = process.env.REACT_APP_API_URL || (window.location.protocol + '//' + window.location.hostname + ':8000');
 
 const buildUrl = (path, params) => {
   const base = API_BASE ? API_BASE.replace(/\/$/, '') : '';

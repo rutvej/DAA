@@ -17,6 +17,9 @@ class CheckoutRequest(BaseModel):
     cart_total: float
     currency: str = "USD"
 
+DAA_TOKEN = os.environ.get("DAA_TOKEN")
+
+
 def report_error_to_daa(exception_type: str, content: str, trace_id: str):
     """Sends structured telemetry error logs to DAA Autonomous SRE Platform."""
     payload = {
@@ -26,13 +29,17 @@ def report_error_to_daa(exception_type: str, content: str, trace_id: str):
         "trace_id": trace_id,
         "correlation_id": str(uuid.uuid4())
     }
+    headers = {}
+    if DAA_TOKEN:
+        headers["Authorization"] = f"Bearer {DAA_TOKEN}"
     try:
-        res = requests.post(DAA_LOGS_URL, json=payload, timeout=2.0)
+        res = requests.post(DAA_LOGS_URL, json=payload, headers=headers, timeout=2.0)
         print(f"[Telemetry] Reported to DAA -> Status: {res.status_code}, Response: {res.json()}")
         return res.json()
     except Exception as e:
         print(f"[Telemetry Error] Could not connect to DAA backend: {e}")
         return None
+
 
 @app.post("/checkout")
 def process_checkout(req: CheckoutRequest):
@@ -40,16 +47,25 @@ def process_checkout(req: CheckoutRequest):
     print(f"[{trace_id}] Starting checkout for user {req.user_id} (${req.cart_total})")
     
     # 1. Simulate Redis connection check (Intentionally fails to demonstrate outage)
-    if req.cart_total > 1000.0 or "fail_redis" in req.user_id:
+    if "fail_redis" in req.user_id:
         err_msg = f"RedisTimeoutError: Connection timed out connecting to {REDIS_HOST}:{REDIS_PORT} after 5000ms. Pool exhausted."
         print(f"[{trace_id}] ERROR: {err_msg}")
         report_error_to_daa("RedisTimeoutError", err_msg, trace_id)
         raise HTTPException(status_code=504, detail="Cache gateway timeout")
 
+
     # 2. Simulate call to downstream Payment Service
     try:
         pay_res = requests.post(PAYMENT_SERVICE_URL, json={"amount": req.cart_total, "trace_id": trace_id}, timeout=3.0)
-        if pay_res.status_code != 200:
+        if pay_res.status_code == 402:
+            try:
+                err_detail = pay_res.json().get("detail", "Card declined or insufficient funds")
+            except Exception:
+                err_detail = pay_res.text
+            err_msg = f"PaymentGatewayError: Downstream payment service returned 402: {err_detail}"
+            report_error_to_daa("PaymentGatewayError", err_msg, trace_id)
+            raise HTTPException(status_code=402, detail=err_detail)
+        elif pay_res.status_code != 200:
             err_msg = f"PaymentGatewayError: Downstream payment service returned {pay_res.status_code}"
             report_error_to_daa("PaymentGatewayError", err_msg, trace_id)
             raise HTTPException(status_code=502, detail=pay_res.text)

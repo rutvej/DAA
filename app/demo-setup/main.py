@@ -89,6 +89,22 @@ TEST_APP_SCENARIOS = {
         "json": {"number": 0},
         "description": "Trigger the richer POST error flow and a divide-by-zero.",
     },
+    "9": {
+        "label": "checkout-redis-error",
+        "method": "POST",
+        "port": 8001,
+        "path": "/checkout",
+        "json": {"user_id": "fail_redis", "cart_total": 150.0},
+        "description": "Trigger a RedisTimeoutError in the checkout-service.",
+    },
+    "10": {
+        "label": "checkout-payment-error",
+        "method": "POST",
+        "port": 8001,
+        "path": "/checkout",
+        "json": {"user_id": "user-123", "cart_total": 6000.0},
+        "description": "Trigger a PaymentGatewayError in checkout-service via payment-service.",
+    },
 }
 
 
@@ -465,9 +481,10 @@ def choose_test_app_scenario() -> dict | None:
 
 
 def trigger_test_app_scenario(scenario: dict) -> requests.Response:
-    url = f"http://localhost:8081{scenario['path']}"
+    port = scenario.get("port", 8081)
+    url = f"http://localhost:{port}{scenario['path']}"
     curl_command = build_curl_command(scenario["method"], url, scenario.get("json"))
-    print(f"\nCalling test-app with:\n{curl_command}")
+    print(f"\nCalling service on port {port} with:\n{curl_command}")
 
     if scenario["method"] == "POST":
         response = requests.post(url, json=scenario.get("json"), timeout=15)
@@ -477,6 +494,7 @@ def trigger_test_app_scenario(scenario: dict) -> requests.Response:
     print(f"Response status: {response.status_code}")
     print(f"Response body: {response.text}")
     return response
+
 
 
 def monitor_pr_creation(gitlab_token: str, baseline_log_id: str | None) -> None:

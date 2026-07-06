@@ -156,7 +156,13 @@ def process_job(job: Job):
     prompt = ChatPromptTemplate.from_template(prompt_template)
     
     agent = create_react_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=10)
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        verbose=True,
+        max_iterations=10,
+        handle_parsing_errors=True
+    )
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.info(f"Processing job {job.id} for app {job.app_name}")

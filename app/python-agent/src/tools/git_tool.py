@@ -32,6 +32,7 @@ def _parse_github_repo(repo_url: str) -> tuple[str, str]:
 
 def _build_repo_url(app_name: str) -> str:
     """Builds the authenticated repository URL for PAT-based auth dynamically."""
+    app_name = app_name.strip()
     proj = get_project_connection(app_name)
     if proj and proj.get("repo_url"):
         provider = proj.get("repo_provider", "gitlab")
@@ -81,6 +82,7 @@ def clone_repo(app_name: str) -> str:
     Returns:
         The path to the cloned repository.
     """
+    app_name = app_name.strip()
     if ":" in app_name:
         app_name = app_name.split(":")[1].strip()
     repo_url = _build_repo_url(app_name)

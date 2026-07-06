@@ -48,3 +48,40 @@ def get_alerts(app_name: Optional[str] = None, active_only: bool = True, db: Ses
     if active_only:
         query = query.filter(DBAlert.status == "firing")
     return query.order_by(DBAlert.timestamp.desc()).all()
+
+@router.post("/webhook/alertmanager", status_code=status.HTTP_201_CREATED)
+def alertmanager_webhook(payload: dict, db: Session = Depends(get_db)):
+    """Receives alerts sent by Prometheus Alertmanager webhooks and logs them to DAA."""
+    alerts_logged = []
+    # Alertmanager can send multiple alerts in a single payload
+    raw_alerts = payload.get("alerts", [])
+    global_status = payload.get("status", "firing") # firing / resolved
+    
+    for alert in raw_alerts:
+        labels = alert.get("labels", {})
+        annotations = alert.get("annotations", {})
+        
+        app_name = labels.get("app_name") or labels.get("service") or "unknown-service"
+        summary = annotations.get("summary") or labels.get("alertname") or "Prometheus Alert"
+        description = annotations.get("description") or annotations.get("message") or ""
+        severity = labels.get("severity", "warning").lower()
+        alert_status = alert.get("status") or global_status
+        
+        db_alert = DBAlert(
+            app_name=app_name,
+            summary=summary,
+            description=description,
+            severity=severity,
+            status=alert_status
+        )
+        db.add(db_alert)
+        alerts_logged.append({
+            "app_name": app_name,
+            "summary": summary,
+            "severity": severity,
+            "status": alert_status
+        })
+        
+    db.commit()
+    return {"status": "success", "alerts_created": len(alerts_logged), "details": alerts_logged}
+

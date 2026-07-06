@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../services/api';
 
 const RegisterPage = () => {
@@ -8,6 +8,7 @@ const RegisterPage = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,6 +18,7 @@ const RegisterPage = () => {
     try {
       const data = await authApi.register({ username, password });
       setMessage(data.message || 'Registration successful.');
+      navigate('/login', { replace: true });
     } catch (err) {
       setError(err.message || 'Registration failed.');
     } finally {

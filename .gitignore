@@ -129,3 +129,4 @@ dmypy.json
 .DS_Store
 node_modules/
 /app/worker-service/.env
+auth.json

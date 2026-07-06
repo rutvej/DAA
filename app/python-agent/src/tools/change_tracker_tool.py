@@ -12,6 +12,9 @@ class CheckRecentChangesInput(BaseModel):
 def check_recent_changes(data: str) -> str:
     """Queries git logs from the last N hours to identify recent commits, author changes, and modified files that may have caused the incident."""
     try:
+        # Mark /app as a safe directory to prevent dubious ownership issues inside Docker
+        subprocess.run(["git", "config", "--global", "--add", "safe.directory", "/app"], check=False)
+
         input_data = json.loads(data)
         repo_path = input_data.get("repo_path", ".")
         hours = int(input_data.get("hours", 24))
