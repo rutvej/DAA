@@ -1,0 +1,1781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DAA v2.0 — Autonomous SRE Incident Diagnosis Platform Portal</title>
+  <meta name="description" content="Official documentation, quickstart guides, architecture, and interactive simulation console for DAA v2.0 SRE Incident Diagnosis Platform.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* Premium CSS Variables & Reset */
+    :root {
+      --bg-dark: #070a13;
+      --bg-card: rgba(15, 23, 42, 0.45);
+      --bg-card-hover: rgba(30, 41, 59, 0.6);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(99, 102, 241, 0.2);
+      
+      /* Theme colors */
+      --primary: #6366f1;       /* Indigo */
+      --primary-glow: rgba(99, 102, 241, 0.4);
+      --secondary: #06b6d4;     /* Cyan */
+      --secondary-glow: rgba(6, 182, 212, 0.4);
+      --accent: #a855f7;        /* Purple */
+      --success: #10b981;       /* Emerald */
+      --warning: #f59e0b;       /* Amber */
+      --error: #ef4444;         /* Red */
+      
+      /* Typography colors */
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-code: #e2e8f0;
+      
+      --sidebar-width: 280px;
+      --transition-speed: 0.3s;
+    }
+
+    .light-theme {
+      --bg-dark: #f8fafc;
+      --bg-card: rgba(255, 255, 255, 0.7);
+      --bg-card-hover: rgba(255, 255, 255, 0.95);
+      --border-color: rgba(0, 0, 0, 0.08);
+      --border-glow: rgba(99, 102, 241, 0.1);
+      --primary: #4f46e5;
+      --secondary: #0891b2;
+      --accent: #9333ea;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-code: #1e293b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      min-height: 100vh;
+      overflow-x: hidden;
+      transition: background-color var(--transition-speed), color var(--transition-speed);
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      width: 50vw;
+      height: 50vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--primary-glow) 0%, rgba(7, 10, 19, 0) 70%);
+      top: -20vw;
+      right: -10vw;
+      z-index: -1;
+      pointer-events: none;
+      filter: blur(80px);
+    }
+
+    .ambient-glow-2 {
+      position: fixed;
+      width: 40vw;
+      height: 40vw;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--secondary-glow) 0%, rgba(7, 10, 19, 0) 70%);
+      bottom: -15vw;
+      left: -10vw;
+      z-index: -1;
+      pointer-events: none;
+      filter: blur(80px);
+    }
+
+    /* Navigation Sidebar */
+    aside {
+      width: var(--sidebar-width);
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: blur(16px);
+      border-right: 1px solid var(--border-color);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 100;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: background var(--transition-speed);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .logo-icon {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      font-weight: 800;
+      box-shadow: 0 4px 15px var(--primary-glow);
+      position: relative;
+    }
+
+    .logo-icon::after {
+      content: '';
+      position: absolute;
+      inset: -2px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      z-index: -1;
+      opacity: 0.5;
+    }
+
+    .logo-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 30%, var(--text-muted) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .light-theme .logo-title {
+      background: linear-gradient(135deg, #0f172a 30%, #475569 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Search Bar */
+    .search-box {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px 12px 10px 36px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.875rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-glow);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* Navigation Menu */
+    .nav-menu {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      overflow-y: auto;
+      flex-grow: 1;
+      padding-right: 4px;
+    }
+
+    .nav-item a {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.65rem 0.75rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .nav-item a:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-item.active a {
+      color: #ffffff;
+      background: linear-gradient(90deg, var(--primary), rgba(99, 102, 241, 0.15));
+      font-weight: 600;
+      box-shadow: inset 2px 0 0 var(--primary);
+    }
+
+    .light-theme .nav-item.active a {
+      color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .theme-toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-main);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+    }
+
+    .theme-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--primary);
+    }
+
+    /* Main Content Area */
+    main {
+      margin-left: var(--sidebar-width);
+      padding: 2rem 3rem 4rem;
+      width: calc(100% - var(--sidebar-width));
+      max-width: 1200px;
+    }
+
+    /* Hero Banner */
+    .hero {
+      position: relative;
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.2));
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 3rem;
+      margin-bottom: 2.5rem;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at top right, var(--primary-glow) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .badge-container {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      color: #a5b4fc;
+      padding: 4px 12px;
+      border-radius: 50px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .badge.green {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+
+    .badge.cyan {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: #a5f3fc;
+    }
+
+    .hero h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .light-theme .hero h1 {
+      background: linear-gradient(135deg, #0f172a 40%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 750px;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      box-shadow: 0 4px 15px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--text-muted);
+    }
+
+    /* Documentation Section */
+    .doc-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 2.5rem;
+      margin-bottom: 2.5rem;
+      transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .doc-section:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.08);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+    }
+
+    .section-header i {
+      color: var(--secondary);
+      font-size: 1.5rem;
+    }
+
+    .section-header h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    /* Paragraphs and lists */
+    p {
+      line-height: 1.65;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+      font-size: 1rem;
+    }
+
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-main);
+    }
+
+    ul, ol {
+      margin-bottom: 1.25rem;
+      padding-left: 1.5rem;
+      color: var(--text-muted);
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+      line-height: 1.6;
+    }
+
+    strong {
+      color: var(--text-main);
+    }
+
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: all 0.25s;
+    }
+
+    .feature-card:hover {
+      background: rgba(255, 255, 255, 0.04);
+      transform: translateY(-2px);
+      border-color: var(--primary-glow);
+    }
+
+    .feature-icon-wrapper {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.2);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .feature-card h4 {
+      font-size: 1.1rem;
+      font-weight: 650;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Grid layout for files / layout */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Ports Table styling */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.925rem;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-main);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .port-link {
+      color: var(--secondary);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(6, 182, 212, 0.08);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      transition: all 0.2s;
+    }
+
+    .port-link:hover {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--text-main);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+      background-color: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .status-dot.yellow {
+      background-color: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+    }
+
+    .status-dot.blue {
+      background-color: var(--secondary);
+      box-shadow: 0 0 8px var(--secondary);
+    }
+
+    /* LLM Configuration Tabs */
+    .tab-container {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-header {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      white-space: nowrap;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--secondary);
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom-color: var(--secondary);
+      font-weight: 600;
+    }
+
+    .tab-pane {
+      display: none;
+      padding: 0;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* Code Blocks */
+    .code-block-wrapper {
+      position: relative;
+    }
+
+    pre {
+      background: rgba(0, 0, 0, 0.25) !important;
+      border: none;
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: var(--text-code);
+      border-radius: 0;
+    }
+
+    .tab-pane pre {
+      border-radius: 0;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      border-color: var(--text-muted);
+    }
+
+    .copy-btn.copied {
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    /* Interactive SRE Incident Diagnostic Console Simulation */
+    .console-simulation {
+      background: #05070f;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      margin-top: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
+
+    .console-header {
+      background: #0f172a;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .console-controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    .console-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .console-dot.red { background-color: #ef4444; }
+    .console-dot.yellow { background-color: #f59e0b; }
+    .console-dot.green { background-color: #10b981; }
+
+    .console-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .console-actions-top {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .console-btn-run {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+      color: var(--secondary);
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .console-btn-run:hover {
+      background: rgba(6, 182, 212, 0.3);
+      color: #ffffff;
+    }
+
+    .console-body {
+      padding: 1.25rem;
+      min-height: 250px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #e2e8f0;
+      background: #03050a;
+    }
+
+    .console-line {
+      margin-bottom: 0.4rem;
+      animation: consoleFadeIn 0.2s forwards;
+      opacity: 0;
+      transform: translateY(4px);
+    }
+
+    @keyframes consoleFadeIn {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .console-prompt {
+      color: #6366f1;
+      font-weight: 600;
+    }
+
+    .console-success { color: #10b981; }
+    .console-warning { color: #f59e0b; }
+    .console-error { color: #ef4444; }
+    .console-info { color: #38bdf8; }
+    .console-highlight { color: #a855f7; }
+
+    /* Interactive Setup Simulation Menu */
+    .simulation-launcher {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .sim-selector-btn {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 1rem;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: var(--text-main);
+    }
+
+    .sim-selector-btn:hover {
+      background: rgba(99, 102, 241, 0.05);
+      border-color: var(--primary-glow);
+    }
+
+    .sim-selector-btn.active {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--primary);
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+    }
+
+    .sim-selector-btn h5 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sim-selector-btn p {
+      font-size: 0.8rem;
+      margin-bottom: 0;
+      line-height: 1.4;
+    }
+
+    /* Architecture diagram placeholder stylings */
+    .arch-diagram-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Footers */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      margin-top: 4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    /* Roadmap design */
+    .roadmap-list {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .roadmap-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .roadmap-item i {
+      margin-top: 3px;
+    }
+
+    .roadmap-item.completed i {
+      color: var(--success);
+    }
+
+    .roadmap-item.pending i {
+      color: var(--warning);
+    }
+
+    /* Utility styling */
+    .highlight-box {
+      border-left: 4px solid var(--primary);
+      background: rgba(99, 102, 241, 0.04);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1.25rem;
+    }
+
+    .highlight-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Mobile Responsive Sidebar Toggle */
+    .mobile-menu-toggle {
+      display: none;
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1000;
+      background: var(--primary);
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 10px var(--primary-glow);
+    }
+
+    @media (max-width: 768px) {
+      aside {
+        transform: translateX(-100%);
+        transition: transform var(--transition-speed);
+      }
+      
+      aside.open {
+        transform: translateX(0);
+      }
+
+      main {
+        margin-left: 0;
+        width: 100%;
+        padding: 1.5rem;
+      }
+
+      .mobile-menu-toggle {
+        display: flex;
+      }
+
+      .hero {
+        padding: 2rem 1.5rem;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Glow Background Graphics -->
+  <div class="ambient-glow"></div>
+  <div class="ambient-glow-2"></div>
+
+  <!-- Mobile Sidebar Toggle -->
+  <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle Menu">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+
+  <!-- Sidebar Navigation -->
+  <aside id="sidebar">
+    <div>
+      <div class="logo-container">
+        <div class="logo-icon">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="logo-title">DAA Portal</div>
+      </div>
+
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" class="search-input" id="docSearch" placeholder="Search docs...">
+      </div>
+
+      <ul class="nav-menu">
+        <li class="nav-item active" data-section="overview">
+          <a href="#overview"><i class="fa-solid fa-house-chimney"></i> Overview</a>
+        </li>
+        <li class="nav-item" data-section="features">
+          <a href="#features"><i class="fa-solid fa-wand-magic-sparkles"></i> Key Features</a>
+        </li>
+        <li class="nav-item" data-section="architecture">
+          <a href="#architecture"><i class="fa-solid fa-sitemap"></i> Architecture</a>
+        </li>
+        <li class="nav-item" data-section="services">
+          <a href="#services"><i class="fa-solid fa-server"></i> Ports & Services</a>
+        </li>
+        <li class="nav-item" data-section="llm-config">
+          <a href="#llm-config"><i class="fa-solid fa-brain"></i> LLM Configuration</a>
+        </li>
+        <li class="nav-item" data-section="setup-guide">
+          <a href="#setup-guide"><i class="fa-solid fa-gears"></i> Setup Guide</a>
+        </li>
+        <li class="nav-item" data-section="simulations">
+          <a href="#simulations"><i class="fa-solid fa-bug"></i> Outage Simulation</a>
+        </li>
+        <li class="nav-item" data-section="roadmap">
+          <a href="#roadmap"><i class="fa-solid fa-road"></i> Gaps & Roadmap</a>
+        </li>
+      </ul>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="theme-toggle-btn" id="themeToggle" title="Toggle Light/Dark Theme">
+        <i class="fa-solid fa-moon" id="themeIcon"></i>
+        <span id="themeText">Dark Mode</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Panel -->
+  <main>
+    <!-- Hero Banner Header -->
+    <header class="hero">
+      <div class="badge-container">
+        <span class="badge">V2.0 Core</span>
+        <span class="badge green">Self-Hosted</span>
+        <span class="badge cyan">Open Source SRE</span>
+      </div>
+      <h1>Autonomous SRE Incident Diagnosis Platform</h1>
+      <p>
+        DAA replaces the first 30–60 minutes of manual triage toil when production microservices fail. It aggregates alerts, traces cascades, queries logs, finds code flaws, and automatically proposes pull requests.
+      </p>
+      <div class="hero-actions">
+        <a href="#setup-guide" class="btn btn-primary"><i class="fa-solid fa-circle-play"></i> Get Started</a>
+        <a href="#simulations" class="btn btn-secondary"><i class="fa-solid fa-terminal"></i> Interactive Demo</a>
+      </div>
+    </header>
+
+    <!-- Overview Section -->
+    <section id="overview" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-eye"></i>
+        <h2>Overview</h2>
+      </div>
+      <p>
+        DAA (Developer Agentic Assistant) is an open-source, self-hosted <strong>Autonomous SRE Incident Diagnosis Platform</strong> designed to automate distributed system debugging. Unlike passive alerting mechanisms, DAA conducts a structured investigation inside your codebase, queries environmental states, checks recent changes, and outputs a validated hotfix or structured postmortem reports.
+      </p>
+      <div class="highlight-box">
+        <p>
+          <strong>Why DAA?</strong> Production incidents are rarely single-service errors. They cascade through queues, databases, and microservices. DAA connects the dots automatically by correlating distributed trace IDs, logs, metrics, and git histories.
+        </p>
+      </div>
+      <p>
+        Currently, the platform includes multi-language SDKs, a React SRE agent powered by LangChain, a central FastAPI backend, and an interactive admin dashboard supporting real-time incident status tracking.
+      </p>
+    </section>
+
+    <!-- Key Features Section -->
+    <section id="features" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-wand-magic-sparkles"></i>
+        <h2>Key Features in V2.0</h2>
+      </div>
+      <p>
+        DAA v2.0 brings critical SRE capabilities directly to the developer environment, optimizing for speed, accuracy, and low LLM token costs.
+      </p>
+      
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <h4>Zero Alert Fatigue</h4>
+          <p>Sliding-window escalation thresholds and SHA256 error fingerprinting prevent duplicate alerts, wake-ups, and duplicate SRE tickets.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>
+          </div>
+          <h4>4-Dimension Loop</h4>
+          <p>Investigates git changes (24h), alerts/infrastructure metrics, OpenTelemetry distributed traces, and file-level diagnostic runs.</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-scissors"></i>
+          </div>
+          <h4>Surgical Code Navigation</h4>
+          <p>AST repository mapping (<code>read_repomap</code>) compresses codebases by 95% to avoid context flooding and expensive LLM hallucinations.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-shuffle"></i>
+          </div>
+          <h4>Universal LLM Routing</h4>
+          <p>Support for Google Gemini, OpenAI, Claude, Vertex AI, Ollama, Codex, or agy proxy to easily change models without code edits.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-ticket"></i>
+          </div>
+          <h4>Git & Ticket Automation</h4>
+          <p>Creates GitHub Issues, GitLab Merge Requests, and opens offline Jira tickets automatically when a verification fails.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-ban"></i>
+          </div>
+          <h4>Circuit Breakers</h4>
+          <p>Halts operations, reports postmortems, and stops making commits if test suites fail twice or deadlocks are identified.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-sitemap"></i>
+        <h2>Architecture & System Flow</h2>
+      </div>
+      <p>
+        DAA uses a decoupled, event-driven architecture designed to process, store, and analyze incident alerts without blocking production applications.
+      </p>
+
+      <!-- SVG Flowchart (Highly Aesthetic CSS-Aligned Vector Diagram) -->
+      <div class="arch-diagram-container">
+        <svg viewBox="0 0 800 320" width="100%" height="auto" style="background: transparent;">
+          <defs>
+            <linearGradient id="grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" />
+              <stop offset="100%" stop-color="#0369a1" />
+            </linearGradient>
+            <linearGradient id="grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#a855f7" />
+              <stop offset="100%" stop-color="#6b21a8" />
+            </linearGradient>
+            <linearGradient id="grad-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#6366f1" />
+              <stop offset="100%" stop-color="#4338ca" />
+            </linearGradient>
+            <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#34d399" />
+              <stop offset="100%" stop-color="#065f46" />
+            </linearGradient>
+          </defs>
+
+          <!-- Group lines and connections -->
+          <g stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none">
+            <path d="M 170 120 L 250 120" stroke-dasharray="4"/>
+            <path d="M 370 120 L 450 120" stroke-dasharray="4"/>
+            <path d="M 570 120 L 650 120" />
+            <path d="M 690 160 L 690 230 L 570 230" stroke-dasharray="4"/>
+            <path d="M 290 230 L 170 230 L 170 160" />
+            <path d="M 450 230 L 370 230" />
+          </g>
+
+          <!-- Node 1: Client Application with SDK -->
+          <rect x="30" y="80" width="140" height="80" rx="10" fill="url(#grad-blue)" stroke="#0284c7" stroke-width="1.5"/>
+          <text x="100" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Client App</text>
+          <text x="100" y="135" fill="#e0f2fe" font-family="Outfit" font-size="11" text-anchor="middle">(daa-sdk Integration)</text>
+
+          <!-- Node 2: FastAPI Ingestion -->
+          <rect x="250" y="80" width="120" height="80" rx="10" fill="url(#grad-indigo)" stroke="#4f46e5" stroke-width="1.5"/>
+          <text x="310" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">FastAPI Backend</text>
+          <text x="310" y="135" fill="#e0e7ff" font-family="Outfit" font-size="11" text-anchor="middle">(Ingest & Dedup)</text>
+
+          <!-- Node 3: RabbitMQ Task Queue -->
+          <rect x="450" y="80" width="120" height="80" rx="10" fill="url(#grad-purple)" stroke="#9333ea" stroke-width="1.5"/>
+          <text x="510" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">RabbitMQ Queue</text>
+          <text x="510" y="135" fill="#faf5ff" font-family="Outfit" font-size="11" text-anchor="middle">(Async Escalate)</text>
+
+          <!-- Node 4: Python SRE Agent -->
+          <rect x="650" y="80" width="120" height="80" rx="10" fill="url(#grad-emerald)" stroke="#059669" stroke-width="1.5"/>
+          <text x="710" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">SRE Agent</text>
+          <text x="710" y="135" fill="#d1fae5" font-family="Outfit" font-size="11" text-anchor="middle">(LangChain Loop)</text>
+
+          <!-- Node 5: Repository / GitLab -->
+          <rect x="450" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+          <text x="510" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">GitLab Repo</text>
+          <text x="510" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Fix MR / Code)</text>
+
+          <!-- Node 6: Ticketing / Postmortems -->
+          <rect x="250" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+          <text x="310" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Jira / Tickets</text>
+          <text x="310" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Postmortem Log)</text>
+        </svg>
+      </div>
+
+      <div class="layout-grid">
+        <div>
+          <h3>Services and Roles:</h3>
+          <ul>
+            <li><strong>backend-api</strong> (<code>app/backend-api</code>): Manages Authentication, Ingests logs via REST API, matches deduplication metrics, and tracks fix progression.</li>
+            <li><strong>python-agent</strong> (<code>app/python-agent</code>): Performs multi-dimension analysis using ReAct agent framework and pushes fixes to GitLab.</li>
+            <li><strong>admin-panel</strong> (<code>app/admin-panel</code>): React SPA displaying system configuration parameters, live logs, active incidents, and fix reports.</li>
+            <li><strong>daa-sdk</strong> (<code>app/daa-sdk</code>): Multi-language clients enabling direct trace and exception transmission from services.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Workflow Lifecycle:</h3>
+          <ol>
+            <li>An SDK error is triggered in the Client App.</li>
+            <li>FastAPI stores the logs and verifies if the sliding-window threshold is breached.</li>
+            <li>An <code>IncidentEscalationEvent</code> is queued via RabbitMQ.</li>
+            <li>The SRE Agent executes code/trace diagnostic checks.</li>
+            <li>Fixes are submitted to GitLab (MR) or documented in Jira.</li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ports and Services Section -->
+    <section id="services" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-server"></i>
+        <h2>Ports & Local Infrastructure</h2>
+      </div>
+      <p>
+        When running DAA locally, services are configured to communicate on specific host ports. Use the table below as a quick-access dashboard:
+      </p>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Service Name</th>
+              <th>Local Address</th>
+              <th>Interface Role</th>
+              <th>Status indicator</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>FastAPI Ingestion Backend</strong></td>
+              <td><a href="http://localhost:8000" target="_blank" class="port-link">localhost:8000</a></td>
+              <td>REST API endpoints &amp; Swagger Docs (<code>/docs</code>)</td>
+              <td><span class="status-dot"></span> Active</td>
+            </tr>
+            <tr>
+              <td><strong>React Admin Dashboard</strong></td>
+              <td><a href="http://localhost:5003" target="_blank" class="port-link">localhost:5003</a></td>
+              <td>Incident management console</td>
+              <td><span class="status-dot"></span> Active</td>
+            </tr>
+            <tr>
+              <td><strong>Local GitLab Instance</strong></td>
+              <td><a href="http://localhost:8082" target="_blank" class="port-link">localhost:8082</a></td>
+              <td>Simulated git code forge (SSH: 2224)</td>
+              <td><span class="status-dot"></span> Active</td>
+            </tr>
+            <tr>
+              <td><strong>RabbitMQ Broker</strong></td>
+              <td><a href="http://localhost:15672" target="_blank" class="port-link">localhost:15672</a></td>
+              <td>Queue Dashboard (Credentials: guest/guest)</td>
+              <td><span class="status-dot"></span> Active</td>
+            </tr>
+            <tr>
+              <td><strong>PostgreSQL Database</strong></td>
+              <td><code style="font-family:'JetBrains Mono'">localhost:5433</code></td>
+              <td>Primary relational store</td>
+              <td><span class="status-dot"></span> Active</td>
+            </tr>
+            <tr>
+              <td><strong>Mock Checkout Service</strong></td>
+              <td><a href="http://localhost:8001" target="_blank" class="port-link">localhost:8001</a></td>
+              <td>Sandbox Checkout Service (Outage Simulator)</td>
+              <td><span class="status-dot blue"></span> Standby</td>
+            </tr>
+            <tr>
+              <td><strong>Mock Payment Service</strong></td>
+              <td><a href="http://localhost:8002" target="_blank" class="port-link">localhost:8002</a></td>
+              <td>Sandbox Payment Service (Dependency)</td>
+              <td><span class="status-dot blue"></span> Standby</td>
+            </tr>
+            <tr>
+              <td><strong>Mock Jira endpoint</strong></td>
+              <td><a href="http://localhost:8000/mock-jira/browse/DAA-1" target="_blank" class="port-link">localhost:8000/mock-jira</a></td>
+              <td>Saves offline Jira issues and postmortem documents</td>
+              <td><span class="status-dot yellow"></span> Local Mock</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- LLM Configuration Section -->
+    <section id="llm-config" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-brain"></i>
+        <h2>Onboarding LLM Providers</h2>
+      </div>
+      <p>
+        Configure your AI model routing inside the root <code>.env</code> file. Click the tabs below to copy the specific configuration syntax for your preferred LLM backend:
+      </p>
+
+      <div class="tab-container">
+        <div class="tab-header">
+          <button class="tab-btn active" onclick="switchTab(event, 'gemini')">Google Gemini (Rec)</button>
+          <button class="tab-btn" onclick="switchTab(event, 'vertex')">Vertex AI</button>
+          <button class="tab-btn" onclick="switchTab(event, 'openai')">OpenAI GPT</button>
+          <button class="tab-btn" onclick="switchTab(event, 'claude')">Anthropic Claude</button>
+          <button class="tab-btn" onclick="switchTab(event, 'ollama')">Local Ollama</button>
+          <button class="tab-btn" onclick="switchTab(event, 'agy')">Host CLI Proxy</button>
+        </div>
+
+        <div id="gemini" class="tab-pane active">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Google Gemini Configuration
+LLM_PROVIDER=google
+LLM_MODEL=gemini-1.5-flash  # or gemini-2.5-flash
+GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere</code></pre>
+          </div>
+        </div>
+
+        <div id="vertex" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Google Cloud Vertex AI Setup
+LLM_PROVIDER=vertex
+LLM_MODEL=gemini-1.5-flash
+# Note: Authenticate your environment before running DAA SRE agent using:
+# gcloud auth application-default login</code></pre>
+          </div>
+        </div>
+
+        <div id="openai" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># OpenAI API Configuration
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-4o-mini
+OPENAI_API_KEY=sk-proj-YourOpenAIApiKeyHere</code></pre>
+          </div>
+        </div>
+
+        <div id="claude" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Anthropic Claude Setup
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_API_KEY=sk-ant-YourAnthropicApiKeyHere</code></pre>
+          </div>
+        </div>
+
+        <div id="ollama" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Local Air-Gapped Model Configuration
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3
+OLLAMA_BASE_URL=http://localhost:11434</code></pre>
+          </div>
+        </div>
+
+        <div id="agy" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># CLI Proxy mode (Uses active agy CLI credentials - No Key Leak Risk)
+LLM_PROVIDER=agy
+LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Setup Guide Section -->
+    <section id="setup-guide" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-gears"></i>
+        <h2>Quickstart &amp; Setup Guide</h2>
+      </div>
+      
+      <h3>1-Line Unified Installer (Linux/WSL/macOS)</h3>
+      <p>
+        The absolute fastest way to install DAA, configure environment variables, and build core libraries is using our unified automated curl installer script:
+      </p>
+      <div class="code-block-wrapper" style="margin-bottom: 1.5rem;">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash</code></pre>
+      </div>
+
+      <h3>Manual End-to-End Setup Steps</h3>
+      <p>If you prefer setting up the components manually, execute the following commands in order:</p>
+      
+      <ol>
+        <li>
+          <strong>Prepare Environment Configurations:</strong> Create your local env parameters file.
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>cp .env.example .env</code></pre>
+          </div>
+          <p style="font-size: 0.9rem; margin-top: -0.5rem;">Open <code>.env</code> and fill in your GitLab private token and chosen LLM details.</p>
+        </li>
+        <li>
+          <strong>Initialize Docker Infrastructure:</strong> Spin up Postgres, RabbitMQ, and GitLab containers.
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>docker-compose up -d</code></pre>
+          </div>
+        </li>
+        <li>
+          <strong>Configure Sandbox Services:</strong> Register applications and setup test project databases.
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>python3 setup_microservices.py</code></pre>
+          </div>
+        </li>
+        <li>
+          <strong>Run Microservices Locally:</strong>
+          Start Checkout &amp; Payment mock APIs to receive simulator requests.
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Run Payment service locally on Port 8002
+DAA_LOGS_URL=http://localhost:8000/logs/ DAA_TOKEN="&lt;your_daa_token&gt;" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8002
+
+# Run Checkout service locally on Port 8001
+DAA_LOGS_URL=http://localhost:8000/logs/ PAYMENT_SERVICE_URL=http://localhost:8002/pay REDIS_HOST=localhost REDIS_PORT=6379 DAA_TOKEN="&lt;your_daa_token&gt;" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8001</code></pre>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- Outage Simulation Section -->
+    <section id="simulations" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-bug"></i>
+        <h2>Outage Simulation &amp; Live SRE Run</h2>
+      </div>
+      <p>
+        Witness DAA SRE agent's 4-dimension investigation loops by triggering real outage scenarios in our sandbox, or run the interactive simulation below to preview the agent logs.
+      </p>
+
+      <div class="simulation-launcher">
+        <button class="sim-selector-btn active" onclick="selectSimulation('redis')" id="btn-sim-redis">
+          <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Scenario A</h5>
+          <p>Redis Cache Timeout (Infrastructure Cascade)</p>
+        </button>
+        <button class="sim-selector-btn" onclick="selectSimulation('payment')" id="btn-sim-payment">
+          <h5><i class="fa-solid fa-credit-card" style="color:var(--error);"></i> Scenario B</h5>
+          <p>Payment Gateway Failure (Client/External Decline)</p>
+        </button>
+      </div>
+
+      <div class="code-block-wrapper" id="sim-command-container" style="margin-bottom: 1.5rem;">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code id="sim-command-code">curl -X POST 'http://localhost:8001/checkout' \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id": "fail_redis", "cart_total": 150.0}'</code></pre>
+      </div>
+
+      <h3>Agent Diagnostic Console (Interactive Demo)</h3>
+      <div class="console-simulation">
+        <div class="console-header">
+          <div class="console-controls">
+            <span class="console-dot red"></span>
+            <span class="console-dot yellow"></span>
+            <span class="console-dot green"></span>
+          </div>
+          <div class="console-title">daa-agent-diagnostics.sh</div>
+          <div class="console-actions-top">
+            <button class="console-btn-run" onclick="runConsoleDemo()">
+              <i class="fa-solid fa-play"></i> Run Simulation
+            </button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody">
+          <div class="console-line"><span class="console-prompt">SRE-AGENT$</span> Click the "Run Simulation" button to watch the SRE Agent execute its 4-dimension diagnostic loop!</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Roadmap & Gaps Section -->
+    <section id="roadmap" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-solid fa-road"></i>
+        <h2>Platform Gaps &amp; Roadmap</h2>
+      </div>
+      <p>
+        The SRE incident portal is constantly being updated. Below are the current active gaps and roadmap goals:
+      </p>
+
+      <ul class="roadmap-list">
+        <li class="roadmap-item completed">
+          <i class="fa-solid fa-circle-check"></i>
+          <span><strong>Multi-Language SDK ecosystem</strong> (Ingestion libraries for Node.js, Go, Python, Java, Ruby, and .NET completed).</span>
+        </li>
+        <li class="roadmap-item completed">
+          <i class="fa-solid fa-circle-check"></i>
+          <span><strong>Local GitLab integrations</strong> (Offline code repository mapping and auto-merge request pipelines).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>GET /dashboard endpoint</strong> (Admin panel expects dashboard metrics consolidation to render visual charts).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>Align Authorization enforcement</strong> (Unify JWT session requirements across incident submitting vs. listing endpoints).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>Active Observability Metrics</strong> (Implement structured logging wrappers, tracing parameters, and Prometheus metrics exporting).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>Pagination &amp; Filtering UX</strong> (Wiring database offset parameters to the Admin Panel Logs screen).</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div>&copy; 2026 DAA Open Source Project. Released under the MIT License.</div>
+      <div class="footer-links">
+        <a href="https://github.com/rutvej/DAA" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
+        <a href="#overview">Back to Top</a>
+      </div>
+    </footer>
+  </main>
+
+  <script>
+    // Theme Management
+    const themeToggleBtn = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    const bodyEl = document.body;
+
+    themeToggleBtn.addEventListener('click', () => {
+      bodyEl.classList.toggle('light-theme');
+      const isLight = bodyEl.classList.contains('light-theme');
+      
+      if (isLight) {
+        themeIcon.className = 'fa-solid fa-sun';
+        themeText.textContent = 'Light Mode';
+        localStorage.setItem('theme', 'light');
+      } else {
+        themeIcon.className = 'fa-solid fa-moon';
+        themeText.textContent = 'Dark Mode';
+        localStorage.setItem('theme', 'dark');
+      }
+    });
+
+    // Check system preferences or localstorage
+    if (localStorage.getItem('theme') === 'light') {
+      bodyEl.classList.add('light-theme');
+      themeIcon.className = 'fa-solid fa-sun';
+      themeText.textContent = 'Light Mode';
+    }
+
+    // Mobile Sidebar Toggle
+    const mobileToggle = document.getElementById('mobileToggle');
+    const sidebar = document.getElementById('sidebar');
+
+    mobileToggle.addEventListener('click', (e) => {
+      sidebar.classList.toggle('open');
+      e.stopPropagation();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== mobileToggle) {
+        sidebar.classList.remove('open');
+      }
+    });
+
+    // Scrollspy for Sidebar Navigation
+    const sections = document.querySelectorAll('.scroll-section');
+    const navItems = document.querySelectorAll('.nav-item');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (pageYOffset >= (sectionTop - 120)) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-section') === current) {
+          item.classList.add('active');
+        }
+      });
+    });
+
+    // Tab Switcher for LLM configuration
+    function switchTab(event, tabId) {
+      const parent = event.currentTarget.closest('.tab-container');
+      const tabBtns = parent.querySelectorAll('.tab-btn');
+      const tabPanes = parent.querySelectorAll('.tab-pane');
+
+      tabBtns.forEach(btn => btn.classList.remove('active'));
+      tabPanes.forEach(pane => pane.classList.remove('active'));
+
+      event.currentTarget.classList.add('active');
+      parent.querySelector(`#${tabId}`).classList.add('active');
+    }
+
+    // Code Block Copy to Clipboard
+    function copyCode(btn) {
+      const codeBlock = btn.nextElementSibling.querySelector('code');
+      const text = codeBlock.textContent;
+
+      navigator.clipboard.writeText(text).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<i class="fa-regular fa-copy"></i>';
+        }, 2000);
+      });
+    }
+
+    // Outage Simulation Selector
+    const redisCurl = `curl -X POST 'http://localhost:8001/checkout' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"user_id": "fail_redis", "cart_total": 150.0}'`;
+
+    const paymentCurl = `curl -X POST 'http://localhost:8001/checkout' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"user_id": "user-123", "cart_total": 6000.0}'`;
+
+    function selectSimulation(type) {
+      const btnRedis = document.getElementById('btn-sim-redis');
+      const btnPayment = document.getElementById('btn-sim-payment');
+      const codeContainer = document.getElementById('sim-command-code');
+
+      if (type === 'redis') {
+        btnRedis.classList.add('active');
+        btnPayment.classList.remove('active');
+        codeContainer.textContent = redisCurl;
+      } else {
+        btnPayment.classList.add('active');
+        btnRedis.classList.remove('active');
+        codeContainer.textContent = paymentCurl;
+      }
+    }
+
+    // Search Filtering
+    const docSearchInput = document.getElementById('docSearch');
+    docSearchInput.addEventListener('input', (e) => {
+      const filterText = e.target.value.toLowerCase();
+      const textSections = document.querySelectorAll('.doc-section');
+      
+      textSections.forEach(section => {
+        const textContent = section.innerText.toLowerCase();
+        if (textContent.includes(filterText)) {
+          section.style.display = 'block';
+        } else {
+          section.style.display = 'none';
+        }
+      });
+    });
+
+    // Console Demo Simulation Logs
+    const redisSimLogs = [
+      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4091", style: "console-prompt" },
+      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
+      { text: "[*] Dimension 1: Analyzing correlated database log trace IDs...", style: "console-info" },
+      { text: "    Found failure in checkout-service: 'ConnectionRefusedError: [Errno 111] Connection refused'", style: "console-error" },
+      { text: "    Trace ID: 7b8a3e9c102f, Client app user_id: fail_redis", style: "console-muted" },
+      { text: "[*] Dimension 2: Checking Git commit activity over last 24 hours...", style: "console-info" },
+      { text: "    Recent commits found: 1", style: "console-muted" },
+      { text: "    Commit: 9ea12b 'Refactor connection pool configurations' by rutvej", style: "console-highlight" },
+      { text: "[*] Dimension 3: Querying environment health indicators...", style: "console-info" },
+      { text: "    Checking Redis connection to host:localhost, port:6379...", style: "console-muted" },
+      { text: "    [WARNING] Redis check failed: connection timeout. Server status is DOWN.", style: "console-warning" },
+      { text: "[*] Dimension 4: Commencing surgical code AST mapping...", style: "console-info" },
+      { text: "    Running 'read_repomap' on app/checkout-service...", style: "console-muted" },
+      { text: "    Found database instantiation symbol in 'app.py' line 42.", style: "console-highlight" },
+      { text: "    Fix suggestion: fallback to environment override 'REDIS_HOST' instead of hardcoded defaults.", style: "console-success" },
+      { text: "[*] Generating patch code for local validation tests...", style: "console-info" },
+      { text: "    Running tests: PYTHONPATH=app/checkout-service pytest tests/ ... [SUCCESS]", style: "console-success" },
+      { text: "[*] Branch created: fix/redis-connection-fallback", style: "console-success" },
+      { text: "[*] Pushed changes to GitLab, opened Merge Request #12 (status: MERGEABLE)", style: "console-success" },
+      { text: "[*] Incident resolved. Ticket postmortem logged in Mock Jira database as DAA-4091.", style: "console-success" }
+    ];
+
+    const paymentSimLogs = [
+      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4092", style: "console-prompt" },
+      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
+      { text: "[*] Dimension 1: Querying correlated logs matching trace ID...", style: "console-info" },
+      { text: "    Found exception in checkout-service -> payment-service API communication.", style: "console-muted" },
+      { text: "    Exception details: 'HTTP Exception 400 - Insufficient Funds / Card Declined'", style: "console-error" },
+      { text: "    Client transaction amount: $6000.00", style: "console-muted" },
+      { text: "[*] Dimension 2: Verifying change records for deployment updates...", style: "console-info" },
+      { text: "    No commits detected in python-agent or payment-service directories in 24h.", style: "console-muted" },
+      { text: "[*] Dimension 3: Querying cloud gateway health and DB nodes...", style: "console-info" },
+      { text: "    PostgreSQL service is UP, active connections pool: 4/100.", style: "console-muted" },
+      { text: "    Payment API responds: status code 200 OK (Heartbeat).", style: "console-muted" },
+      { text: "[*] Dimension 4: Checking code-level circuit guardrails...", style: "console-info" },
+      { text: "    Fault location: 'examples/payment-service/app.py' line 18.", style: "console-highlight" },
+      { text: "    Identified client-side request validation issue (cart value above single transaction limit).", style: "console-warning" },
+      { text: "    [Circuit Breaker Triggered] Safe code remediation bounds exceeded.", style: "console-error" },
+      { text: "[*] Action: Skip Pull Request (verification requires external billing provider action).", style: "console-warning" },
+      { text: "[*] Generating SRE Incident Postmortem report...", style: "console-info" },
+      { text: "[*] Jira incident ticket created under project DAA as DAA-4092.", style: "console-success" },
+      { text: "    Postmortem summary: Transaction failed on client checkout limit. Recommended admin review.", style: "console-success" }
+    ];
+
+    let consoleInterval = null;
+
+    function runConsoleDemo() {
+      const consoleBody = document.getElementById('consoleBody');
+      const isRedis = document.getElementById('btn-sim-redis').classList.contains('active');
+      const logs = isRedis ? redisSimLogs : paymentSimLogs;
+      
+      // Reset console
+      consoleBody.innerHTML = '';
+      clearInterval(consoleInterval);
+      
+      let lineIndex = 0;
+      
+      consoleInterval = setInterval(() => {
+        if (lineIndex < logs.length) {
+          const log = logs[lineIndex];
+          const div = document.createElement('div');
+          div.className = `console-line ${log.style}`;
+          
+          if (log.style === 'console-prompt') {
+            div.innerHTML = `<span class="console-prompt">${log.text.substring(0, 10)}</span>${log.text.substring(10)}`;
+          } else {
+            div.textContent = log.text;
+          }
+          
+          consoleBody.appendChild(div);
+          consoleBody.scrollTop = consoleBody.scrollHeight;
+          lineIndex++;
+        } else {
+          clearInterval(consoleInterval);
+        }
+      }, 500);
+    }
+  </script>
+</body>
+</html>
