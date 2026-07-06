@@ -175,7 +175,13 @@ def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict
     return {"logId": db_log.id, "status": "Escalated to Agent", "incidentId": new_incident.id, "fingerprint": fingerprint}
 
 @router.get("/", response_model=List[LogResponse])
-def get_logs(db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: int = Query(10, ge=1, le=100), status: str = Query(None)):
+def get_logs(
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+    status: str = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
     query = db.query(DBLog)
     if status:
         query = query.filter(DBLog.status == status)
@@ -189,7 +195,11 @@ def get_logs(db: Session = Depends(get_db), page: int = Query(1, ge=1), limit: i
     return response
 
 @router.get("/{id}", response_model=LogDetailsResponse)
-def get_log(id: str, db: Session = Depends(get_db)):
+def get_log(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     log = db.query(DBLog).filter(DBLog.id == id).first()
     if log is None:
         raise HTTPException(status_code=404, detail="Log not found")
