@@ -162,3 +162,47 @@ In addition to the SDK pushing logs directly to DAA, the platform supports a **p
 3. **Architecture Mapping:** The SRE agent inspects the service dependency tree and architecture map (stored in the database under `projects` and `applications` tables) to identify upstream and downstream systems.
 4. **Code Navigation & Code Nav Triage:** The agent clones the target repository, maps the classes and symbols, and locates the root cause.
 5. **Code Resolution:** The agent applies the fix, runs validation tests, and opens a Merge/Pull Request.
+
+---
+
+## 🤝 7. Human-in-the-Loop (HITL) Validation Mode
+
+By default, the SRE Agent automatically opens a Merge/Pull Request upon generating a successful fix. To enable human validation and approval safety guardrails:
+
+1. **Enable HITL Mode:** Set the environment variable `DAA_HITL_MODE=true` in your `.env` configuration.
+2. **Agent Workflow:** When a fix is found and validated, the SRE agent pushes the remediation branch but defers PR/MR creation. It sets the incident fix status to `Awaiting Approval` in the database.
+3. **Admin Panel Review:** SREs can open the **React Admin Panel** at `http://localhost:5003/fixes/<id>` to review:
+   - Complete step-by-step **AI Agent Execution Traces** showing exactly what the LLM thought, what tools it called, and what it observed.
+   - The proposed code changes and target branch.
+   - The full root-cause Postmortem Report.
+4. **One-Click Approval:** Click **"Approve Fix & Create PR/MR"** to trigger the GitLab/GitHub API and open the merge request immediately.
+
+---
+
+## 🔌 8. Model Context Protocol (MCP) Server & Client
+
+DAA v2.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility and cross-agent collaboration:
+
+### A. Allowing the DAA Agent to use external MCP Tools (Client)
+Place an `mcp_config.json` file in the root directory. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset:
+```json
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://youruser:password@localhost:5433/yourdb"]
+    }
+  }
+}
+```
+
+### B. Exposing DAA tools to other AI Agents (Server)
+Other software engineering agents (like Cursor, Claude Desktop, or custom coding copilots) can connect to DAA using the stdio transport to review and approve incident fixes:
+```bash
+python3 app/daa_mcp_server.py
+```
+**Exposed Tools:**
+* `get_fixes_awaiting_approval`: Returns all incident fixes waiting for human validation.
+* `get_incident_postmortem(fix_id)`: Fetches the postmortem text, status, and execution logs.
+* `approve_remediation_fix(fix_id)`: Approves the fix and triggers the GitLab/GitHub PR/MR creation.
+

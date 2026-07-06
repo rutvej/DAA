@@ -26,12 +26,15 @@ class CodexChatModel(BaseChatModel):
         # Load auth
         auth_path = os.environ.get("CODEX_AUTH_PATH", "/app/auth.json")
         if not os.path.exists(auth_path):
-            auth_path = "/home/rutvej/snap/codex/34/auth.json"
-        if not os.path.exists(auth_path):
             auth_path = os.path.expanduser("~/.codex/auth.json")
+        if not os.path.exists(auth_path):
+            auth_path = "/etc/codex/auth.json"
+        if not os.path.exists(auth_path):
+            # Safe fallback default for development
+            auth_path = "/home/rutvej/snap/codex/34/auth.json"
 
         if not os.path.exists(auth_path):
-            raise Exception(f"Codex credentials file not found at {auth_path}")
+            raise Exception(f"Codex credentials file not found. Please set CODEX_AUTH_PATH or place it at ~/.codex/auth.json")
 
         try:
             with open(auth_path, "r") as f:
