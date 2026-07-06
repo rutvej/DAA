@@ -55,6 +55,7 @@ export const logsApi = {
 
 export const fixesApi = {
   get: ({ token, id }) => apiFetch(`/fixes/${id}`, { token }),
+  approve: ({ token, id }) => apiFetch(`/fixes/${id}/approve`, { token, method: 'POST' }),
 };
 
 export const healthApi = {

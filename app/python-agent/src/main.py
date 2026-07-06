@@ -3,10 +3,13 @@ import json
 import logging
 import sys
 import re
+import subprocess
 
 import pika
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.tools import Tool
 
 from .models import Job
 from .llm_config import get_llm
@@ -36,6 +39,149 @@ def scrub_secrets(text: str) -> str:
     # Mask Bearer tokens
     text = re.sub(r'(Bearer\s+)[A-Za-z0-9\-\._~\+\/]+=*', r'\1***SCRUBBED***', text, flags=re.IGNORECASE)
     return text
+
+
+class SimpleMcpClient:
+    def __init__(self, command, args, env=None):
+        self.command = command
+        self.args = args
+        self.env = {**os.environ, **(env or {})}
+        self.proc = None
+
+    def start(self):
+        self.proc = subprocess.Popen(
+            [self.command] + self.args,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=self.env,
+            text=True,
+            bufsize=1
+        )
+
+    def send_request(self, method, params=None, id=1):
+        if not self.proc:
+            self.start()
+        req = {
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params or {},
+            "id": id
+        }
+        self.proc.stdin.write(json.dumps(req) + "\n")
+        self.proc.stdin.flush()
+        line = self.proc.stdout.readline()
+        if not line:
+            return None
+        return json.loads(line)
+
+    def close(self):
+        if self.proc:
+            self.proc.terminate()
+            self.proc = None
+
+
+def load_mcp_tools() -> list:
+    """Loads tools from external MCP servers configured in mcp_config.json."""
+    config_path = "mcp_config.json"
+    if not os.path.exists(config_path):
+        return []
+        
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+    except Exception as e:
+        print(f"Failed to read mcp_config.json: {e}")
+        return []
+        
+    mcp_tools = []
+    servers = config.get("mcpServers", {})
+    
+    for server_name, server_cfg in servers.items():
+        command = server_cfg.get("command")
+        args = server_cfg.get("args", [])
+        env = server_cfg.get("env", {})
+        
+        if not command:
+            continue
+            
+        try:
+            client = SimpleMcpClient(command, args, env)
+            res = client.send_request("tools/list", id=1)
+            client.close()
+            
+            if not res or "result" not in res:
+                continue
+                
+            tools_list = res["result"].get("tools", [])
+            for t in tools_list:
+                name = t.get("name")
+                desc = t.get("description", "")
+                
+                def make_wrapper(srv_name, cmd, arguments, t_name, env_cfg):
+                    def wrapper(tool_input: str) -> str:
+                        try:
+                            args_dict = json.loads(tool_input)
+                        except Exception:
+                            args_dict = {"query": tool_input}
+                        
+                        wrapper_client = SimpleMcpClient(cmd, arguments, env_cfg)
+                        try:
+                            call_res = wrapper_client.send_request("tools/call", {"name": t_name, "arguments": args_dict}, id=2)
+                            if call_res and "result" in call_res:
+                                content_list = call_res["result"].get("content", [])
+                                return "\n".join([c.get("text", "") for c in content_list])
+                            return f"Error calling tool {t_name}: {call_res}"
+                        except Exception as wrapper_ex:
+                            return f"Error executing tool {t_name}: {wrapper_ex}"
+                        finally:
+                            wrapper_client.close()
+                    return wrapper
+
+                wrapped_tool = Tool(
+                    name=f"mcp_{server_name}_{name}",
+                    description=f"[MCP Tool from {server_name}] {desc}",
+                    func=make_wrapper(server_name, command, args, name, env)
+                )
+                mcp_tools.append(wrapped_tool)
+        except Exception as e:
+            print(f"Error initializing MCP server {server_name}: {e}")
+            
+    return mcp_tools
+
+
+class ExecutionLogCallbackHandler(BaseCallbackHandler):
+    def __init__(self, log_id):
+        super().__init__()
+        self.log_id = str(log_id)
+        self.logs = []
+
+    def _send_log_line(self, line: str):
+        import requests
+        backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
+        url = f"{backend_url}/fixes/{self.log_id}/append-log"
+        try:
+            requests.post(url, json={"log_line": line}, timeout=3.0)
+        except Exception:
+            pass
+
+    def on_agent_action(self, action, **kwargs):
+        tool_input_str = str(action.tool_input)
+        tool_input_str = scrub_secrets(tool_input_str)
+        line = f"🤖 **Thought:** {action.log.strip()}\n🛠️ **Action:** `{action.tool}` with input:\n```json\n{tool_input_str}\n```"
+        self.logs.append(line)
+        self._send_log_line(line)
+
+    def on_tool_end(self, output, **kwargs):
+        output_str = scrub_secrets(str(output))
+        line = f"👁️ **Observation:**\n```\n{output_str.strip()}\n```"
+        self.logs.append(line)
+        self._send_log_line(line)
+
+    def on_agent_finish(self, finish, **kwargs):
+        line = f"🏁 **Finished Investigation:** {finish.log.strip()}"
+        self.logs.append(line)
+        self._send_log_line(line)
 
 
 # --- Agent Initialization ---
@@ -84,6 +230,13 @@ def process_job(job: Job):
         query_correlated_logs, check_recent_changes, create_incident_ticket
     ]
     
+    # Load and register external MCP tools dynamically
+    try:
+        mcp_tools = load_mcp_tools()
+        tools.extend(mcp_tools)
+    except Exception as e:
+        print(f"Error loading external MCP tools: {e}")
+    
     logger = logging.getLogger(__name__)
     llm = get_llm()
     
@@ -126,7 +279,7 @@ def process_job(job: Job):
     Thought: I now know the final answer
     Final Answer: Your final answer MUST contain either a PR_URL or a TICKET_URL, and the Postmortem Report formatted exactly as follows:
     
-    PR_URL: <pull_request_url_here_if_pr_opened>
+    PR_URL: <pull_request_url_here_if_pr_opened_or_awaiting_approval>
     TICKET_URL: <ticket_url_here_if_ticket_created>
     
     POSTMORTEM:
@@ -169,9 +322,11 @@ def process_job(job: Job):
 
     try:
         scrubbed_log = scrub_secrets(str(job.error_log))
-        result = agent_executor.invoke({
-            "input": f"Investigate across all 4 dimensions and remediate the outage in {job.app_name}. Here is the scrubbed error log: {scrubbed_log}."
-        })
+        callback_handler = ExecutionLogCallbackHandler(job.log_id)
+        result = agent_executor.invoke(
+            {"input": f"Investigate across all 4 dimensions and remediate the outage in {job.app_name}. Here is the scrubbed error log: {scrubbed_log}."},
+            config={"callbacks": [callback_handler]}
+        )
         logging.info(f"Agent execution result: {result}")
         
         output_text = result.get("output", "")
@@ -179,8 +334,8 @@ def process_job(job: Job):
         ticket_url = None
         postmortem_text = ""
 
-        # Extract PR URL or Ticket URL
-        pr_match = re.search(r"PR_URL:\s*(https?://\S+)", output_text, re.IGNORECASE)
+        # Extract PR URL (allowing AWAITING_APPROVAL string) or Ticket URL
+        pr_match = re.search(r"PR_URL:\s*(\S+)", output_text, re.IGNORECASE)
         if pr_match:
             pull_request_url = pr_match.group(1).strip()
         else:
@@ -199,6 +354,12 @@ def process_job(job: Job):
         else:
             postmortem_text = output_text
 
+        # Append execution traces to postmortem_text (showing what the AI did in detail on the UI)
+        if callback_handler.logs:
+            traces_header = "\n\n--\n## 🤖 AI Agent Execution Traces (Audit Log)\n"
+            traces_body = "\n\n".join(callback_handler.logs)
+            postmortem_text += traces_header + traces_body
+
         analysis_updater.set_pull_request_url(pull_request_url or ticket_url)
         analysis_updater.set_postmortem(postmortem_text)
         analysis_updater.update_analysis_completed()
@@ -216,5 +377,6 @@ if __name__ == "__main__":
             sys.exit(0)
         except SystemExit:
             os._exit(0)
+
 
 

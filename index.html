@@ -1151,6 +1151,22 @@
           <h4>Circuit Breakers</h4>
           <p>Halts operations, reports postmortems, and stops making commits if test suites fail twice or deadlocks are identified.</p>
         </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-user-check"></i>
+          </div>
+          <h4>Human-in-the-Loop</h4>
+          <p>Defers PR/MR creation for manual validation. Review postmortems and AI agent execution logs on the UI, then approve with a single click.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon-wrapper">
+            <i class="fa-solid fa-network-wired"></i>
+          </div>
+          <h4>Model Context Protocol</h4>
+          <p>Expose DAA SRE tools to other coding agents via a stdio MCP Server, or configure the DAA agent to consume external MCP tools.</p>
+        </div>
       </div>
     </section>
 
@@ -1462,6 +1478,43 @@ DAA_LOGS_URL=http://localhost:8000/logs/ PAYMENT_SERVICE_URL=http://localhost:80
           </div>
         </li>
       </ol>
+
+      <h3 style="margin-top: 2rem;">Human-in-the-Loop (HITL) Mode Setup</h3>
+      <p>
+        To enable safe approval gatekeeper logic, add <code>DAA_HITL_MODE=true</code> to your <code>.env</code> file. When an alert triggers the agent:
+      </p>
+      <ul>
+        <li>The agent will automatically execute the sequential 4-Dimension loop (Change, Infra, Logs, Diagnostics).</li>
+        <li>It will push the remediation code to a Git branch but defer PR/MR opening.</li>
+        <li>The Admin Panel will display a status of <strong>"Awaiting Approval"</strong> and expose full step-by-step <strong>AI Execution Logs</strong>.</li>
+        <li>Review the changes and click <strong>"Approve Fix & Create PR/MR"</strong> to trigger the GitLab/GitHub REST API instantly.</li>
+      </ul>
+
+      <h3 style="margin-top: 2rem;">Model Context Protocol (MCP) Client &amp; Server</h3>
+      <p>
+        DAA v2.0 supports the standardized Model Context Protocol (MCP) over <code>stdio</code>:
+      </p>
+      
+      <h4 style="margin-top: 1rem;">1. Running the DAA SRE MCP Server</h4>
+      <p>Allow other agents and workflows to query pending fixes, check postmortems, and trigger approvals by starting the stdio server:</p>
+      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code>python3 app/daa_mcp_server.py</code></pre>
+      </div>
+
+      <h4 style="margin-top: 1rem;">2. Loading external MCP Tools into DAA SRE Agent</h4>
+      <p>Place an <code>mcp_config.json</code> file in the repository root. DAA will automatically launch the configured servers and load their tools during the diagnostic loop:</p>
+      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1.5rem;">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code>{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://youruser:password@localhost:5433/yourdb"]
+    }
+  }
+}</code></pre>
+      </div>
     </section>
 
     <!-- Outage Simulation Section -->

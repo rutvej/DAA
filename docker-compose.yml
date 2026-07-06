@@ -96,8 +96,8 @@ services:
       - 1.1.1.1
     volumes:
       - secrets:/var/run/secrets
-      - /home/rutvej/snap/codex/34/auth.json:/app/auth.json:ro
-      - /home/rutvej/Desktop/DAA/.git:/app/.git:ro
+      - ${CODEX_AUTH_JSON_PATH:-/home/rutvej/snap/codex/34/auth.json}:/app/auth.json:ro
+      - ${DAA_GIT_DIR:-/home/rutvej/Desktop/DAA/.git}:/app/.git:ro
 
   test-app:
     build:

@@ -43,9 +43,9 @@ class TestMain(unittest.TestCase):
         # Assert
         mock_analysis_updater.assert_called_once_with(log_id)
         mock_updater_instance.update_analysis_processing.assert_called_once()
-        mock_agent_executor.return_value.invoke.assert_called_once_with({
-            "input": f"Investigate across all 4 dimensions and remediate the outage in test-app. Here is the scrubbed error log: {error_log}."
-        })
+        called_args, called_kwargs = mock_agent_executor.return_value.invoke.call_args
+        self.assertEqual(called_args[0]["input"], f"Investigate across all 4 dimensions and remediate the outage in test-app. Here is the scrubbed error log: {error_log}.")
+        self.assertIn("callbacks", called_kwargs.get("config", {}))
         mock_updater_instance.set_pull_request_url.assert_called_once_with('http://github.com/pr/1')
         mock_updater_instance.set_postmortem.assert_called_once_with('Some report')
         mock_updater_instance.update_analysis_completed.assert_called_once()

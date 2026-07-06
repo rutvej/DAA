@@ -183,6 +183,10 @@ def create_pull_request(data: str) -> str:
     branch_name = repo.active_branch.name
     project_name = repo.working_dir.split('/')[-1]
 
+    # Intercept for Human-in-the-Loop Mode
+    if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
+        return f"AWAITING_APPROVAL:{branch_name}"
+
     # Fetch configuration dynamically
     proj = get_project_connection(project_name)
     provider = proj.get("repo_provider", "gitlab")
