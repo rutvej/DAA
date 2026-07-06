@@ -141,3 +141,16 @@ Once escalated, the SRE agent automatically:
 3. **Inspects active environment metrics** (`check_alerts`) to check if Redis or Postgres services are down.
 4. **Performs surgical code diagnostics** (`read_repomap`, `find_symbol`, `view_file_slice`) to locate code flaws.
 5. **Creates a fix branch, commits, pushes, opens a GitLab Merge Request,** and creates an offline **Postmortem report** summarizing the root cause!
+
+---
+
+## ☁️ 6. Pull-Based SRE Cloud Investigation Workflow
+
+In addition to the SDK pushing logs directly to DAA, the platform supports a **pull-based SRE investigation workflow**. This is critical for legacy systems or microservices where the DAA telemetry SDK cannot be installed, or when you are notified of a generic `500 Internal Server Error` without direct telemetry indicators.
+
+### How the Agent Investigates (Pull Flow)
+1. **Trigger Alert:** A generic system alert or developer notification reports: *"Service XYZ is crashing with 500 errors"*.
+2. **Cloud Log Retrieval:** The SRE agent connects to your cloud logging provider (configured during `daa init` - e.g., AWS CloudWatch, GCP Cloud Logging, or Datadog) using the credentials saved in the configuration to pull the raw logs and extract the stack trace.
+3. **Architecture Mapping:** The SRE agent inspects the service dependency tree and architecture map (stored in the database under `projects` and `applications` tables) to identify upstream and downstream systems.
+4. **Code Navigation & Code Nav Triage:** The agent clones the target repository, maps the classes and symbols, and locates the root cause.
+5. **Code Resolution:** The agent applies the fix, runs validation tests, and opens a Merge/Pull Request.

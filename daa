@@ -170,15 +170,46 @@ def cmd_init(_args):
         cfg["JIRA_PROJECT_KEY"] = ask("Jira project key (e.g. ENG)", cfg.get("JIRA_PROJECT_KEY", ""))
 
     # ── Step 5: Register first application ──
-    header("Step 5 — Register Your First Application")
+    header("Step 5 — Register Your First Application & Auto-Generate Credentials")
     app_name = ask("Application name (e.g. checkout-service)", "")
     if app_name:
+        # Generate secure credentials
+        import secrets
+        app_token = f"daa_token_{secrets.token_hex(24)}"
+        
         cfg["first_app"] = {
             "name": app_name,
             "repo_url": ask("Repository URL", ""),
             "language": ask_choice("Language", ["python", "node", "go", "java", "ruby", "dotnet"], "python"),
             "threshold": ask("Escalate after N errors in 60 seconds", "3"),
+            "app_token": app_token
         }
+        
+        # Cloud Logging Config
+        header("Step 5b — Cloud Logging Config (for Pull-Based SRE Investigation)")
+        cloud_log_choice = ask_choice(
+            "Do you want to configure Cloud Logging to pull application logs?",
+            ["none (SDK push only)", "AWS CloudWatch", "GCP Cloud Logging", "Datadog"],
+            default="none (SDK push only)"
+        )
+        
+        cfg["first_app"]["cloud_logging"] = {"provider": cloud_log_choice}
+        if cloud_log_choice == "AWS CloudWatch":
+            cfg["first_app"]["cloud_logging"]["aws_region"] = ask("AWS Region", "us-east-1")
+            cfg["first_app"]["cloud_logging"]["aws_access_key"] = ask("AWS Access Key ID", "")
+            cfg["first_app"]["cloud_logging"]["aws_secret_key"] = ask("AWS Secret Access Key", "", secret=True)
+            cfg["first_app"]["cloud_logging"]["log_group_name"] = ask("Log Group Name", f"/aws/lambda/{app_name}")
+        elif cloud_log_choice == "GCP Cloud Logging":
+            cfg["first_app"]["cloud_logging"]["gcp_project_id"] = ask("GCP Project ID", "")
+            cfg["first_app"]["cloud_logging"]["gcp_credentials_json_path"] = ask("GCP Service Account JSON path", "")
+        elif cloud_log_choice == "Datadog":
+            cfg["first_app"]["cloud_logging"]["dd_api_key"] = ask("Datadog API Key", "", secret=True)
+            cfg["first_app"]["cloud_logging"]["dd_app_key"] = ask("Datadog App Key", "", secret=True)
+            cfg["first_app"]["cloud_logging"]["dd_query"] = ask("Logs Search Query", f"service:{app_name} status:error")
+
+        print(f"\n{GREEN}🔑 Auto-Generated App Credentials for '{app_name}':{RESET}")
+        print(f"  {BOLD}DAA_TOKEN={app_token}{RESET}")
+        print(f"  {DIM}Provide this token as an environment variable to your microservice SDK.{RESET}\n")
 
     save_config(cfg)
 
