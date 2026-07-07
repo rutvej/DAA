@@ -8,7 +8,11 @@ def _send_request(data: dict) -> None:
     logging.info(f"Sending request to backend-api with data: {data}")
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
     url = f"{backend_url}/fixes"
-    response = requests.post(url, json=data)
+    headers = {}
+    daa_token = os.environ.get("DAA_TOKEN")
+    if daa_token:
+        headers["Authorization"] = f"Bearer {daa_token}"
+    response = requests.post(url, json=data, headers=headers)
     response.raise_for_status()
 
 class AnalysisUpdater:

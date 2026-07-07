@@ -3,7 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from ..database import get_db, Application as DBApplication, EscalationPolicy as DBEscalationPolicy
+from .auth import get_current_user, SECRET_KEY, ALGORITHM
 import json
+import jwt
 
 router = APIRouter()
 
@@ -14,9 +16,11 @@ class ApplicationCreate(BaseModel):
     repository_url: Optional[str] = None
     spec_file_path: Optional[str] = None
     team_owner: Optional[str] = None
+    allowed_ip: Optional[str] = None
 
 class ApplicationResponse(ApplicationCreate):
     id: str
+    token: Optional[str] = None
     created_at: str
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,22 +43,43 @@ class EscalationPolicyResponse(BaseModel):
     is_active: bool
     model_config = ConfigDict(from_attributes=True)
 
+def get_app_token(db_app: DBApplication, db: Session) -> str:
+    if not db_app.token:
+        to_encode = {
+            "sub": db_app.name,
+            "id": db_app.id,
+            "role": "application"
+        }
+        db_app.token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        db.commit()
+        db.refresh(db_app)
+    return db_app.token
+
 @router.post("/", response_model=ApplicationResponse, status_code=status.HTTP_201_CREATED)
-def create_application(app: ApplicationCreate, db: Session = Depends(get_db)):
+def create_application(app: ApplicationCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     existing = db.query(DBApplication).filter(DBApplication.name == app.name).first()
     if existing:
         raise HTTPException(status_code=400, detail="Application with this name already exists")
+    
     db_app = DBApplication(
         name=app.name,
         description=app.description,
         language=app.language,
         repository_url=app.repository_url,
         spec_file_path=app.spec_file_path,
-        team_owner=app.team_owner
+        team_owner=app.team_owner,
+        allowed_ip=app.allowed_ip
     )
     db.add(db_app)
     db.commit()
     db.refresh(db_app)
+    
+    # Generate token
+    token = get_app_token(db_app, db)
+    
     return ApplicationResponse(
         id=db_app.id,
         name=db_app.name,
@@ -63,14 +88,20 @@ def create_application(app: ApplicationCreate, db: Session = Depends(get_db)):
         repository_url=db_app.repository_url,
         spec_file_path=db_app.spec_file_path,
         team_owner=db_app.team_owner,
+        allowed_ip=db_app.allowed_ip,
+        token=token,
         created_at=db_app.created_at.isoformat()
     )
 
 @router.get("/", response_model=List[ApplicationResponse])
-def list_applications(db: Session = Depends(get_db)):
+def list_applications(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     apps = db.query(DBApplication).all()
     res = []
     for a in apps:
+        token = get_app_token(a, db)
         res.append(ApplicationResponse(
             id=a.id,
             name=a.name,
@@ -79,15 +110,22 @@ def list_applications(db: Session = Depends(get_db)):
             repository_url=a.repository_url,
             spec_file_path=a.spec_file_path,
             team_owner=a.team_owner,
+            allowed_ip=a.allowed_ip,
+            token=token,
             created_at=a.created_at.isoformat()
         ))
     return res
 
 @router.get("/{id}", response_model=ApplicationResponse)
-def get_application(id: str, db: Session = Depends(get_db)):
+def get_application(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     a = db.query(DBApplication).filter(DBApplication.id == id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Application not found")
+    
+    token = get_app_token(a, db)
     return ApplicationResponse(
         id=a.id,
         name=a.name,
@@ -96,11 +134,16 @@ def get_application(id: str, db: Session = Depends(get_db)):
         repository_url=a.repository_url,
         spec_file_path=a.spec_file_path,
         team_owner=a.team_owner,
+        allowed_ip=a.allowed_ip,
+        token=token,
         created_at=a.created_at.isoformat()
     )
 
 @router.post("/{id}/escalation-policies", response_model=EscalationPolicyResponse, status_code=status.HTTP_201_CREATED)
-def create_escalation_policy(id: str, policy: EscalationPolicyCreate, db: Session = Depends(get_db)):
+def create_escalation_policy(id: str, policy: EscalationPolicyCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     app = db.query(DBApplication).filter(DBApplication.id == id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
@@ -121,6 +164,9 @@ def create_escalation_policy(id: str, policy: EscalationPolicyCreate, db: Sessio
     return db_policy
 
 @router.get("/{id}/escalation-policies", response_model=List[EscalationPolicyResponse])
-def list_escalation_policies(id: str, db: Session = Depends(get_db)):
+def list_escalation_policies(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     policies = db.query(DBEscalationPolicy).filter(DBEscalationPolicy.application_id == id).all()
     return policies

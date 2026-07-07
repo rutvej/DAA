@@ -1,33 +1,8 @@
 volumes:
-  gitlab_config:
-  gitlab_logs:
-  gitlab_data:
   postgres_data:
   secrets:
 
 services:
-  gitlab:
-    image: 'gitlab/gitlab-ce:latest'
-    restart: always
-    hostname: 'gitlab.example.com'
-    environment:
-      GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://gitlab.example.com'
-        gitlab_rails['initial_root_password'] = "${GITLAB_ROOT_PASSWORD}"
-    ports:
-      - '8082:80'
-      - '8443:443'
-      - '2224:22'
-    volumes:
-      - 'gitlab_config:/etc/gitlab'
-      - 'gitlab_logs:/var/log/gitlab'
-      - 'gitlab_data:/var/opt/gitlab'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/-/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   postgres:
     image: postgres:13
     restart: always
@@ -99,31 +74,6 @@ services:
       - ${CODEX_AUTH_JSON_PATH:-/home/rutvej/snap/codex/34/auth.json}:/app/auth.json:ro
       - ${DAA_GIT_DIR:-/home/rutvej/Desktop/DAA/.git}:/app/.git:ro
 
-  test-app:
-    build:
-      context: .
-      dockerfile: app/test-app/Dockerfile
-    restart: on-failure
-    ports:
-      - "8081:8081"
-    volumes:
-      - ./app/daa-sdk:/app/daa-sdk
-      - secrets:/var/run/secrets
-    environment:
-      - DAA_BACKEND_API_URL=http://backend-api:80
-      - DAA_TOKEN=${DAA_TOKEN}
-      - REPO_NAME=test-app
-    env_file:
-      - .env
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8081', timeout=5)"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    depends_on:
-      backend-api:
-        condition: service_started
-
   admin-panel:
     build:
       context: ./app/admin-panel
@@ -140,43 +90,6 @@ services:
     depends_on:
       - backend-api
 
-  checkout-service:
-    image: python:3.12-slim
-    working_dir: /app
-    volumes:
-      - ./examples/checkout-service:/app
-    command: >
-      bash -c "pip install -q -r requirements.txt && uvicorn app:app --host 0.0.0.0 --port 8001"
-    ports:
-      - "8001:8001"
-    environment:
-      - DAA_LOGS_URL=http://backend-api:80/logs/
-      - PAYMENT_SERVICE_URL=http://payment-service:8002/pay
-      - REDIS_HOST=redis-cache
-      - REDIS_PORT=6379
-      - DAA_TOKEN=${DAA_TOKEN}
-    env_file:
-      - .env
-    depends_on:
-      - backend-api
-      - payment-service
-      - redis-cache
-
-  payment-service:
-    image: python:3.12-slim
-    working_dir: /app
-    volumes:
-      - ./examples/payment-service:/app
-    command: >
-      bash -c "pip install -q fastapi uvicorn pydantic && uvicorn app:app --host 0.0.0.0 --port 8002"
-    ports:
-      - "8002:8002"
-
-  redis-cache:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-
   mcp-server:
     image: python:3.11-slim
     restart: always
@@ -190,6 +103,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://youruser:${POSTGRES_PASSWORD:-demo_postgres_password}@postgres/yourdb
       - DAA_BACKEND_API_URL=http://backend-api:80
+      - DAA_TOKEN=${DAA_TOKEN}
     depends_on:
       - backend-api
       - postgres

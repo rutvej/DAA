@@ -1,12 +1,14 @@
 import os
+from urllib.parse import urlparse
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import Base, engine
+from .database import Base, engine, SessionLocal, Application, run_db_migrations
 from .routers import auth, fixes, logs, status, alerts, projects, applications, incidents, dashboard
 
 Base.metadata.create_all(bind=engine)
+run_db_migrations(engine)
 
 app = FastAPI(
     title="DAA v2.0 — Autonomous SRE Platform",
@@ -33,6 +35,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def dynamic_cors_middleware(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        try:
+            parsed = urlparse(origin)
+            origin_host = parsed.hostname
+            if origin_host:
+                db = SessionLocal()
+                try:
+                    matched = db.query(Application).filter(Application.allowed_ip == origin_host).first()
+                    if matched:
+                        if request.method == "OPTIONS":
+                            from fastapi.responses import Response
+                            response = Response()
+                            response.headers["Access-Control-Allow-Origin"] = origin
+                            response.headers["Access-Control-Allow-Credentials"] = "true"
+                            response.headers["Access-Control-Allow-Methods"] = "*"
+                            response.headers["Access-Control-Allow-Headers"] = "*"
+                            return response
+                        
+                        response = await call_next(request)
+                        response.headers["Access-Control-Allow-Origin"] = origin
+                        response.headers["Access-Control-Allow-Credentials"] = "true"
+                        response.headers["Access-Control-Allow-Methods"] = "*"
+                        response.headers["Access-Control-Allow-Headers"] = "*"
+                        return response
+                finally:
+                    db.close()
+        except Exception:
+            pass
+    return await call_next(request)
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])

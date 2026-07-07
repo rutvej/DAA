@@ -160,8 +160,12 @@ class ExecutionLogCallbackHandler(BaseCallbackHandler):
         import requests
         backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
         url = f"{backend_url}/fixes/{self.log_id}/append-log"
+        headers = {}
+        daa_token = os.environ.get("DAA_TOKEN")
+        if daa_token:
+            headers["Authorization"] = f"Bearer {daa_token}"
         try:
-            requests.post(url, json={"log_line": line}, timeout=3.0)
+            requests.post(url, json={"log_line": line}, headers=headers, timeout=3.0)
         except Exception:
             pass
 

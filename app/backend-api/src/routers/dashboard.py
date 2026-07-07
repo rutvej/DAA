@@ -1,16 +1,19 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
 from ..database import get_db, Log, Fix, Incident, Alert
+from .auth import get_current_user
 
 router = APIRouter()
 
 
 @router.get("/dashboard")
-def get_dashboard(db: Session = Depends(get_db)):
+def get_dashboard(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     """Returns real-time aggregate stats for the DAA Admin Panel dashboard."""
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
 
     # Active incidents (investigating or pr_open)
     active_incidents = db.query(func.count(Incident.id)).filter(

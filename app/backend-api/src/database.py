@@ -85,6 +85,8 @@ class Application(Base):
     repository_url = Column(String, nullable=True)
     spec_file_path = Column(String, nullable=True)
     team_owner = Column(String, nullable=True)
+    allowed_ip = Column(String, nullable=True)
+    token = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     escalation_policies = relationship("EscalationPolicy", back_populates="application")
@@ -127,5 +129,22 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def run_db_migrations(engine):
+    from sqlalchemy import text, inspect
+    with engine.begin() as conn:
+        try:
+            inspector = inspect(engine)
+            if 'applications' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('applications')]
+                if 'allowed_ip' not in columns:
+                    print("Adding column 'allowed_ip' to applications table...")
+                    conn.execute(text("ALTER TABLE applications ADD COLUMN allowed_ip VARCHAR(255) NULL"))
+                if 'token' not in columns:
+                    print("Adding column 'token' to applications table...")
+                    conn.execute(text("ALTER TABLE applications ADD COLUMN token TEXT NULL"))
+        except Exception as e:
+            print(f"Error checking/running database migrations: {e}")
 
 

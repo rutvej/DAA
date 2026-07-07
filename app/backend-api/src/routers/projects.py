@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..database import ProjectConnection as DBProjectConnection
 from ..database import get_db
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -29,7 +30,14 @@ class ProjectConnectionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 @router.post("/", response_model=ProjectConnectionResponse)
-def create_or_update_project(project: ProjectConnectionCreate, db: Session = Depends(get_db)):
+def create_or_update_project(
+    project: ProjectConnectionCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     db_project = db.query(DBProjectConnection).filter(DBProjectConnection.app_name == project.app_name).first()
     if db_project:
         db_project.repo_provider = project.repo_provider
@@ -54,12 +62,25 @@ def create_or_update_project(project: ProjectConnectionCreate, db: Session = Dep
     return db_project
 
 @router.get("/{app_name}", response_model=ProjectConnectionResponse)
-def get_project(app_name: str, db: Session = Depends(get_db)):
+def get_project(
+    app_name: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     project = db.query(DBProjectConnection).filter(DBProjectConnection.app_name == app_name).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project connection not found")
     return project
 
 @router.get("/", response_model=List[ProjectConnectionResponse])
-def list_projects(db: Session = Depends(get_db)):
+def list_projects(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
+        
     return db.query(DBProjectConnection).all()

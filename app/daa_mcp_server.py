@@ -88,8 +88,12 @@ def approve_remediation_fix(fix_id):
     # including PR/MR creation on GitHub/GitLab
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://localhost:8000")
     approve_url = f"{backend_url}/fixes/{fix_id}/approve"
+    headers = {}
+    daa_token = os.environ.get("DAA_TOKEN")
+    if daa_token:
+        headers["Authorization"] = f"Bearer {daa_token}"
     try:
-        res = requests.post(approve_url, timeout=15)
+        res = requests.post(approve_url, headers=headers, timeout=15)
         if res.status_code == 200:
             return res.json()
         return {"error": f"Backend returned error {res.status_code}: {res.text}"}

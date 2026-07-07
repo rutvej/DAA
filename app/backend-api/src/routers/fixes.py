@@ -14,6 +14,7 @@ from ..database import Log as DBLog
 from ..database import Incident as DBIncident
 from ..database import ProjectConnection as DBProjectConnection
 from ..database import get_db
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -33,14 +34,18 @@ class AnalysisReport(BaseModel):
     postmortem: str = None
 
 @router.get("/{id}", response_model=FixResponse)
-def get_fix(id: str, db: Session = Depends(get_db)):
+def get_fix(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     fix = db.query(DBFix).filter(DBFix.id == id).first()
     if fix is None:
         raise HTTPException(status_code=404, detail="Fix not found")
     return fix
 
 @router.get("/by-log/{log_id}", response_model=FixResponse)
-def get_fix_by_log(log_id: str, db: Session = Depends(get_db)):
+def get_fix_by_log(log_id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     fix = db.query(DBFix).filter(DBFix.logId == log_id).first()
     if fix is None:
         raise HTTPException(status_code=404, detail="Fix not found")
@@ -128,7 +133,9 @@ def create_pr_on_provider(app_name: str, branch_name: str, title: str, descripti
             raise Exception(f"Exception creating GitLab MR: {e}")
 
 @router.post("/{id}/approve")
-def approve_fix(id: str, db: Session = Depends(get_db)):
+def approve_fix(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     fix = db.query(DBFix).filter(DBFix.id == id).first()
     if fix is None:
         raise HTTPException(status_code=404, detail="Fix not found")
@@ -176,7 +183,9 @@ def approve_fix(id: str, db: Session = Depends(get_db)):
     return {"status": "success", "pull_request_url": pr_url}
 
 @router.post("")
-def post_analysis(report: AnalysisReport, db: Session = Depends(get_db)):
+def post_analysis(report: AnalysisReport, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     logging.info(f"Received analysis report: {report}")
     log = db.query(DBLog).filter(DBLog.id == report.log_id).first()
     if log is None:
@@ -212,6 +221,27 @@ def post_analysis(report: AnalysisReport, db: Session = Depends(get_db)):
             fix.postmortem = report.postmortem
         if branch_name is not None:
             fix.generatedFix = branch_name
+
+    # Propagate findings to the active Incident record if it exists
+    incident = db.query(DBIncident).filter(
+        DBIncident.app_name == log.app_name,
+        DBIncident.status == "investigating"
+    ).first()
+    if incident:
+        if status == "awaiting_approval":
+            incident.status = "fix_proposed"
+        elif pr_url and ("ticket" in pr_url or "issue" in pr_url or pr_url.startswith("https://example.com/ticket")):
+            incident.status = "ticket_created"
+            incident.ticket_url = pr_url
+        elif pr_url and pr_url.startswith("http"):
+            incident.status = "pr_open"
+            incident.pr_url = pr_url
+        else:
+            incident.status = "resolved" if status == "completed" else status
+            
+        if report.postmortem:
+            incident.postmortem_md = report.postmortem
+            incident.root_cause_summary = report.postmortem[:500]
             
     db.commit()
     return {"status": "success"}
@@ -220,7 +250,9 @@ class AppendLogRequest(BaseModel):
     log_line: str
 
 @router.post("/{log_id}/append-log")
-def append_log(log_id: str, payload: AppendLogRequest, db: Session = Depends(get_db)):
+def append_log(log_id: str, payload: AppendLogRequest, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     fix = db.query(DBFix).filter(DBFix.logId == log_id).first()
     if fix is None:
         fix = DBFix(

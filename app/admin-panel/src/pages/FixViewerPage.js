@@ -178,7 +178,7 @@ const FixViewerPage = () => {
             
             <p className="detail-label" style={{ marginTop: '24px' }}>Target Branch / Proposed Changes</p>
             <pre className="code-block" style={{ marginTop: '8px' }}>
-              {fix.status === 'awaiting_approval' ? `Branch: remediation/fix-${fix.id[:8]}\n\nProposed Fix Content:\n` : ''}
+              {fix.status === 'awaiting_approval' ? `Branch: remediation/fix-${fix.id.slice(0, 8)}\n\nProposed Fix Content:\n` : ''}
               {fix.generatedFix || 'Fix applied directly or detailed in the postmortem report below.'}
             </pre>
           </div>

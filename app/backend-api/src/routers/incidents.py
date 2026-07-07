@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from ..database import get_db, Incident as DBIncident
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -34,8 +35,11 @@ class IncidentUpdate(BaseModel):
 def list_incidents(
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None),
-    app_name: Optional[str] = Query(None)
+    app_name: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
 ):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
     query = db.query(DBIncident)
     if status:
         query = query.filter(DBIncident.status == status)
@@ -62,7 +66,9 @@ def list_incidents(
     return res
 
 @router.get("/{id}", response_model=IncidentResponse)
-def get_incident(id: str, db: Session = Depends(get_db)):
+def get_incident(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -83,7 +89,9 @@ def get_incident(id: str, db: Session = Depends(get_db)):
     )
 
 @router.patch("/{id}", response_model=IncidentResponse)
-def update_incident(id: str, update: IncidentUpdate, db: Session = Depends(get_db)):
+def update_incident(id: str, update: IncidentUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")

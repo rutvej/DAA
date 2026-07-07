@@ -20,7 +20,7 @@ export default function ApplicationsPage() {
   const token = localStorage.getItem('token');
 
   const [form, setForm] = useState({
-    name: '', description: '', language: 'python', repository_url: '',
+    name: '', description: '', language: 'python', repository_url: '', allowed_ip: '',
     threshold: '3', window_seconds: '60', cooldown_minutes: '30',
     severity_keywords: 'FATAL,OOMKill,DatabaseDeadlock',
   });
@@ -52,6 +52,7 @@ export default function ApplicationsPage() {
           description: form.description.trim(),
           language: form.language,
           repository_url: form.repository_url.trim(),
+          allowed_ip: form.allowed_ip.trim() || null,
         }),
       });
       if (!appRes.ok) {
@@ -75,7 +76,7 @@ export default function ApplicationsPage() {
 
       setSuccess(`✅ Registered "${form.name}" with escalation policy.`);
       setShowForm(false);
-      setForm({ name: '', description: '', language: 'python', repository_url: '', threshold: '3', window_seconds: '60', cooldown_minutes: '30', severity_keywords: 'FATAL,OOMKill,DatabaseDeadlock' });
+      setForm({ name: '', description: '', language: 'python', repository_url: '', allowed_ip: '', threshold: '3', window_seconds: '60', cooldown_minutes: '30', severity_keywords: 'FATAL,OOMKill,DatabaseDeadlock' });
       fetchApps();
     } catch (ex) {
       setError(ex.message);
@@ -130,6 +131,10 @@ export default function ApplicationsPage() {
             <div style={{ gridColumn: '1/-1' }}>
               <label style={labelStyle}>Description</label>
               <input name="description" value={form.description} onChange={handleChange} placeholder="Handles e-commerce checkout and payments" style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1/-1' }}>
+              <label style={labelStyle}>Allowed Application IP (CORS & telemetry access restriction)</label>
+              <input name="allowed_ip" value={form.allowed_ip} onChange={handleChange} placeholder="e.g. 192.168.1.41 (Leave blank to allow any IP)" style={inputStyle} />
             </div>
           </div>
 
@@ -199,9 +204,19 @@ export default function ApplicationsPage() {
               <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{app.name}</div>
               <div style={{ fontSize: 13, color: '#6b7280' }}>
                 {app.language && <span style={{ marginRight: 16 }}>🔤 {app.language}</span>}
-                {app.repository_url && <span>📁 {app.repository_url}</span>}
+                {app.repository_url && <span style={{ marginRight: 16 }}>📁 {app.repository_url}</span>}
+                {app.allowed_ip && <span style={{ color: '#b91c1c', fontWeight: 600 }}>🔒 IP Restriction: {app.allowed_ip}</span>}
+                {!app.allowed_ip && <span style={{ color: '#6b7280' }}>🔓 IP Restriction: None (Any IP)</span>}
               </div>
               {app.description && <div style={{ fontSize: 13, color: '#9ca3af', marginTop: 4 }}>{app.description}</div>}
+              {app.token && (
+                <div style={{ fontSize: 12, color: '#16a34a', marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontWeight: 600 }}>🔑 SDK Token:</span>
+                  <input readOnly value={app.token} onClick={e => e.target.select()} style={{
+                    fontSize: 11, padding: '2px 6px', border: '1px solid #e5e7eb', borderRadius: 4, width: 350, background: '#f9fafb', fontFamily: 'monospace'
+                  }} />
+                </div>
+              )}
             </div>
             <div style={{ textAlign: 'right', fontSize: 13, color: '#6b7280' }}>
               <div style={{

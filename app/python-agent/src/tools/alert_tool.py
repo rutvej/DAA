@@ -18,9 +18,13 @@ def check_alerts(app_name: str) -> str:
         A list of active alerts formatted as text, or a message indicating no alerts.
     """
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
+    daa_token = os.environ.get("DAA_TOKEN", "")
     url = f"{backend_url}/alerts/"
+    headers = {}
+    if daa_token:
+        headers["Authorization"] = f"Bearer {daa_token}"
     try:
-        response = requests.get(url, params={"app_name": app_name.strip(), "active_only": True}, timeout=10)
+        response = requests.get(url, params={"app_name": app_name.strip(), "active_only": True}, headers=headers, timeout=10)
         response.raise_for_status()
         alerts = response.json()
         if not alerts:

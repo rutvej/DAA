@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import Alert as DBAlert
 from ..database import get_db
+from .auth import get_current_user
 
 router = APIRouter()
 
@@ -27,7 +28,9 @@ class AlertResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 @router.post("/", response_model=AlertResponse, status_code=status.HTTP_201_CREATED)
-def create_alert(alert: AlertCreate, db: Session = Depends(get_db)):
+def create_alert(alert: AlertCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     db_alert = DBAlert(
         app_name=alert.app_name,
         summary=alert.summary,
@@ -41,7 +44,9 @@ def create_alert(alert: AlertCreate, db: Session = Depends(get_db)):
     return db_alert
 
 @router.get("/", response_model=List[AlertResponse])
-def get_alerts(app_name: Optional[str] = None, active_only: bool = True, db: Session = Depends(get_db)):
+def get_alerts(app_name: Optional[str] = None, active_only: bool = True, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     query = db.query(DBAlert)
     if app_name:
         query = query.filter(DBAlert.app_name == app_name)

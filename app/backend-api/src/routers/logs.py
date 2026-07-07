@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..database import Log as DBLog, Fix as DBFix, Incident, Application, EscalationPolicy
 from ..database import get_db
-from .auth import ALGORITHM, SECRET_KEY
+from .auth import ALGORITHM, SECRET_KEY, get_current_user
 
 router = APIRouter()
 
@@ -39,28 +39,24 @@ class LogDetailsResponse(LogResponse):
     content: str
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
-        username: str = payload.get("sub")
-        user_id: str = payload.get("id")
-        if username is None or user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-        return {"username": username, "id": user_id}
-    except jwt.PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
 def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     if not log.content or not isinstance(log.content, str):
         raise HTTPException(status_code=400, detail="Invalid log content")
     
+    if current_user.get("role") == "application":
+        if current_user["username"] != log.app_name:
+            raise HTTPException(
+                status_code=403,
+                detail=f"This token is only authorized to submit logs for application '{current_user['username']}'"
+            )
+            
+    user_id = None if current_user.get("role") == "application" else current_user["id"]
+    
     # 1. Save incoming log to DB
     db_log = DBLog(
         content=log.content,
-        userId=current_user["id"],
+        userId=user_id,
         app_name=log.app_name,
         exception_type=log.exception_type,
         trace_id=log.trace_id,
@@ -182,6 +178,8 @@ def get_logs(
     status: str = Query(None),
     current_user: dict = Depends(get_current_user)
 ):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to view logs")
     query = db.query(DBLog)
     if status:
         query = query.filter(DBLog.status == status)
@@ -200,6 +198,8 @@ def get_log(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
+    if current_user.get("role") == "application":
+        raise HTTPException(status_code=403, detail="Applications are not authorized to view logs")
     log = db.query(DBLog).filter(DBLog.id == id).first()
     if log is None:
         raise HTTPException(status_code=404, detail="Log not found")
