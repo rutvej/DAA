@@ -6,6 +6,8 @@ from pydantic.v1 import BaseModel, Field
 class CheckAlertsInput(BaseModel):
     app_name: str = Field(description="The name of the application to check alerts for.")
 
+from .auth_helper import handle_request_with_retry
+
 @tool(args_schema=CheckAlertsInput)
 def check_alerts(app_name: str) -> str:
     """Checks the database/API for any active alerts for the given application.
@@ -18,13 +20,9 @@ def check_alerts(app_name: str) -> str:
         A list of active alerts formatted as text, or a message indicating no alerts.
     """
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
-    daa_token = os.environ.get("DAA_TOKEN", "")
     url = f"{backend_url}/alerts/"
-    headers = {}
-    if daa_token:
-        headers["Authorization"] = f"Bearer {daa_token}"
     try:
-        response = requests.get(url, params={"app_name": app_name.strip(), "active_only": True}, headers=headers, timeout=10)
+        response = handle_request_with_retry("GET", url, params={"app_name": app_name.strip(), "active_only": True}, timeout=10)
         response.raise_for_status()
         alerts = response.json()
         if not alerts:

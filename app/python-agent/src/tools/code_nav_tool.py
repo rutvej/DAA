@@ -61,7 +61,7 @@ def grep_search(data: str) -> str:
     """Searches for a string or regex pattern across files in a directory, returning filenames and matching line numbers. Capped at 50 matches."""
     try:
         input_data = json.loads(data)
-        query = input_data.get("query")
+        query = input_data.get("query") or input_data.get("pattern")
         if not query:
             return "Error: 'query' is required."
         search_path = input_data.get("search_path", ".")
@@ -121,7 +121,7 @@ def find_symbol(data: str) -> str:
     """Locates the definition of a class, function, method, or struct across the codebase using AST and regex analysis."""
     try:
         input_data = json.loads(data)
-        symbol = input_data.get("symbol_name")
+        symbol = input_data.get("symbol_name") or input_data.get("symbol")
         if not symbol:
             return "Error: 'symbol_name' is required."
         search_path = input_data.get("search_path", ".")

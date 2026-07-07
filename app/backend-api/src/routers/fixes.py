@@ -110,6 +110,7 @@ def create_pr_on_provider(app_name: str, branch_name: str, title: str, descripti
         project_id = urllib.parse.quote_plus(project_path)
         
         mr_url = f"{scheme}://{gl_host}/api/v4/projects/{project_id}/merge_requests"
+        print(f"[create_pr_on_provider] app_name={app_name}, gl_host={gl_host}, scheme={scheme}, repo_url={proj.repo_url if proj else None}, mr_url={mr_url}", flush=True)
         headers = {
             "PRIVATE-TOKEN": token
         }

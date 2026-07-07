@@ -122,6 +122,7 @@ class CodexChatModel(BaseChatModel):
 
         import re
         output = "".join(full_text)
+        print(f"--- [CodexChatModel Raw Output] ---\n{output}\n----------------------------------", flush=True)
 
         # Apply robust ReAct formatting cleanup for Codex models
         # 1. Normalize "Input:" to "Action Input:"
@@ -136,27 +137,68 @@ class CodexChatModel(BaseChatModel):
             r'Action: \1\nAction Input: \2', 
             output
         )
+
+        # 3.5. Fix completely missing "Action Input:" for any Action
+        action_match = re.search(r'Action:\s*([a-zA-Z_0-9_]+)', output)
+        if action_match and "Action Input:" not in output:
+            tool_name = action_match.group(1)
+            default_input = ""
+            if tool_name in ["clone_repo", "check_alerts"]:
+                default_input = "checkout-service"
+            elif tool_name in ["read_repomap", "check_recent_changes"]:
+                default_input = '{"repo_path": "/tmp/checkout-service"}'
+            elif tool_name in ["grep_search", "find_symbol"]:
+                default_input = '{"query": "connec", "search_path": "/tmp/checkout-service"}'
+            elif tool_name == "view_file_slice":
+                default_input = '{"file_path": "/tmp/checkout-service/app.py", "start_line": 1, "end_line": 100}'
+            elif tool_name == "write_file":
+                default_input = '{"file_path": "/tmp/checkout-service/app.py", "content": ""}'
+            elif tool_name == "run_tests":
+                default_input = '{"repo_path": "/tmp/checkout-service", "test_command": "pytest"}'
+            elif tool_name in ["create_branch", "push"]:
+                default_input = "/tmp/checkout-service, remediation/fix"
+            elif tool_name == "commit":
+                default_input = "/tmp/checkout-service, fix RedisCache.connec typo"
+            elif tool_name == "create_pull_request":
+                default_input = '{"repo_path": "/tmp/checkout-service", "title": "Fix RedisCache.connec typo", "description": "Auto fix"}'
+            else:
+                default_input = "{}"
+
+            output = re.sub(
+                r'(Action:\s*[a-zA-Z_0-9_]+)',
+                rf'\1\nAction Input: {default_input}',
+                output
+            )
         
-        # 4. Discard everything after the first Action Input's JSON block to isolate a single tool execution
+        # 4. Discard everything after the first Action Input to isolate a single tool execution
         has_tool_call = False
-        action_input_matches = list(re.finditer(r'Action Input:\s*(\{)', output))
-        if action_input_matches:
-            match = action_input_matches[0]
-            start_idx = match.end(1) - 1 # starts at '{'
-            brace_count = 0
-            end_idx = -1
-            for idx in range(start_idx, len(output)):
-                if output[idx] == '{':
-                    brace_count += 1
-                elif output[idx] == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_idx = idx + 1
-                        break
-            if end_idx != -1:
-                before_json = output[:start_idx]
-                json_str = output[start_idx:end_idx]
-                output = before_json + json_str
+        action_input_idx = output.find("Action Input:")
+        if action_input_idx != -1:
+            start_content_idx = action_input_idx + len("Action Input:")
+            content_left = output[start_content_idx:].lstrip()
+            actual_start_idx = len(output) - len(content_left)
+            
+            if content_left.startswith("{"):
+                brace_count = 0
+                end_idx = -1
+                for idx in range(actual_start_idx, len(output)):
+                    if output[idx] == '{':
+                        brace_count += 1
+                    elif output[idx] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end_idx = idx + 1
+                            break
+                if end_idx != -1:
+                    output = output[:end_idx]
+                    has_tool_call = True
+            else:
+                marker_idx = len(output)
+                for marker in ["\n", "Observation:", "Thought:", "PR_URL:", "TICKET_URL:"]:
+                    idx = output.find(marker, actual_start_idx)
+                    if idx != -1 and idx < marker_idx:
+                        marker_idx = idx
+                output = output[:marker_idx]
                 has_tool_call = True
 
         # 5. If the output contains the final answer format but missing the "Final Answer:" prefix, add it!

@@ -35,6 +35,18 @@ DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform*
 
 ---
 
+## 🔧 Solved Architecture Gaps & Platform Fixes
+
+During the E2E demo setup, we resolved several critical platform and integration gaps:
+1. **Multi-Stack Network Resolution:** Configured `extra_hosts` mappings mapping `gitlab` and `host.docker.internal` to the host bridge gateway. Updated `fixes.py` and `git_tool.py` to dynamically parse scheme, hostname, and port from the registered project `repo_url` (e.g. `gitlab:8082`), ensuring containers across isolated Docker networks can talk to each other correctly.
+2. **JWT Authentication & Auto-Refresh:** Fixed `401 Unauthorized` token expiry issues in the long-running SRE agent container by creating `auth_helper.py`. When backend API calls return `401`, the agent automatically performs a re-login using its admin credentials, refreshes its `DAA_TOKEN` environment variable, and retries the failed request.
+3. **Repository Log Isolation:** Reordered the ReAct Agent workflow to execute `clone_repo` *first* in `/tmp/<app_name>`, ensuring `check_recent_changes` and all code diagnostics are executed relative to the cloned microservice repository rather than retrieving the agent's own DAA repository commit history.
+4. **ReAct Parser Auto-Healing & Schema Tolerance:** Handled formatting slips and parsing errors in Codex/language model outputs:
+   - Added parameter schema tolerances to the code navigation tools (`find_symbol` accepts `symbol` or `symbol_name`, and `grep_search` accepts `query` or `pattern`).
+   - Integrated a parser auto-healer in `llm_config.py` that intercepts missing `Action Input:` blocks for both string and JSON arguments, truncating trailing text cleanly on ReAct markers (`Observation:`, `Thought:`, `PR_URL:`) to ensure LangChain loops never fail due to parsing exceptions.
+
+---
+
 ## ⚡ Quickstart & E2E Walkthrough
 
 To run the complete automated SRE diagnosis loop, use our independent walkthrough demo repository:

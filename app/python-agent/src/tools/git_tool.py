@@ -7,11 +7,13 @@ from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 
 
+from .auth_helper import handle_request_with_retry
+
 def get_project_connection(app_name: str) -> dict:
     """Fetches the project connection configuration from the backend API."""
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
     try:
-        response = requests.get(f"{backend_url}/projects/{app_name}", timeout=10)
+        response = handle_request_with_retry("GET", f"{backend_url}/projects/{app_name}", timeout=10)
         if response.status_code == 200:
             return response.json()
     except Exception as e:
@@ -231,8 +233,15 @@ def create_pull_request(data: str) -> str:
 
     else:
         # GitLab Integration
-        gl_host = os.getenv('GITLAB_HOST', 'gitlab')
-        gl = gitlab.Gitlab(f"http://{gl_host}", private_token=token)
+        repo_url = proj.get("repo_url")
+        if repo_url:
+            parsed_url = urlparse(repo_url)
+            gl_url = f"{parsed_url.scheme or 'http'}://{parsed_url.netloc}"
+        else:
+            gl_host = os.getenv('GITLAB_HOST', 'gitlab')
+            gl_url = f"http://{gl_host}"
+
+        gl = gitlab.Gitlab(gl_url, private_token=token)
         project = gl.projects.get(f"{os.getenv('GITLAB_USER','root')}/{project_name}")
         
         # Check if a merge request already exists

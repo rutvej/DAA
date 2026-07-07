@@ -250,28 +250,36 @@ def process_job(job: Job):
     {tools}
     
     Tool usage rules:
+    - `clone_repo` takes a single string: the name of the app (e.g., "checkout-service").
+    - `check_alerts` takes a single string: the name of the app (e.g., "checkout-service").
     - `create_branch`, `commit`, and `push` each take a single comma-separated string: "repo_path, value".
+    - `read_file` takes a single string: the file path.
     - `write_file` takes a JSON string in the `data` field with `file_path` and `content`.
     - `create_pull_request` takes a JSON string in the `data` field with `repo_path`, `title`, and `description`.
     - `get_instructions` takes a JSON string in the `data` field with `error_log` and `codebase`.
-    - `run_tests` takes a JSON string in the `data` field with `repo_path` and `test_command` (e.g. 'pytest').
-    - `check_alerts` takes a JSON string in the `data` field with `app_name`.
+    - `run_tests` takes a JSON string in the `data` field with `repo_path` and `test_command`.
     - `view_file_slice`, `grep_search`, `find_symbol`, `read_repomap`, `query_correlated_logs`, `check_recent_changes`, and `create_incident_ticket` each take a JSON string in the `data` field as defined in their schema.
     - **MCP Tool Preference:** If MCP tools (prefixed with `mcp_`) are available for Git/GitHub/GitLab (e.g., creating PRs/MRs, committing, pushing, branching, cloning) or Jira Cloud (e.g., creating incident tickets/issues), you MUST choose and use those MCP tools instead of the corresponding direct local API tools (`create_pull_request`, `create_incident_ticket`, `clone_repo`, `create_branch`, `commit`, `push`).
 
     Your 4-Dimension Investigation Workflow MUST be sequential:
-    1. **Dimension 1 (Change Horizon):** Run `check_recent_changes` to check if recent git commits or deployments in the last 24 hours caused this outage.
-    2. **Dimension 2 (Infrastructure Alerts):** Run `check_alerts` to see if there are active cloud/infrastructure failures (OOM, Redis timeout, database lock).
-    3. **Dimension 3 (Correlated Multi-Service Traces):** Run `query_correlated_logs` using the error's OpenTelemetry trace_id (or time window) to check what other microservices failed around the same timestamp.
-    4. **Dimension 4 (Surgical Code Navigation):** 
-       - NEVER read entire repositories or full files!
-       - Run `read_repomap` to get the architectural skeleton of the repo.
-       - Use `find_symbol` or `grep_search` to locate the exact class or function mentioned in the stack trace.
-       - Use `view_file_slice` to inspect ONLY the relevant 50-100 lines around the bug.
-    5. **Remediation & Circuit Breaker Gate:**
-       - Clone repo using `clone_repo` and run baseline tests using `run_tests`.
+    1. **Initialization:** Run `clone_repo` to clone the target service's repository (e.g., checkout-service).
+    2. **Dimension 1 (Change Horizon):** Run `check_recent_changes` with `repo_path` set to `/tmp/<app_name>` to check recent git commits in the last 24 hours.
+    3. **Dimension 2 (Infrastructure Alerts):** Run `check_alerts` to see if there are active cloud/infrastructure failures (OOM, Redis timeout, database lock).
+    4. **Dimension 3 (Correlated Multi-Service Traces):** Run `query_correlated_logs` using the error's OpenTelemetry trace_id (or time window) to check what other microservices failed around the same timestamp.
+    5. **Dimension 4 (Surgical Code Navigation):** 
+       - ALWAYS use the cloned repository path (e.g., `/tmp/<app_name>`) as the search/repository path!
+       - Run `read_repomap` with `repo_path` set to `/tmp/<app_name>` to get the skeleton of the repository.
+       - Use `find_symbol` or `grep_search` with `search_path` set to `/tmp/<app_name>` to locate the exact class or function.
+       - Use `read_file` or `view_file_slice` on files inside `/tmp/<app_name>` to inspect the code around the bug.
+    6. **Remediation & Circuit Breaker Gate:**
+       - Run baseline tests using `run_tests` with `repo_path` set to `/tmp/<app_name>`.
        - If you have >= 85% confidence and it is a simple bug, use `write_file` to fix it, run `run_tests` to verify, push branch, and call `create_pull_request`.
        - **CIRCUIT BREAKER RULE:** If `run_tests` fails twice trying to fix the code, OR if the issue involves stateful deadlocks, race conditions, or missing features (`NotImplementedError`), DO NOT make further code edits! Immediately call `create_incident_ticket` to open a Jira/GitHub Ticket and generate a Postmortem Report!
+
+    **CRITICAL ANTI-LAZINESS RULE:**
+    - DO NOT generate a "Final Answer" or Postmortem Report until you have completed the sequential workflow steps: cloning the repo, checking recent changes, checking alerts, query correlated logs, navigating the code, and running tests.
+    - YOU MUST clone the repository using `clone_repo` and locate the bug using `grep_search` / `view_file_slice` / `find_symbol` before attempting to resolve the issue!
+    - ONLY output the "Final Answer" with a PR_URL or TICKET_URL after you have actually created a PR (using `create_pull_request`) or a Ticket (using `create_incident_ticket`)!
 
     Use the following format for your reasoning:
     Question: the input question you must answer
