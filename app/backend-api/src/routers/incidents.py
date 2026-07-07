@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from ..database import get_db, Incident as DBIncident
-from datetime import datetime
 
 router = APIRouter()
 

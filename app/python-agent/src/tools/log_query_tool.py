@@ -1,7 +1,6 @@
 import os
 import json
 from datetime import datetime, timedelta
-from typing import List, Optional
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 from sqlalchemy import create_engine, Column, String, DateTime, Text
@@ -65,10 +64,10 @@ def query_correlated_logs(data: str) -> str:
                 return "No correlated logs found matching the specified trace_id or time window."
 
             output = [f"=== Correlated Logs ({len(logs)} entries) ==="]
-            for l in logs:
-                ts = l.timestamp.isoformat() if l.timestamp else "N/A"
-                tid = f" [TraceID: {l.trace_id}]" if l.trace_id else ""
-                output.append(f"[{ts}] ({l.app_name}){tid}: {l.content}")
+            for log_entry in logs:
+                ts = log_entry.timestamp.isoformat() if log_entry.timestamp else "N/A"
+                tid = f" [TraceID: {log_entry.trace_id}]" if log_entry.trace_id else ""
+                output.append(f"[{ts}] ({log_entry.app_name}){tid}: {log_entry.content}")
 
             return "\n".join(output)
         finally:

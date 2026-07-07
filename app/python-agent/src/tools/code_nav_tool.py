@@ -2,7 +2,6 @@ import os
 import json
 import ast
 import re
-from typing import List
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 from .file_system_tool import get_full_path

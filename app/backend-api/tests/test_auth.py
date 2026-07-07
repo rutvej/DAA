@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 from src.main import app
-from src.database import get_db, User
+from src.database import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

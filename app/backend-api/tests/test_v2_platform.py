@@ -4,7 +4,7 @@ from src.database import get_db
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from unittest.mock import patch
-import uuid
+from src.routers.logs import get_current_user
 
 DATABASE_URL = "sqlite:///./test.db"
 
@@ -22,7 +22,6 @@ def override_get_current_user():
     return {"username": "testuser", "id": "test-user-id"}
 
 app.dependency_overrides[get_db] = override_get_db
-from src.routers.logs import get_current_user
 app.dependency_overrides[get_current_user] = override_get_current_user
 
 client = TestClient(app)

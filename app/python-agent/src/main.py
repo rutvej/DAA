@@ -206,8 +206,8 @@ def main():
             process_job(job)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             print(f" [x] Done processing job {job.id}")
-        except Exception as e:
-            logging.error(f" [!] Error processing job", exc_info=True)
+        except Exception:
+            logging.error(" [!] Error processing job", exc_info=True)
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
 
     channel.basic_qos(prefetch_count=1)
@@ -237,7 +237,6 @@ def process_job(job: Job):
     except Exception as e:
         print(f"Error loading external MCP tools: {e}")
     
-    logger = logging.getLogger(__name__)
     llm = get_llm()
     
     prompt_template = """

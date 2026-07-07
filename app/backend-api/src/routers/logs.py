@@ -94,7 +94,7 @@ def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict
     # 4. Check Escalation Threshold Policy (Sliding Window)
     policy = db.query(EscalationPolicy).join(Application).filter(
         Application.name == log.app_name,
-        EscalationPolicy.is_active == True
+        EscalationPolicy.is_active.is_(True)
     ).first()
 
     threshold = policy.condition_value if policy and policy.condition_value else 15

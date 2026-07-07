@@ -1,6 +1,6 @@
 import unittest
 import uuid
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from src.main import process_job
 from src.models import Job, ErrorLog
 

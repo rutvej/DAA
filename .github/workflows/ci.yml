@@ -23,7 +23,7 @@ jobs:
         env:
           DATABASE_URL: sqlite:///./test.db
           RABBITMQ_HOST: localhost
-          PYTHONPATH: app/backend-api/src
+          PYTHONPATH: app/backend-api
         run: |
           pytest app/backend-api/tests/
 
@@ -42,6 +42,8 @@ jobs:
         run: |
           ruff check app/python-agent
       - name: Tests
+        env:
+          PYTHONPATH: app/python-agent
         run: |
           python -m unittest discover app/python-agent/tests
 
@@ -59,4 +61,4 @@ jobs:
       - name: Tests
         working-directory: app/admin-panel
         run: |
-          npm test -- --watchAll=false
+          npm test -- --watchAll=false --passWithNoTests

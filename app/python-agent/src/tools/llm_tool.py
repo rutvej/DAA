@@ -1,6 +1,5 @@
 import json
 import logging
-import os
 
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
