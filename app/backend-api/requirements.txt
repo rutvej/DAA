@@ -9,3 +9,4 @@ bcrypt==3.2.2
 pytest
 httpx
 PyJWT
+requests
