@@ -4,16 +4,14 @@ import hashlib
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-import jwt
 import pika
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..database import Log as DBLog, Fix as DBFix, Incident, Application, EscalationPolicy
 from ..database import get_db
-from .auth import ALGORITHM, SECRET_KEY, get_current_user
+from .auth import get_current_user
 
 router = APIRouter()
 

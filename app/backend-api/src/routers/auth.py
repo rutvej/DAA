@@ -2,12 +2,13 @@ import os
 import time
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import User, get_db
+from ..database import User, get_db, Application
 
 router = APIRouter()
 
@@ -49,15 +50,11 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     return {"token": encoded_jwt}
 
 
-from fastapi.security import OAuth2PasswordBearer
-from fastapi import Request
-from ..database import Application
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"verify_exp": False})
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         role = payload.get("role")
         if role == "application":
             app_name = payload.get("sub")

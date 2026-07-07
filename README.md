@@ -31,37 +31,34 @@ DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform*
 * `app/python-agent`: ReAct SRE agent powered by LangChain that executes 4-dimension investigations and code remediation.
 * `app/admin-panel`: React admin dashboard providing live SRE telemetry, incident status trackers, and app configuration management.
 * `app/daa-sdk`: Multi-language SRE telemetry SDKs (Go, Node.js, Python, Java, Ruby, .NET).
-* `examples/`: Mock checkout and payment services to run local simulations.
-* `scripts/simulate_outage.py`: Standalone demo simulation script.
+* `docs/DEMO_SPEC.md`: Complete End-to-End Walkthrough design and security specifications.
 
 ---
 
-## ⚡ Quickstart & Setup Guide
+## ⚡ Quickstart & E2E Walkthrough
 
-### 📦 1-Line Installer (Linux / macOS / WSL)
-To download, install, and configure DAA in one command, run:
-```bash
-curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash
-```
+To run the complete automated SRE diagnosis loop, use our independent walkthrough demo repository:
 
-For detailed manual guides on setting up local testing infrastructure, configuring LLM providers (Gemini, Vertex, Claude, OpenAI, Ollama, Codex, agy), and running automated multi-service tests, please refer to:
+👉 **[daa_e2e_demo Git Repository](https://github.com/rutvej/daa_e2e_demo.git)**
 
-👉 **[SETUP.md](SETUP.md)**
-
-### Brief Quickstart (Manual Setup)
-
-1. **Start Local Infrastructure:**
+### Run E2E Walkthrough:
+1. Navigate to the demo repository directory:
    ```bash
-   docker-compose up -d
+   cd /home/rutvej/Desktop/daa-e2e-demo
    ```
-2. **Initialize Local Microservices:**
+2. Clean up any previous runs and databases:
    ```bash
-   python3 setup_microservices.py
+   docker-compose down -v
+   docker exec daa-postgres-1 bash -c "psql -U \$POSTGRES_USER \$POSTGRES_DB -c 'TRUNCATE users, applications, logs, alerts, incidents, fixes, project_connections, escalation_policies RESTART IDENTITY CASCADE;'"
    ```
-3. **Run Microservices Locally:**
-   Refer to [SETUP.md](SETUP.md#3-multi-service-microservice-setup) to start the `checkout-service` and `payment-service` instances locally.
-4. **Trigger Outages:**
-   Refer to [SETUP.md](SETUP.md#4-triggering-outage-scenarios) to execute Curl triggers.
+3. Execute the walkthrough orchestrator script:
+   ```bash
+   python3 run_demo.py
+   ```
+   This will spin up a local GitLab, register apps and escalation policies, trigger the checkout `AttributeError` outage, run the ReAct agent, apply the code hotfix, run verification tests, and open the Merge Request!
+
+For a full breakdown of the security design, JWT token model, and architecture specs, refer to:
+👉 **[docs/DEMO_SPEC.md](docs/DEMO_SPEC.md)**
 
 ---
 

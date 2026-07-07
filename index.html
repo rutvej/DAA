@@ -1442,43 +1442,32 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
         <pre><code>curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash</code></pre>
       </div>
 
-      <h3>Manual End-to-End Setup Steps</h3>
-      <p>If you prefer setting up the components manually, execute the following commands in order:</p>
+      <h3>Running the E2E Walkthrough Demo</h3>
+      <p>DAA has an independent end-to-end sandbox walkthrough repository. Follow these steps to execute the automated resolution loop:</p>
       
       <ol>
         <li>
-          <strong>Prepare Environment Configurations:</strong> Create your local env parameters file.
+          <strong>Navigate to the Demo Walkthrough folder:</strong>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cp .env.example .env</code></pre>
-          </div>
-          <p style="font-size: 0.9rem; margin-top: -0.5rem;">Open <code>.env</code> and fill in your GitLab private token and chosen LLM details.</p>
-        </li>
-        <li>
-          <strong>Initialize Docker Infrastructure:</strong> Spin up Postgres, RabbitMQ, and GitLab containers.
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>docker-compose up -d</code></pre>
+            <pre><code>cd /home/rutvej/Desktop/daa-e2e-demo</code></pre>
           </div>
         </li>
         <li>
-          <strong>Configure Sandbox Services:</strong> Register applications and setup test project databases.
+          <strong>Reset the Database &amp; Clean up Docker Volumes:</strong> Clear previous runs to start fresh:
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>python3 setup_microservices.py</code></pre>
+            <pre><code>docker-compose down -v
+docker exec daa-postgres-1 psql -U postgres postgres -c 'TRUNCATE users, applications, logs, alerts, incidents, fixes, project_connections, escalation_policies RESTART IDENTITY CASCADE;'</code></pre>
           </div>
         </li>
         <li>
-          <strong>Run Microservices Locally:</strong>
-          Start Checkout &amp; Payment mock APIs to receive simulator requests.
+          <strong>Execute the Demo Orchestrator Script:</strong>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Run Payment service locally on Port 8002
-DAA_LOGS_URL=http://localhost:8000/logs/ DAA_TOKEN="&lt;your_daa_token&gt;" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8002
-
-# Run Checkout service locally on Port 8001
-DAA_LOGS_URL=http://localhost:8000/logs/ PAYMENT_SERVICE_URL=http://localhost:8002/pay REDIS_HOST=localhost REDIS_PORT=6379 DAA_TOKEN="&lt;your_daa_token&gt;" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8001</code></pre>
+            <pre><code>python3 run_demo.py</code></pre>
           </div>
+          <p style="font-size: 0.9rem; margin-top: -0.5rem;">This spins up local GitLab, registers applications/policies, triggers the <code>AttributeError</code>, and lets the agent solve it autonomously.</p>
         </li>
       </ol>
 
@@ -1599,7 +1588,7 @@ DAA_LOGS_URL=http://localhost:8000/logs/ PAYMENT_SERVICE_URL=http://localhost:80
       <div class="simulation-launcher">
         <button class="sim-selector-btn active" onclick="selectSimulation('redis')" id="btn-sim-redis">
           <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Scenario A</h5>
-          <p>Redis Cache Timeout (Infrastructure Cascade)</p>
+          <p>Redis Cache AttributeError (Misspelled Method connec)</p>
         </button>
         <button class="sim-selector-btn" onclick="selectSimulation('payment')" id="btn-sim-payment">
           <h5><i class="fa-solid fa-credit-card" style="color:var(--error);"></i> Scenario B</h5>
