@@ -1186,6 +1186,48 @@ This replay log is stored in the `Fix.agent_log` field and visible in the Admin 
 
 ---
 
+## 21. Model Context Protocol (MCP) Integration
+
+### 21.1 Overview & Architecture
+DAA v2.0 natively implements the Model Context Protocol (MCP) spec over standard input/output (`stdio`) transport. This protocol enables two primary flows:
+1. **Exposing DAA SRE tools to external clients (Server Mode):** Coding copilots, Claude Desktop, or Cursor can connect to DAA SRE using the stdio server (`app/daa_mcp_server.py`). The server queries the postgres/sqlite database to fetch incident fixes awaiting approval, postmortem files, and trigger branch deployments.
+2. **Integrating database/cloud tools into the agent (Client Mode):** The agent loads custom tools from any external MCP server configured in `mcp_config.json`.
+
+### 21.2 Containerization & Docker compose Service
+The MCP server is packaged as a service (`mcp-server`) in `docker-compose.yml` that mounts the root codebase and links directly to Postgres and backend API containers.
+External IDEs/clients communicate with this server through docker exec transport wrappers, ensuring safe, containerized execution without host dependency contamination:
+```json
+{
+  "mcpServers": {
+    "daa-sre-mcp": {
+      "command": "docker",
+      "args": ["compose", "exec", "-T", "mcp-server", "python", "-u", "app/daa_mcp_server.py"]
+    }
+  }
+}
+```
+
+### 21.3 Cloud & BigQuery Integration
+Enterprise environments can load database and analytics servers dynamically into the SRE agent's toolbelt (e.g., BigQuery MCP for diagnostic analysis) by configuring the command arguments and mounting credential json keys:
+```json
+{
+  "mcpServers": {
+    "bigquery": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-bigquery", "--project-id", "your-gcp-project-id"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/app/secrets/gcp-key.json"
+      }
+    }
+  }
+}
+```
+
+### 21.4 Dynamic Routing: Choosing MCP over Direct APIs
+When the agent loads its tool configuration, it checks the tool list. If it finds external `mcp_` prefixed tools representing Jira or Git operations, it automatically switches tool routing to utilize the MCP servers instead of direct API implementations. This reduces codebase complexity and simplifies token lifecycle management.
+
+---
+
 ## Appendix A: Glossary
 
 | Term | Definition |

@@ -176,3 +176,20 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  mcp-server:
+    image: python:3.11-slim
+    restart: always
+    stdin_open: true
+    tty: true
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "pip install -q requests psycopg2-binary && python -u app/daa_mcp_server.py"
+    environment:
+      - DATABASE_URL=postgresql://youruser:${POSTGRES_PASSWORD:-demo_postgres_password}@postgres/yourdb
+      - DAA_BACKEND_API_URL=http://backend-api:80
+    depends_on:
+      - backend-api
+      - postgres

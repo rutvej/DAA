@@ -11,6 +11,7 @@ The Python Agent is an AI agent that is responsible for analyzing code, identify
 -   **Pydantic Models**: The agent uses Pydantic models to define the inputs and outputs of the tools, ensuring data consistency and validation.
 -   **Automated Code Fixing**: The agent can automatically apply fixes to the code, create a new branch, commit the changes, and create a pull request.
 -   **Database Integration**: The agent updates the database with the status of the analysis and the URL of the pull request.
+-   **Model Context Protocol (MCP) Integration**: The agent dynamically registers tools from external database or cloud-based MCP servers (e.g. Postgres, BigQuery) defined in `mcp_config.json`, and prefers them over direct APIs when applicable.
 
 ## 3. Architecture
 
@@ -20,6 +21,7 @@ The agent is composed of the following components:
 
 -   **Agent**: The main component of the agent that is responsible for orchestrating the execution of the tools.
 -   **Tools**: A set of tools that the agent can use to perform specific tasks, such as fetching the git repository, analyzing the code, applying the fix, creating a pull request, and updating the database.
+-   **MCP Client**: Simple MCP client that automatically spawns and manages external stdio-based MCP servers (e.g. BigQuery MCP) as defined in `mcp_config.json`, loading their tools into the agent's runtime.
 -   **Pydantic Models**: A set of Pydantic models that define the inputs and outputs of the tools.
 -   **Langchain**: The Langchain library that is used to create the chain of tools and to interact with the LLM.
 -   **LLM**: The agent will use the Gemini API as its large language model.

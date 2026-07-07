@@ -181,10 +181,46 @@ By default, the SRE Agent automatically opens a Merge/Pull Request upon generati
 
 ## 🔌 8. Model Context Protocol (MCP) Server & Client
 
-DAA v2.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility and cross-agent collaboration:
+DAA v2.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility and cross-agent collaboration.
 
-### A. Allowing the DAA Agent to use external MCP Tools (Client)
-Place an `mcp_config.json` file in the root directory. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset:
+### A. Exposing DAA tools to other AI Agents (Server)
+Other software engineering agents (like Cursor, Claude Desktop, or custom coding copilots) can connect to DAA using the stdio transport to review and approve incident fixes.
+
+#### 1. Running natively on Host
+You can run the server directly on your host machine:
+```bash
+python3 app/daa_mcp_server.py
+```
+
+#### 2. Running via Docker (Default Service)
+By default, the MCP server is configured as a Docker Compose service (`mcp-server`) in `docker-compose.yml`. It runs automatically when you spin up the infrastructure:
+```bash
+docker-compose up -d
+```
+Other coding agents on your host can query the Docker-packaged MCP server using standard Docker execution wrappers. For example, in your host's **Claude Desktop** config (`claude_desktop_config.json`), you can add:
+```json
+{
+  "mcpServers": {
+    "daa-sre-mcp": {
+      "command": "docker",
+      "args": ["compose", "exec", "-T", "mcp-server", "python", "-u", "app/daa_mcp_server.py"]
+    }
+  }
+}
+```
+
+**Exposed Tools:**
+* `get_fixes_awaiting_approval`: Returns all incident fixes waiting for human validation.
+* `get_incident_postmortem(fix_id)`: Fetches the postmortem text, status, and execution logs.
+* `approve_remediation_fix(fix_id)`: Approves the fix and triggers the GitLab/GitHub PR/MR creation.
+
+---
+
+### B. Allowing the DAA Agent to use external MCP Tools (Client)
+Place an `mcp_config.json` file in the root directory. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset.
+
+#### 1. Integrating Local / Database MCP Servers
+For example, to expose a Postgres database directly to the DAA SRE agent:
 ```json
 {
   "mcpServers": {
@@ -196,13 +232,31 @@ Place an `mcp_config.json` file in the root directory. DAA will automatically la
 }
 ```
 
-### B. Exposing DAA tools to other AI Agents (Server)
-Other software engineering agents (like Cursor, Claude Desktop, or custom coding copilots) can connect to DAA using the stdio transport to review and approve incident fixes:
-```bash
-python3 app/daa_mcp_server.py
+#### 2. Integrating Cloud MCP & BigQuery MCP Servers
+You can easily plug enterprise cloud data warehouses and cloud APIs into the agent. For example, to integrate **BigQuery MCP** (`@modelcontextprotocol/server-bigquery`) or cloud logging, mount your credentials and set the command environment in `mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "bigquery": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bigquery",
+        "--project-id", "your-gcp-project-id"
+      ],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/app/secrets/gcp-key.json"
+      }
+    }
+  }
+}
 ```
-**Exposed Tools:**
-* `get_fixes_awaiting_approval`: Returns all incident fixes waiting for human validation.
-* `get_incident_postmortem(fix_id)`: Fetches the postmortem text, status, and execution logs.
-* `approve_remediation_fix(fix_id)`: Approves the fix and triggers the GitLab/GitHub PR/MR creation.
+*Note: Ensure the credentials file is accessible inside the `python-agent` container by mounting it to `/app/secrets/` or equivalent shared volume in `docker-compose.yml`.*
+
+---
+
+### C. Automatic Preference: Choosing MCP over Direct REST APIs (Jira & Git)
+If the DAA SRE Agent detects that custom MCP tools are loaded for interacting with code repositories or ticketing systems (such as GitHub/GitLab tools or Jira Cloud tools), it will **automatically choose the MCP tools** instead of its direct local API tools (`create_pull_request`, `create_incident_ticket`, `clone_repo`, `commit`, etc.).
+
+This allows seamless, standardized integration of enterprise Git/Jira configurations without rewriting the agent's Python code, simply by declaring the appropriate MCP servers in `mcp_config.json`.
 

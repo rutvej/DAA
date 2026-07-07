@@ -21,12 +21,19 @@ def get_db():
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             path = os.path.join(base_dir, path)
         return sqlite3.connect(path)
+    elif db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
+        try:
+            import psycopg2
+            return psycopg2.connect(db_url)
+        except Exception as e:
+            log_info(f"Failed to connect to PostgreSQL database: {e}")
+            return None
     return None
 
 def get_fixes_awaiting_approval():
     conn = get_db()
     if not conn:
-        return {"error": "Could not connect to database."}
+        return {"error": "Could not connect to database. Please check DATABASE_URL."}
     try:
         cursor = conn.cursor()
         cursor.execute(
@@ -53,10 +60,14 @@ def get_fixes_awaiting_approval():
 def get_incident_postmortem(fix_id):
     conn = get_db()
     if not conn:
-        return {"error": "Could not connect to database."}
+        return {"error": "Could not connect to database. Please check DATABASE_URL."}
     try:
         cursor = conn.cursor()
-        cursor.execute("SELECT id, logId, postmortem, status, pull_request_url FROM fixes WHERE id = ?", (fix_id,))
+        db_url = os.environ.get("DATABASE_URL", "sqlite:///test.db")
+        if "sqlite" in db_url:
+            cursor.execute("SELECT id, logId, postmortem, status, pull_request_url FROM fixes WHERE id = ?", (fix_id,))
+        else:
+            cursor.execute("SELECT id, logId, postmortem, status, pull_request_url FROM fixes WHERE id = %s", (fix_id,))
         row = cursor.fetchone()
         if not row:
             return {"error": f"Fix with ID {fix_id} not found."}

@@ -48,3 +48,11 @@ The Database Tool is responsible for interacting with the database. It has the f
 
 -   **update_status**: Updates the status of the analysis in the database.
 -   **update_pull_request**: Updates the database with the URL of the pull request.
+
+### 2.5. Model Context Protocol (MCP) Tool Integration
+
+The agent integrates a client loader (`load_mcp_tools`) that checks for an `mcp_config.json` configuration file in the project's root.
+
+-   **Server Invocation**: Spawns configured stdio-based servers as subprocesses using a JSON-RPC transport wrapper (`SimpleMcpClient`).
+-   **Tool Registration**: Queries the server's `tools/list` method and maps each tool into a LangChain `Tool` structure.
+-   **MCP Over API Preference**: When custom MCP tools (prefixed with `mcp_`) are available for Git repository operations or Jira issue management, the agent is configured via prompt instruction to prioritize these MCP tools over direct API actions. This enables seamless, zero-code tool swapping for enterprise cloud integrations.

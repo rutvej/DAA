@@ -21,7 +21,7 @@ DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform*
 * **Ticketing & Git Integration:** Real-time Jira Cloud, GitHub Issues, and GitLab Merge Request creators.
 * **Circuit Breaker Guardrails:** If sandbox verification tests fail twice, or if it detects a complex stateful deadlock, the agent halts code modification, opens a Jira/GitHub ticket, and generates a structured SRE Postmortem report.
 * **Human-in-the-Loop (HITL) Validation:** Set `DAA_HITL_MODE=true` to review SRE diagnoses and AI execution traces on the React Dashboard and approve fixes before PR/MR creation.
-* **Model Context Protocol (MCP) Support:** Expose platform tools to other coding agents via a stdio-based DAA MCP Server (`app/daa_mcp_server.py`), or configure DAA to dynamically consume external MCP tools.
+* **Model Context Protocol (MCP) Support:** Expose platform tools to other coding agents via a Docker-packaged MCP Server (`mcp-server` service), or configure DAA to dynamically consume external cloud/database MCP tools (such as BigQuery or Cloud Logging MCP) and prefer them over direct REST APIs (Jira & Git) automatically.
 
 ---
 

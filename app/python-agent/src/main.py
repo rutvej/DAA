@@ -253,6 +253,7 @@ def process_job(job: Job):
     - `run_tests` takes a JSON string in the `data` field with `repo_path` and `test_command` (e.g. 'pytest').
     - `check_alerts` takes a JSON string in the `data` field with `app_name`.
     - `view_file_slice`, `grep_search`, `find_symbol`, `read_repomap`, `query_correlated_logs`, `check_recent_changes`, and `create_incident_ticket` each take a JSON string in the `data` field as defined in their schema.
+    - **MCP Tool Preference:** If MCP tools (prefixed with `mcp_`) are available for Git/GitHub/GitLab (e.g., creating PRs/MRs, committing, pushing, branching, cloning) or Jira Cloud (e.g., creating incident tickets/issues), you MUST choose and use those MCP tools instead of the corresponding direct local API tools (`create_pull_request`, `create_incident_ticket`, `clone_repo`, `create_branch`, `commit`, `push`).
 
     Your 4-Dimension Investigation Workflow MUST be sequential:
     1. **Dimension 1 (Change Horizon):** Run `check_recent_changes` to check if recent git commits or deployments in the last 24 hours caused this outage.
