@@ -96,12 +96,20 @@ def create_pr_on_provider(app_name: str, branch_name: str, title: str, descripti
         except Exception as e:
             raise Exception(f"Exception creating GitHub PR: {e}")
     else:
+        scheme = "http"
         gl_host = os.getenv('GITLAB_HOST', 'gitlab')
+        if proj and proj.repo_url:
+            try:
+                parsed = urllib.parse.urlparse(proj.repo_url)
+                gl_host = parsed.netloc
+                scheme = parsed.scheme or "http"
+            except Exception:
+                pass
         gl_user = os.getenv('GITLAB_USER', 'root')
         project_path = f"{gl_user}/{app_name}"
         project_id = urllib.parse.quote_plus(project_path)
         
-        mr_url = f"http://{gl_host}/api/v4/projects/{project_id}/merge_requests"
+        mr_url = f"{scheme}://{gl_host}/api/v4/projects/{project_id}/merge_requests"
         headers = {
             "PRIVATE-TOKEN": token
         }
