@@ -1,9 +1,9 @@
-# DAA v3.0 — Autonomous SRE Incident Diagnosis Platform
+# DAA v3.0 — Debugging Autonomous Agent
 
 [![Deploy to Google Cloud Run](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/rutvej/DAA.git)
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/rutvej/DAA)
 
-DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform** that replaces the first 30–60 minutes of manual triage toil when production microservices break. It detects anomalies, deduplicates incidents by error fingerprint, executes a 4-dimension diagnostic investigation, automatically opens pull requests with code fixes, and generates structured postmortem reports.
+DAA (Debugging Autonomous Agent) is an open-source, self-hosted **Debugging Autonomous Agent** platform that replaces the first 30–60 minutes of manual triage toil when production microservices break. It detects anomalies, deduplicates incidents by error fingerprint, executes a 4-dimension diagnostic investigation, automatically opens pull requests with code fixes, and generates structured postmortem reports.
 
 ---
 
