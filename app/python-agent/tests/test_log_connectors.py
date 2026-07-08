@@ -1,7 +1,7 @@
 import os
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
-from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
+from datetime import timezone
 
 from src.log_connectors import (
     parse_timestamp,

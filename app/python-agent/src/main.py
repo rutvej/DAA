@@ -409,7 +409,7 @@ def main():
     
     try:
         channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True, arguments=arguments)
-    except Exception as e:
+    except Exception:
         # If queue exists with different parameters, recreate it
         try:
             connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))

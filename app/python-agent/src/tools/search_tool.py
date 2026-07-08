@@ -1,7 +1,6 @@
 import os
 import sqlite3
 import re
-from typing import List, Dict
 from pydantic.v1 import BaseModel, Field
 from langchain_core.tools import tool
 
@@ -37,7 +36,7 @@ def index_repo(repo_path: str):
             );
         """)
         conn.commit()
-    except Exception as e:
+    except Exception:
         # Fallback to standard table with LIKE if FTS5 is not compiled in
         cursor.execute("""
             CREATE TABLE code_chunks (
@@ -118,10 +117,6 @@ def search_repo(query: str, repo_path: str = "/tmp/payment-api") -> str:
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
-        
-        # Check if it is FTS5 virtual table or standard table
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='code_chunks';")
-        table_info = cursor.fetchone()
         
         # Clean query for FTS5 (remove special characters that break FTS5 query parser)
         clean_query = re.sub(r'[^\w\s]', ' ', query).strip()

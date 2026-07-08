@@ -1,4 +1,3 @@
-import requests
 import logging
 
 import os

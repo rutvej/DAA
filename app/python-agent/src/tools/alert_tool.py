@@ -1,12 +1,10 @@
 import os
-import requests
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
+from .auth_helper import handle_request_with_retry
 
 class CheckAlertsInput(BaseModel):
     app_name: str = Field(description="The name of the application to check alerts for.")
-
-from .auth_helper import handle_request_with_retry
 
 @tool(args_schema=CheckAlertsInput)
 def check_alerts(app_name: str) -> str:
