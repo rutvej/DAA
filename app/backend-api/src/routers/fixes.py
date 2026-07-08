@@ -56,20 +56,29 @@ def create_pr_on_provider(app_name: str, branch_name: str, title: str, descripti
     provider = proj.repo_provider if proj else "gitlab"
     token = proj.repo_token if (proj and proj.repo_token) else os.getenv("GITLAB_PRIVATE_TOKEN")
     
-    if provider == "github":
+    if provider == "github" or provider == "gitea":
         repo_url = proj.repo_url if proj else ""
-        path = urllib.parse.urlparse(repo_url).path
+        parsed = urllib.parse.urlparse(repo_url)
+        path = parsed.path
         if path.endswith(".git"):
             path = path[:-4]
         parts = [p for p in path.split("/") if p]
         owner = parts[-2] if len(parts) >= 2 else "owner"
         r_name = parts[-1] if len(parts) >= 2 else "repo"
         
-        prs_url = f"https://api.github.com/repos/{owner}/{r_name}/pulls"
-        headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
-        }
+        if provider == "github":
+            prs_url = f"https://api.github.com/repos/{owner}/{r_name}/pulls"
+            headers = {
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        else:
+            prs_url = f"{parsed.scheme}://{parsed.netloc}/api/v1/repos/{owner}/{r_name}/pulls"
+            headers = {
+                "Authorization": f"token {token}",
+                "Content-Type": "application/json"
+            }
+            
         try:
             check_res = requests.get(prs_url, headers=headers, params={"head": f"{owner}:{branch_name}"})
             if check_res.status_code == 200 and check_res.json():
@@ -92,9 +101,9 @@ def create_pr_on_provider(app_name: str, branch_name: str, title: str, descripti
                 res_fallback = requests.post(prs_url, headers=headers, json=pr_payload)
                 if res_fallback.status_code == 201:
                     return res_fallback.json().get("html_url")
-                raise Exception(f"GitHub API Error: {res.text} / {res_fallback.text}")
+                raise Exception(f"{provider} API Error: {res.text} / {res_fallback.text}")
         except Exception as e:
-            raise Exception(f"Exception creating GitHub PR: {e}")
+            raise Exception(f"Exception creating {provider} PR: {e}")
     else:
         scheme = "http"
         gl_host = os.getenv('GITLAB_HOST', 'gitlab')

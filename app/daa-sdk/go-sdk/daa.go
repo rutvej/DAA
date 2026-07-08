@@ -18,8 +18,9 @@ type Client struct {
 }
 
 type LogPayload struct {
-	Content string `json:"content"`
-	AppName string `json:"app_name"`
+	Content       string `json:"content"`
+	AppName       string `json:"app_name"`
+	ExceptionType string `json:"exception_type,omitempty"`
 }
 
 type LogContent struct {
@@ -69,8 +70,9 @@ func (c *Client) CaptureException(err error) error {
 	}
 
 	payload := LogPayload{
-		Content: string(contentJSON),
-		AppName: c.AppName,
+		Content:       string(contentJSON),
+		AppName:       c.AppName,
+		ExceptionType: fmt.Sprintf("%T", err),
 	}
 
 	return c.SendLog(payload)

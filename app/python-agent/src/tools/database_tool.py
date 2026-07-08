@@ -20,9 +20,12 @@ class AnalysisUpdater:
         self.postmortem = None
 
     def update_analysis_processing(self) -> None:
-        """Updates the analysis status to 'processing'."""
-        data = {"log_id": self.log_id, "status": "processing"}
-        _send_request(data)
+        """Updates the analysis status to 'processing'. Non-critical: failures are logged but do not abort the job."""
+        try:
+            data = {"log_id": self.log_id, "status": "processing"}
+            _send_request(data)
+        except Exception as e:
+            logging.warning(f"Non-critical: could not set processing status for log {self.log_id}: {e}")
 
     def set_pull_request_url(self, url: str) -> None:
         """Sets the pull request URL."""
