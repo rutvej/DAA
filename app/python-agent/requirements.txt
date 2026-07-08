@@ -10,3 +10,4 @@ langchain-google-genai==1.0.4
 langchain-openai==0.0.8
 python-gitlab==4.5.0
 psycopg2-binary
+langchain-anthropic>=0.1.0

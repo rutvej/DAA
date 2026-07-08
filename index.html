@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAA v2.0 — Autonomous SRE Incident Diagnosis Platform Portal</title>
-  <meta name="description" content="Official documentation, quickstart guides, architecture, and interactive simulation console for DAA v2.0 SRE Incident Diagnosis Platform.">
+  <title>DAA v3.0 — Autonomous SRE Incident Diagnosis Platform Portal</title>
+  <meta name="description" content="Official documentation, quickstart guides, architecture, and interactive simulation console for DAA v3.0 SRE Incident Diagnosis Platform.">
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1063,7 +1063,7 @@
     <!-- Hero Banner Header -->
     <header class="hero">
       <div class="badge-container">
-        <span class="badge">V2.0 Core</span>
+        <span class="badge">V3.0 Core</span>
         <span class="badge green">Self-Hosted</span>
         <span class="badge cyan">Open Source SRE</span>
       </div>
@@ -1100,10 +1100,10 @@
     <section id="features" class="doc-section scroll-section">
       <div class="section-header">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <h2>Key Features in V2.0</h2>
+        <h2>Key Features in V3.0</h2>
       </div>
       <p>
-        DAA v2.0 brings critical SRE capabilities directly to the developer environment, optimizing for speed, accuracy, and low LLM token costs.
+        DAA v3.0 brings critical SRE capabilities directly to the developer environment, optimizing for speed, accuracy, and low LLM token costs.
       </p>
       
       <div class="feature-grid">
@@ -1117,18 +1117,18 @@
         
         <div class="feature-card">
           <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-magnifying-glass-chart"></i>
+            <i class="fa-solid fa-shuffle"></i>
           </div>
-          <h4>4-Dimension Loop</h4>
-          <p>Investigates git changes (24h), alerts/infrastructure metrics, OpenTelemetry distributed traces, and file-level diagnostic runs.</p>
+          <h4>Three-Phase Hybrid Flow</h4>
+          <p>Deterministic pre-flight (cloning/caching, telemetry log hydration, dedup) and post-flight (PR creation) wrapped around a free reasoning agent.</p>
         </div>
         
         <div class="feature-card">
           <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-scissors"></i>
+            <i class="fa-solid fa-lock"></i>
           </div>
-          <h4>Surgical Code Navigation</h4>
-          <p>AST repository mapping (<code>read_repomap</code>) compresses codebases by 95% to avoid context flooding and expensive LLM hallucinations.</p>
+          <h4>Context Safety System</h4>
+          <p>Enforces a JSON planning step and an 8-call hard budget cap to prevent context explosion and costly agent hallucinations.</p>
         </div>
 
         <div class="feature-card">
@@ -1232,8 +1232,8 @@
 
           <!-- Node 4: Python SRE Agent -->
           <rect x="650" y="80" width="120" height="80" rx="10" fill="url(#grad-emerald)" stroke="#059669" stroke-width="1.5"/>
-          <text x="710" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">SRE Agent</text>
-          <text x="710" y="135" fill="#d1fae5" font-family="Outfit" font-size="11" text-anchor="middle">(LangChain Loop)</text>
+          <text x="710" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">SRE Agent v3.0</text>
+          <text x="710" y="135" fill="#d1fae5" font-family="Outfit" font-size="11" text-anchor="middle">(Three-Phase Flow)</text>
 
           <!-- Node 5: Repository / GitLab -->
           <rect x="450" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
@@ -1263,8 +1263,9 @@
             <li>An SDK error is triggered in the Client App.</li>
             <li>FastAPI stores the logs and verifies if the sliding-window threshold is breached.</li>
             <li>An <code>IncidentEscalationEvent</code> is queued via RabbitMQ.</li>
-            <li>The SRE Agent executes code/trace diagnostic checks.</li>
-            <li>Fixes are submitted to GitLab (MR) or documented in Jira.</li>
+            <li><strong>Phase 1: Pre-flight</strong> — Repo cache manager gets worktree, log hydrator fetches all 4 telemetry dimensions, and fingerprint dedup checks for existing fixes.</li>
+            <li><strong>Phase 2: Agent Core</strong> — SRE Agent submits a JSON plan first, then uses read-only tools to diagnose the bug and produce a unified diff under an 8-call safety cap.</li>
+            <li><strong>Phase 3: Post-flight</strong> — Post-flight orchestrator validates the diff, checkout/commits/pushes branch, opens PR idempotently, and generates a postmortem.</li>
           </ol>
         </div>
       </div>
@@ -1491,13 +1492,25 @@ docker exec daa-postgres-1 psql -U postgres postgres -c 'TRUNCATE users, applica
         <h2>Model Context Protocol (MCP) Integration</h2>
       </div>
       <p>
-        DAA v2.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility, cloud data integrations, and cross-agent collaboration.
+        DAA v3.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility, cloud data integrations, and cross-agent collaboration.
       </p>
 
       <h3>A. Exposing DAA Tools to Other AI Agents (Server)</h3>
       <p>
         Allow other software engineering agents (such as Cursor, Claude Desktop, or custom coding copilots) to connect to DAA SRE using the stdio transport. This allows external agents to query pending fixes, read root-cause postmortems, or trigger PR approvals.
       </p>
+      <p>
+        The DAA v3.0 MCP server exposes 7 powerful SRE tools:
+      </p>
+      <ul style="margin-left: 2rem; margin-top: 0.5rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.95rem;">
+        <li style="margin-bottom: 0.25rem;"><strong>get_fixes_awaiting_approval:</strong> Retrieve all DAA SRE incident remediation fixes currently awaiting human approval.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>get_incident_postmortem:</strong> Get the detailed root-cause postmortem and AI agent trace for a given fix ID.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>approve_remediation_fix:</strong> Approve a fix and trigger GitLab/GitHub PR/MR creation.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>get_active_incidents:</strong> Get all currently active (processing/pending) incidents with their app name, status, fingerprint, and elapsed time.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>get_fix_by_fingerprint:</strong> Get fix record by error fingerprint hash. Returns existing PR URL if the same bug was previously fixed.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>list_registered_apps:</strong> List all applications registered in DAA with their repository URL, cloud provider config, and escalation policy.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>trigger_manual_incident:</strong> Manually trigger an incident analysis for a registered application by sending a synthetic error log to the DAA backend.</li>
+      </ul>
 
       <h4 style="margin-top: 1rem;">1. Running Natively on Host</h4>
       <p>Execute the server directly on your command line:</p>
@@ -1637,27 +1650,31 @@ docker exec daa-postgres-1 psql -U postgres postgres -c 'TRUNCATE users, applica
       <ul class="roadmap-list">
         <li class="roadmap-item completed">
           <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Multi-Language SDK ecosystem</strong> (Ingestion libraries for Node.js, Go, Python, Java, Ruby, and .NET completed).</span>
+          <span><strong>Three-Phase Hybrid Flow</strong> (Pre-flight, Agent Core, Post-flight orchestrators completed).</span>
         </li>
         <li class="roadmap-item completed">
           <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Local GitLab integrations</strong> (Offline code repository mapping and auto-merge request pipelines).</span>
+          <span><strong>Context Safety System</strong> (JSON planning step and hard cap at 8 tool calls completed).</span>
         </li>
         <li class="roadmap-item completed">
           <i class="fa-solid fa-circle-check"></i>
-          <span><strong>GET /dashboard endpoint</strong> (Admin panel expects dashboard metrics consolidation to render visual charts).</span>
+          <span><strong>MCP Server v2.0.0</strong> (Exposed 7 SRE tools for external agent execution completed).</span>
         </li>
         <li class="roadmap-item completed">
           <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Align Authorization enforcement</strong> (Unify JWT session requirements across incident submitting vs. listing endpoints).</span>
+          <span><strong>Persistent Repo Cache</strong> (Cloning once, git-caching, and git worktrees per incident completed).</span>
         </li>
         <li class="roadmap-item pending">
           <i class="fa-solid fa-clock"></i>
-          <span><strong>Active Observability Metrics</strong> (Implement structured logging wrappers, tracing parameters, and Prometheus metrics exporting).</span>
+          <span><strong>ChromaDB Repo Vector Search (RAG Indexing)</strong> (Semantic search over repo codebase to reduce file read token usage for DAA 3.1).</span>
         </li>
         <li class="roadmap-item pending">
           <i class="fa-solid fa-clock"></i>
-          <span><strong>Pagination &amp; Filtering UX</strong> (Wiring database offset parameters to the Admin Panel Logs screen).</span>
+          <span><strong>Real Cloud Log Connectors</strong> (Connectors for AWS CloudWatch, GCP Cloud Logging, and Datadog for DAA 3.1).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>RabbitMQ Dead-Letter Queue (DLQ)</strong> (DLQ/DLX support for failed/crashed SRE agent jobs for DAA 3.1).</span>
         </li>
       </ul>
     </section>

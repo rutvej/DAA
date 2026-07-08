@@ -233,19 +233,44 @@ class AgyChatModel(BaseChatModel):
         run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
+        import hashlib
+        import pathlib
+        
         prompt = ""
         for m in messages:
             prompt += f"{m.content}\n"
 
-        cmd = ["agy", "--dangerously-skip-permissions", "--model", self.model_name, "--print", prompt]
-        print(f"[AgyChatModel] Running agy CLI command: {' '.join(cmd)[:200]}...", flush=True)
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            output = res.stdout
-            print(f"[AgyChatModel] Received output from agy: {output[:200]}...", flush=True)
-        except subprocess.CalledProcessError as e:
-            logging.error(f"agy execution failed: {e.stderr}")
-            raise Exception(f"agy CLI failed to execute: {e.stderr}")
+        agent_mode = os.environ.get("DAA_AGENT_MODE", "full")
+        cache_hit = False
+        cache_file = None
+
+        if agent_mode == "fast":
+            cache_dir = pathlib.Path("/tmp/daa_agy_cache")
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:16]
+            cache_file = cache_dir / f"{prompt_hash}.txt"
+            if cache_file.exists():
+                print(f"[AgyChatModel] Cache HIT for hash {prompt_hash}", flush=True)
+                output = cache_file.read_text(encoding="utf-8")
+                cache_hit = True
+
+        if not cache_hit:
+            cmd = ["agy", "--dangerously-skip-permissions", "--model", self.model_name, "--print", prompt]
+            print(f"[AgyChatModel] Running agy CLI command: {' '.join(cmd)[:200]}...", flush=True)
+            try:
+                res = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                output = res.stdout
+                print(f"[AgyChatModel] Received output from agy: {output[:200]}...", flush=True)
+            except subprocess.CalledProcessError as e:
+                logging.error(f"agy execution failed: {e.stderr}")
+                raise Exception(f"agy CLI failed to execute: {e.stderr}")
+
+            if agent_mode == "fast" and cache_file:
+                try:
+                    cache_file.write_text(output, encoding="utf-8")
+                    print(f"[AgyChatModel] Cached response to {cache_file}", flush=True)
+                except Exception as ce:
+                    print(f"[AgyChatModel] Failed to write cache: {ce}", flush=True)
 
         if stop:
             for s in stop:

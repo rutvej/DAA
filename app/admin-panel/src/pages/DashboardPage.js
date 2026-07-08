@@ -87,8 +87,8 @@ const DashboardPage = () => {
                   <td style={{ padding: '12px 0', fontWeight: 600 }}>{inc.app_name}</td>
                   <td style={{ padding: '12px 0' }}>
                     <span style={{
-                      background: inc.status === 'resolved' ? '#d1fae5' : (inc.status === 'investigating' ? '#fef3c7' : '#e5e7eb'),
-                      color: inc.status === 'resolved' ? '#065f46' : (inc.status === 'investigating' ? '#92400e' : '#374151'),
+                      background: inc.status === 'resolved' ? '#d1fae5' : (inc.status === 'investigating' ? '#fef3c7' : (inc.status === 'escalated' || inc.status === 'human_required' ? '#fee2e2' : '#e5e7eb')),
+                      color: inc.status === 'resolved' ? '#065f46' : (inc.status === 'investigating' ? '#92400e' : (inc.status === 'escalated' || inc.status === 'human_required' ? '#991b1b' : '#374151')),
                       padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, textTransform: 'uppercase'
                     }}>
                       {inc.status}

@@ -9,6 +9,7 @@ const StatusBadge = ({ status }) => {
     resolved: '#22c55e',
     cooldown: '#8b5cf6',
     human_required: '#ef4444',
+    escalated: '#ef4444',
     ticket_created: '#06b6d4',
   };
   return (

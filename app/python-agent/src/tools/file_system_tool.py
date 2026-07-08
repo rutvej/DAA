@@ -9,6 +9,7 @@ ROOT_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
 
 def get_full_path(file_path: str) -> str:
     """Returns the full path of a file."""
+    file_path = file_path.strip().strip("'\"")
     if file_path.startswith("/tmp") or file_path.startswith("/home"):
         return file_path
     if os.path.isabs(file_path):

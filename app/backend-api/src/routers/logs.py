@@ -138,7 +138,32 @@ def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
         channel = connection.channel()
-        channel.queue_declare(queue='fix_jobs', durable=True)
+        
+        # Configure DLX and DLQ
+        channel.exchange_declare(exchange='fix_jobs_dlx', exchange_type='direct', durable=True)
+        channel.queue_declare(queue='fix_jobs_dlq', durable=True)
+        channel.queue_bind(queue='fix_jobs_dlq', exchange='fix_jobs_dlx', routing_key='failed_fixes')
+
+        arguments = {
+            'x-dead-letter-exchange': 'fix_jobs_dlx',
+            'x-dead-letter-routing-key': 'failed_fixes',
+            'x-message-ttl': 1800000  # 30 minutes in ms
+        }
+        
+        try:
+            channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
+        except Exception:
+            # If queue exists with different parameters, recreate it
+            try:
+                connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                channel = connection.channel()
+                channel.queue_delete(queue='fix_jobs')
+                channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
+            except Exception:
+                # Fallback to simple declare
+                connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                channel = connection.channel()
+                channel.queue_declare(queue='fix_jobs', durable=True)
         job_data = {
             "id": str(db_log.id),
             "log_id": str(db_log.id),

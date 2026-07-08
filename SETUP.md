@@ -260,3 +260,87 @@ If the DAA SRE Agent detects that custom MCP tools are loaded for interacting wi
 
 This allows seamless, standardized integration of enterprise Git/Jira configurations without rewriting the agent's Python code, simply by declaring the appropriate MCP servers in `mcp_config.json`.
 
+
+---
+
+## DAA 3.0 Configuration
+
+### Agent Mode
+
+Set `DAA_AGENT_MODE` in your `.env`:
+
+| Mode | Value | Description |
+|---|---|---|
+| Full 4-dimension (DAA 3.0) | `full` (default) | Orchestrator pre-flight + free agent + post-flight |
+| Fast mode (legacy) | `fast` | Minimal tools, quick fix path |
+
+### Repo Cache
+
+DAA 3.0 caches cloned repositories at `/var/daa/repo-cache/` inside the agent container. Mount a volume to persist across container restarts:
+
+```yaml
+# docker-compose.yml addition:
+volumes:
+  - daa_repo_cache:/var/daa/repo-cache
+```
+
+### Multi-LLM Setup
+
+```bash
+# Google Gemini (default)
+LLM_PROVIDER=google
+LLM_MODEL=gemini-2.5-flash
+GEMINI_API_KEY=your-key
+
+# Anthropic Claude
+LLM_PROVIDER=anthropic
+LLM_MODEL=claude-3-5-sonnet-20241022
+ANTHROPIC_API_KEY=your-key
+
+# Local Ollama
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3
+LLM_BASE_URL=http://host.docker.internal:11434/v1
+
+# LiteLLM proxy (multi-model gateway)
+LLM_PROVIDER=litellm
+LLM_BASE_URL=http://litellm:4000
+LLM_API_KEY=your-proxy-key
+```
+
+### MCP Server Setup
+
+The DAA MCP server is available as the `mcp-server` Docker service. To connect it to your coding agent:
+
+1. Ensure the `mcp-server` container is running: `docker-compose up -d mcp-server`
+2. Find its socket/stdio endpoint in `docker-compose.yml`
+3. Add it to your agent's MCP config (`.mcp.json` for Cursor/Copilot/Antigravity)
+
+To consume external MCP tools from within DAA, create `mcp_config.json` in the agent container:
+
+```json
+{
+  "mcpServers": {
+    "cloud-logging": {
+      "command": "npx",
+      "args": ["-y", "@google-cloud/mcp-logging"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/app/sa.json"
+      }
+    }
+  }
+}
+```
+
+### Context Safety Tuning
+
+```bash
+# Maximum agent tool calls before force-escalation (default: 8)
+DAA_MAX_TOOL_CALLS=8
+
+# Tool call count at which warning is injected (default: 5)
+DAA_TOOL_CALL_WARNING_AT=5
+
+# Max LangChain iterations (default: 10)
+DAA_MAX_ITERATIONS=10
+```

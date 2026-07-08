@@ -155,7 +155,7 @@ def push(repo_path_and_branch_name: str) -> None:
     """
     repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
     repo = _get_repo(repo_path)
-    repo.git.push("--set-upstream", "origin", branch_name)
+    repo.git.push("--set-upstream", "--force", "origin", branch_name)
 
 
 class CreatePullRequestInput(BaseModel):
@@ -194,13 +194,22 @@ def create_pull_request(data: str) -> str:
     provider = proj.get("repo_provider", "gitlab")
     token = proj.get("repo_token") or os.getenv('GITLAB_PRIVATE_TOKEN')
 
-    if provider == "github":
+    if provider == "github" or provider == "gitea":
         owner, r_name = _parse_github_repo(proj.get("repo_url", ""))
-        prs_url = f"https://api.github.com/repos/{owner}/{r_name}/pulls"
-        headers = {
-            "Authorization": f"token {token}",
-            "Accept": "application/vnd.github.v3+json"
-        }
+        repo_url = proj.get("repo_url", "")
+        parsed = urlparse(repo_url)
+        if provider == "github":
+            prs_url = f"https://api.github.com/repos/{owner}/{r_name}/pulls"
+            headers = {
+                "Authorization": f"token {token}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+        else:
+            prs_url = f"{parsed.scheme}://{parsed.netloc}/api/v1/repos/{owner}/{r_name}/pulls"
+            headers = {
+                "Authorization": f"token {token}",
+                "Content-Type": "application/json"
+            }
         
         # Check if a PR already exists
         try:
@@ -227,9 +236,9 @@ def create_pull_request(data: str) -> str:
                 res_fallback = requests.post(prs_url, headers=headers, json=pr_payload)
                 if res_fallback.status_code == 201:
                     return res_fallback.json().get("html_url")
-                return f"Error creating GitHub PR: {res.text} (Fallback error: {res_fallback.text})"
+                return f"Error creating {provider} PR: {res.text} (Fallback error: {res_fallback.text})"
         except Exception as e:
-            return f"Exception while creating GitHub PR: {e}"
+            return f"Exception while creating {provider} PR: {e}"
 
     else:
         # GitLab Integration

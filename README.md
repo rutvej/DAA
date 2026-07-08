@@ -1,92 +1,204 @@
-# DAA v2.0 — Autonomous SRE Incident Diagnosis Platform
+# DAA v3.0 — Autonomous SRE Incident Diagnosis Platform
 
 [![Deploy to Google Cloud Run](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/rutvej/DAA.git)
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/rutvej/DAA)
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/rutvej/DAA.git)
 
-DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform** that replaces the first 30–60 minutes of manual triage toil when production microservices break. It detects anomalies, aggregates similar events into deduplicated incidents, executes a 4-dimension diagnostic run, and automatically opens draft pull requests or Jira tickets.
+DAA is an open-source, self-hosted **Autonomous SRE Incident Diagnosis Platform** that replaces the first 30–60 minutes of manual triage toil when production microservices break. It detects anomalies, deduplicates incidents by error fingerprint, executes a 4-dimension diagnostic investigation, automatically opens pull requests with code fixes, and generates structured postmortem reports.
 
 ---
 
-## 🚀 Key Features in V2.0
+## 🚀 What's New in v3.0
 
-* **Zero Alert Fatigue:** sliding-window escalation thresholds (e.g. only wake up the agent if an error fires 3 times in 60s) and SHA256 error fingerprinting prevent redundant agent jobs and duplicate tickets.
+DAA 3.0 introduces a **three-phase hybrid architecture** that dramatically reduces LLM token costs (~65% reduction) while giving the agent full investigative freedom:
+
+```
+Phase 1 (Orchestrator)       Phase 2 (Agent — free)       Phase 3 (Orchestrator)
+────────────────────────       ──────────────────────       ─────────────────────
+✓ Clone/pull repo (cached)    ✓ Read files freely           ✓ Apply unified diff
+✓ Hydrate all 4 log dims      ✓ Correlate code+logs+metrics ✓ Branch/commit (idempotent)
+✓ Fingerprint dedup           ✓ Trace commits                ✓ Create PR (idempotent)
+✓ Package structured prompt   ✓ Decide: fix or escalate      ✓ Generate postmortem
+```
+
+### Key Improvements
+
+| Feature | DAA 2.0 | DAA 3.0 |
+|---|---|---|
+| Repo clone | Per-incident (LLM tool call) | Once, git-cached + worktree |
+| Git/branch/PR ops | LLM tool calls | Deterministic orchestrator |
+| Token cost (avg) | ~10,000/incident | ~3,000–4,000/incident |
+| Repeat incident cost | ~10,000 | **0** (fingerprint dedup) |
+| Context explosion | Uncapped tool loops | Planning step + 8-call hard cap |
+| Idempotent PR | Crashes on duplicate | Returns existing PR URL |
+
+---
+
+## ⚡ Key Features
+
+* **Fingerprint Deduplication:** SHA256 error fingerprinting prevents redundant agent jobs. Same bug triggering 100× costs 1× LLM call.
+* **Persistent Repo Cache:** Clone once, `git fetch` on reuse. Per-incident isolation via `git worktree`. Zero bandwidth waste on repeated incidents.
 * **4-Dimension SRE Investigation Loop:**
-  1. **Change:** Queries recent Git commit logs over the last 24h to see if a deployment caused the failure.
-  2. **Infra:** Checks Prometheus/Alertmanager webhooks and database status alerts.
-  3. **Traces:** Correlates OpenTelemetry trace IDs across other microservices to find upstream/downstream failures.
-  4. **Diagnostics:** Surgically navigates and fixes the codebase.
-* **Surgical Code Navigation (No Context Flooding):** AST repository mapping (`read_repomap`) compresses a 50,000-line codebase into a ~1,500-token skeleton. Combined with symbol searches (`find_symbol`) and strict file slicing limiters (100-line maximum), it keeps token costs low and avoids LLM hallucinations.
-* **Universal LLM Routing (`llm_config.py`):** Plugs natively into Google Gemini, OpenAI, Anthropic Claude, OpenClaw, LiteLLM, or local air-gapped models via Ollama.
-* **Ticketing & Git Integration:** Real-time Jira Cloud, GitHub Issues, and GitLab Merge Request creators.
-* **Circuit Breaker Guardrails:** If sandbox verification tests fail twice, or if it detects a complex stateful deadlock, the agent halts code modification, opens a Jira/GitHub ticket, and generates a structured SRE Postmortem report.
-* **Human-in-the-Loop (HITL) Validation:** Set `DAA_HITL_MODE=true` to review SRE diagnoses and AI execution traces on the React Dashboard and approve fixes before PR/MR creation.
-* **Model Context Protocol (MCP) Support:** Expose platform tools to other coding agents via a Docker-packaged MCP Server (`mcp-server` service), or configure DAA to dynamically consume external cloud/database MCP tools (such as BigQuery or Cloud Logging MCP) and prefer them over direct REST APIs (Jira & Git) automatically.
+  1. **Change (Dim-4):** Pre-fetched recent Git commits surfaced to agent before investigation starts.
+  2. **Infra (Dim-3):** Pre-fetched Prometheus/CloudWatch metrics snapshot.
+  3. **Traces (Dim-2):** Pre-fetched application logs from cloud providers (CloudWatch/GCP/Datadog/Loki).
+  4. **Diagnostics:** Agent reads files, cross-references code + logs, traces bugs to commits.
+* **Context Safety System (3 Layers):**
+  1. **Planning Step:** Agent must declare a JSON investigation plan before calling any tools.
+  2. **Hard Cap:** 8 tool call maximum. Warning injected at 5. Force-escalation at 8.
+  3. **RAG Index:** *(DAA 3.1)* Vector search over repo replaces raw file reads for large codebases.
+* **Idempotent Git/PR Flow:** Branch already exists? Reuse. PR already open? Return existing URL. No more crashes on re-runs.
+* **Universal LLM Routing:** Google Gemini, OpenAI, Anthropic Claude, Ollama (local/air-gapped), LiteLLM, OpenAI-compatible proxies.
+* **MCP Server + Client:** Expose DAA tools to other coding agents via JSON-RPC MCP protocol. Dynamically consume external MCP tools (BigQuery, Cloud Logging, etc.).
+* **Human-in-the-Loop (HITL):** Review diagnoses and approve fixes before PR creation via React dashboard.
+* **Multi-Language SDKs:** Go, Node.js, Python, Java, Ruby, .NET telemetry SDKs.
 
 ---
 
 ## 📁 Repository Layout
 
-* `app/backend-api`: FastAPI backend providing REST endpoints, sliding-window log escalation, and SHA256 error deduplication.
-* `app/python-agent`: ReAct SRE agent powered by LangChain that executes 4-dimension investigations and code remediation.
-* `app/admin-panel`: React admin dashboard providing live SRE telemetry, incident status trackers, and app configuration management.
-* `app/daa-sdk`: Multi-language SRE telemetry SDKs (Go, Node.js, Python, Java, Ruby, .NET).
-* `docs/DEMO_SPEC.md`: Complete End-to-End Walkthrough design and security specifications.
-
----
-
-## 🔧 Solved Architecture Gaps & Platform Fixes
-
-During the E2E demo setup, we resolved several critical platform and integration gaps:
-1. **Multi-Stack Network Resolution:** Configured `extra_hosts` mappings mapping `gitlab` and `host.docker.internal` to the host bridge gateway. Updated `fixes.py` and `git_tool.py` to dynamically parse scheme, hostname, and port from the registered project `repo_url` (e.g. `gitlab:8082`), ensuring containers across isolated Docker networks can talk to each other correctly.
-2. **JWT Authentication & Auto-Refresh:** Fixed `401 Unauthorized` token expiry issues in the long-running SRE agent container by creating `auth_helper.py`. When backend API calls return `401`, the agent automatically performs a re-login using its admin credentials, refreshes its `DAA_TOKEN` environment variable, and retries the failed request.
-3. **Repository Log Isolation:** Reordered the ReAct Agent workflow to execute `clone_repo` *first* in `/tmp/<app_name>`, ensuring `check_recent_changes` and all code diagnostics are executed relative to the cloned microservice repository rather than retrieving the agent's own DAA repository commit history.
-4. **ReAct Parser Auto-Healing & Schema Tolerance:** Handled formatting slips and parsing errors in Codex/language model outputs:
-   - Added parameter schema tolerances to the code navigation tools (`find_symbol` accepts `symbol` or `symbol_name`, and `grep_search` accepts `query` or `pattern`).
-   - Integrated a parser auto-healer in `llm_config.py` that intercepts missing `Action Input:` blocks for both string and JSON arguments, truncating trailing text cleanly on ReAct markers (`Observation:`, `Thought:`, `PR_URL:`) to ensure LangChain loops never fail due to parsing exceptions.
-
----
-
-## ⚡ Quickstart & E2E Walkthrough
-
-To run the complete automated SRE diagnosis loop, use our independent walkthrough demo repository:
-
-👉 **[daa_e2e_demo Git Repository](https://github.com/rutvej/daa_e2e_demo.git)**
-
-### Run E2E Walkthrough:
-1. Navigate to the demo repository directory:
-   ```bash
-   cd /home/rutvej/Desktop/daa-e2e-demo
-   ```
-2. Clean up any previous runs and databases:
-   ```bash
-   docker-compose down -v
-   docker exec daa-postgres-1 bash -c "psql -U \$POSTGRES_USER \$POSTGRES_DB -c 'TRUNCATE users, applications, logs, alerts, incidents, fixes, project_connections, escalation_policies RESTART IDENTITY CASCADE;'"
-   ```
-3. Execute the walkthrough orchestrator script:
-   ```bash
-   python3 run_demo.py
-   ```
-   This will spin up a local GitLab, register apps and escalation policies, trigger the checkout `AttributeError` outage, run the ReAct agent, apply the code hotfix, run verification tests, and open the Merge Request!
-
-For a full breakdown of the security design, JWT token model, and architecture specs, refer to:
-👉 **[docs/DEMO_SPEC.md](docs/DEMO_SPEC.md)**
-
----
-
-## 🛠️ Testing the Code
-
-### Backend API (FastAPI)
-```bash
-DATABASE_URL=sqlite:///./test.db RABBITMQ_HOST=localhost PYTHONPATH=app/backend-api .venv/bin/pytest app/backend-api/tests/
+```
+DAA/
+├── app/
+│   ├── python-agent/          # DAA 3.0 SRE Agent
+│   │   └── src/
+│   │       ├── main.py            # Three-phase process_job loop
+│   │       ├── orchestrator.py    # 🆕 Phase 1 & 3: Repo cache, log hydration, PR automation
+│   │       ├── agent_safety.py    # 🆕 Planning step + hard cap enforcement
+│   │       ├── llm_config.py      # Multi-LLM routing (Gemini/OpenAI/Claude/Ollama/...)
+│   │       └── tools/             # Read-only investigation tools
+│   ├── backend-api/           # FastAPI backend (REST, dedup, escalation)
+│   ├── admin-panel/           # React dashboard (HITL approval, live traces)
+│   ├── daa-sdk/               # Multi-language telemetry SDKs
+│   └── daa_mcp_server.py      # MCP Server (exposes DAA tools to other agents)
+├── docker-compose.yml
+├── README.md
+└── SETUP.md
 ```
 
-### Python Agent
-```bash
-PYTHONPATH=app/python-agent/src .venv/bin/pytest app/python-agent/tests/
+---
+
+## 🔧 LLM Configuration
+
+Set `LLM_PROVIDER` in your `.env`:
+
+| Provider | `LLM_PROVIDER` | Required Env Vars |
+|---|---|---|
+| Google Gemini | `google` | `GEMINI_API_KEY` |
+| OpenAI | `openai` | `OPENAI_API_KEY` |
+| Anthropic Claude | `anthropic` | `ANTHROPIC_API_KEY` |
+| Ollama (local) | `ollama` | `LLM_BASE_URL` (e.g. `http://localhost:11434/v1`) |
+| LiteLLM proxy | `litellm` | `LLM_BASE_URL`, `LLM_API_KEY` |
+| Agy CLI | `agy` | Agy CLI installed |
+| Custom OpenAI-compatible | `custom` | `LLM_BASE_URL`, `LLM_API_KEY` |
+
+Optionally set `LLM_MODEL` to override the default model name.
+
+---
+
+## 🧩 MCP Integration
+
+### DAA as an MCP Server
+
+DAA exposes its tools via JSON-RPC MCP so other agents (Cursor, Copilot, custom) can trigger incident analysis and approve fixes:
+
+```json
+// .mcp.json (in your project or agent config)
+{
+  "mcpServers": {
+    "daa-sre": {
+      "command": "python3",
+      "args": ["path/to/DAA/app/daa_mcp_server.py"],
+      "env": {
+        "DAA_BACKEND_API_URL": "http://localhost:8000",
+        "DAA_TOKEN": "your-token"
+      }
+    }
+  }
+}
 ```
+
+Available MCP tools:
+- `get_fixes_awaiting_approval` — List fixes pending human review
+- `get_incident_postmortem` — Get postmortem for a fix ID
+- `approve_remediation_fix` — Approve a fix and trigger PR creation
+- `get_active_incidents` — List currently processing incidents
+- `get_fix_by_fingerprint` — Check if a bug was previously fixed
+- `list_registered_apps` — List apps registered in DAA
+- `trigger_manual_incident` — Manually trigger analysis for an app
+
+### DAA Consuming External MCP Tools
+
+DAA can dynamically consume external MCP tools (e.g., BigQuery, Cloud Logging):
+
+```json
+// mcp_config.json (in agent container)
+{
+  "mcpServers": {
+    "bigquery": {
+      "command": "npx",
+      "args": ["-y", "@google-cloud/mcp-bigquery"],
+      "env": { "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/sa.json" }
+    }
+  }
+}
+```
+
+---
+
+## ⚡ Quickstart
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/rutvej/DAA.git && cd DAA
+
+# 2. Configure environment
+cp .env.example .env
+# Edit .env: set LLM_PROVIDER, API keys, Gitea/GitHub/GitLab credentials
+
+# 3. Start all services
+docker-compose up -d
+
+# 4. Register your first application (via admin panel or API)
+curl -X POST http://localhost:8000/apps \
+  -H 'Content-Type: application/json' \
+  -d '{"name": "my-service", "repo_url": "http://gitea:3000/owner/my-service.git", "repo_provider": "gitea"}'
+```
+
+For the full E2E demo walkthrough: **[daa_e2e_demo](https://github.com/rutvej/daa_e2e_demo)**
+
+---
+
+## 🛡️ Context Safety & Token Optimization
+
+DAA 3.0 enforces a **three-layer context safety system** to prevent hallucinations and runaway token costs:
+
+1. **Planning Step** — Before calling any tool, the agent must produce a JSON investigation plan declaring its hypothesis and exactly which evidence it will look at. This binds the agent to a focused investigation path.
+
+2. **Hard Cap (8 tool calls)** — Warning injected at call 5. Force-escalation at call 8. Prevents infinite diagnostic loops.
+
+3. **RAG Index** *(DAA 3.1)* — ChromaDB vector index over each repo. Agent queries semantically instead of reading raw files, reducing per-tool-call context by ~80%.
+
+**Estimated token costs:**
+- Repeat incident (same fingerprint): **0 tokens**
+- Typical Redis OOM / missing TTL bug: **~2,500 tokens**
+- Complex multi-file bug: **~4,000 tokens**
+- Escalated (agent couldn't fix): **~2,000 tokens**
+
+---
+
+## 📦 Supported Languages & SDKs
+
+| Language | SDK Location |
+|---|---|
+| Go | `app/daa-sdk/go/` |
+| Python | `app/daa-sdk/python/` |
+| Node.js | `app/daa-sdk/nodejs/` |
+| Java | `app/daa-sdk/java/` |
+| Ruby | `app/daa-sdk/ruby/` |
+| .NET | `app/daa-sdk/dotnet/` |
 
 ---
 
 ## 📄 License
+
 MIT. See `LICENSE`.

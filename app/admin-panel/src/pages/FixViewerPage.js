@@ -147,7 +147,7 @@ const FixViewerPage = () => {
           </div>
           <div className="detail-block">
             <p className="detail-label">Status</p>
-            <p className="detail-value" style={{ fontWeight: 'bold', color: fix.status === 'awaiting_approval' ? '#f59e0b' : '#10b981', textTransform: 'uppercase' }}>
+             <p className="detail-value" style={{ fontWeight: 'bold', color: fix.status === 'awaiting_approval' ? '#f59e0b' : (fix.status === 'escalated' ? '#ef4444' : '#10b981'), textTransform: 'uppercase' }}>
               {fix.status || 'Pending'}
             </p>
             
