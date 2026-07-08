@@ -1455,20 +1455,12 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
           </div>
         </li>
         <li>
-          <strong>Reset the Database &amp; Clean up Docker Volumes:</strong> Clear previous runs to start fresh:
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>docker-compose down -v
-docker exec daa-postgres-1 psql -U postgres postgres -c 'TRUNCATE users, applications, logs, alerts, incidents, fixes, project_connections, escalation_policies RESTART IDENTITY CASCADE;'</code></pre>
-          </div>
-        </li>
-        <li>
           <strong>Execute the Demo Orchestrator Script:</strong>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
             <pre><code>python3 run_demo.py</code></pre>
           </div>
-          <p style="font-size: 0.9rem; margin-top: -0.5rem;">This spins up local GitLab, registers applications/policies, triggers the <code>AttributeError</code>, and lets the agent solve it autonomously.</p>
+          <p style="font-size: 0.9rem; margin-top: -0.5rem;">This spins up local Gitea services, invokes the DAA CLI (<code>daa register</code> and <code>daa policy</code>) to register applications/policies, triggers the Redis OOM, and lets the SRE agent solve it autonomously.</p>
         </li>
       </ol>
 

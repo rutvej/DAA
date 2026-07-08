@@ -649,7 +649,7 @@ def process_job(job: Job):
 
         try:
             pf_result = postflight.run(
-                incident_id=str(job.incident_id or job.id),
+                incident_id=str(getattr(job, "incident_id", None) or job.id),
                 fingerprint=fingerprint,
                 app_name=job.app_name,
                 worktree_path=worktree_path,

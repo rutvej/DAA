@@ -121,11 +121,15 @@ echo "--------------------------------------------------------"
 echo -e "${GREEN}🎉 DAA Platform installation was successful!${RESET}"
 echo "--------------------------------------------------------"
 
-read -p "Would you like to run the guided setup wizard now? [Y/n]: " run_wizard < /dev/tty
+if [ -t 0 ]; then
+    read -p "Would you like to run the guided setup wizard now? [Y/n]: " run_wizard < /dev/tty
+else
+    run_wizard="n"
+fi
 run_wizard=${run_wizard:-Y}
 
 if [[ "$run_wizard" =~ ^[Yy]$ ]]; then
-    python3 daa init
+    .venv/bin/python daa init
 else
     echo -e "\nSetup skipped. You can initialize DAA later by running:"
     echo -e "  ${CYAN}./daa init${RESET}"

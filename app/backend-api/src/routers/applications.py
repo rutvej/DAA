@@ -22,6 +22,7 @@ class ApplicationResponse(ApplicationCreate):
     id: str
     token: Optional[str] = None
     created_at: str
+    repo_url: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class EscalationPolicyCreate(BaseModel):
@@ -86,6 +87,7 @@ def create_application(app: ApplicationCreate, db: Session = Depends(get_db), cu
         description=db_app.description,
         language=db_app.language,
         repository_url=db_app.repository_url,
+        repo_url=db_app.repository_url,
         spec_file_path=db_app.spec_file_path,
         team_owner=db_app.team_owner,
         allowed_ip=db_app.allowed_ip,
@@ -108,6 +110,7 @@ def list_applications(db: Session = Depends(get_db), current_user: dict = Depend
             description=a.description,
             language=a.language,
             repository_url=a.repository_url,
+            repo_url=a.repository_url,
             spec_file_path=a.spec_file_path,
             team_owner=a.team_owner,
             allowed_ip=a.allowed_ip,
@@ -123,6 +126,8 @@ def get_application(id: str, db: Session = Depends(get_db), current_user: dict =
         
     a = db.query(DBApplication).filter(DBApplication.id == id).first()
     if not a:
+        a = db.query(DBApplication).filter(DBApplication.name == id).first()
+    if not a:
         raise HTTPException(status_code=404, detail="Application not found")
     
     token = get_app_token(a, db)
@@ -132,6 +137,7 @@ def get_application(id: str, db: Session = Depends(get_db), current_user: dict =
         description=a.description,
         language=a.language,
         repository_url=a.repository_url,
+        repo_url=a.repository_url,
         spec_file_path=a.spec_file_path,
         team_owner=a.team_owner,
         allowed_ip=a.allowed_ip,
@@ -145,6 +151,8 @@ def create_escalation_policy(id: str, policy: EscalationPolicyCreate, db: Sessio
         raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
         
     app = db.query(DBApplication).filter(DBApplication.id == id).first()
+    if not app:
+        app = db.query(DBApplication).filter(DBApplication.name == id).first()
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
     
@@ -168,5 +176,11 @@ def list_escalation_policies(id: str, db: Session = Depends(get_db), current_use
     if current_user.get("role") == "application":
         raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
         
-    policies = db.query(DBEscalationPolicy).filter(DBEscalationPolicy.application_id == id).all()
+    app = db.query(DBApplication).filter(DBApplication.id == id).first()
+    if not app:
+        app = db.query(DBApplication).filter(DBApplication.name == id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+        
+    policies = db.query(DBEscalationPolicy).filter(DBEscalationPolicy.application_id == app.id).all()
     return policies

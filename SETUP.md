@@ -99,22 +99,32 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"
 
 ## 🚀 3. Multi-Service Microservice Setup
 
-The platform includes two mock microservices: `checkout-service` and `payment-service`. The automated registration pushes them to your local GitLab instance and registers them with DAA.
+The platform includes two mock microservices: `payment-api` and `payment-worker`. In our E2E environment, code repositories are hosted on Gitea and managed/configured via the DAA platform CLI.
 
-### Automated Setup
-1. **Initialize the local GitLab repository:**
-   Run the automated setup script to push the code repositories to GitLab, set up project connections, and define SRE escalation policies:
+### CLI Registration & Policy Configuration
+Instead of manual API calls, SREs register applications and define escalation rules directly via the DAA CLI client:
+
+1. **Register the Applications:**
    ```bash
-   python3 setup_microservices.py
+   ./daa register --name payment-api --repo-url http://host.docker.internal:3000/daa-admin/payment-api.git --language python
+   ./daa register --name payment-worker --repo-url http://host.docker.internal:3000/daa-admin/payment-worker.git --language go
    ```
-2. **Start the microservices locally:**
-   Running the microservices locally on the host ensures instant startups and direct code file diagnostic modifications:
+   *This commands automatically registers the apps and creates the corresponding repository connections in the backend database.*
+
+2. **Define SRE Escalation Policies:**
    ```bash
-   # Run Payment Service
-   DAA_LOGS_URL=http://localhost:8000/logs/ DAA_TOKEN="<your_daa_token>" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8002
+   ./daa policy --app payment-api --threshold 3 --window 60
+   ./daa policy --app payment-worker --threshold 3 --window 60
+   ```
+   *This creates an SRE policy rule where an analysis job will automatically trigger if 3 exception events are logged within a 60-second window.*
+
+3. **Deploy Microservices locally (Injecting Tokens):**
+   ```bash
+   # Run Payment API
+   DAA_BACKEND_API_URL=http://localhost:8000 DAA_TOKEN="<payment_api_token>" uvicorn app:app --host 0.0.0.0 --port 8001
    
-   # Run Checkout Service
-   DAA_LOGS_URL=http://localhost:8000/logs/ PAYMENT_SERVICE_URL=http://localhost:8002/pay REDIS_HOST=localhost REDIS_PORT=6379 DAA_TOKEN="<your_daa_token>" .venv/bin/uvicorn app:app --host 0.0.0.0 --port 8001
+   # Run Payment Worker
+   DAA_BACKEND_API_URL=http://localhost:8000 DAA_TOKEN="<payment_worker_token>" ./payment-worker
    ```
 
 ---

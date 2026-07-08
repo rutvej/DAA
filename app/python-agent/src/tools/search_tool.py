@@ -2,7 +2,7 @@ import os
 import sqlite3
 import re
 from typing import List, Dict
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
 from langchain_core.tools import tool
 
 class SearchRepoInput(BaseModel):

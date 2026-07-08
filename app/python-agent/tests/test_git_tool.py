@@ -5,6 +5,19 @@ from src.tools.git_tool import clone_repo, create_branch, commit, push, create_p
 
 class TestGitTool(unittest.TestCase):
 
+    def setUp(self):
+        import os
+        self.old_env = dict(os.environ)
+        os.environ['GITLAB_USER'] = 'root'
+        os.environ['GITLAB_HOST'] = 'gitlab'
+        if 'GITLAB_PRIVATE_TOKEN' in os.environ:
+            del os.environ['GITLAB_PRIVATE_TOKEN']
+
+    def tearDown(self):
+        import os
+        os.environ.clear()
+        os.environ.update(self.old_env)
+
     @patch('src.tools.git_tool.os.path.exists', return_value=False)
     @patch('src.tools.git_tool.git.Repo')
     def test_clone_repo(self, mock_repo, mock_exists):
@@ -81,7 +94,7 @@ class TestGitTool(unittest.TestCase):
 
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
-        mock_repo.git.push.assert_called_once_with('--set-upstream', 'origin', branch_name)
+        mock_repo.git.push.assert_called_once_with('--set-upstream', '--force', 'origin', branch_name)
 
     @patch('src.tools.git_tool.gitlab.Gitlab')
     @patch('src.tools.git_tool._get_repo')

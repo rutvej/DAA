@@ -116,10 +116,17 @@ class RepoCacheManager:
             # Prune so git doesn't complain
             self._run(["git", "worktree", "prune"], cwd=cache_dir, check=False)
 
-        self._run(
-            ["git", "worktree", "add", "--force", worktree_path, "main"],
-            cwd=cache_dir,
-        )
+        try:
+            self._run(
+                ["git", "worktree", "add", "--force", worktree_path, "main"],
+                cwd=cache_dir,
+            )
+        except subprocess.CalledProcessError:
+            logger.info("Failed to add worktree for branch 'main', trying 'master' fallback")
+            self._run(
+                ["git", "worktree", "add", "--force", worktree_path, "master"],
+                cwd=cache_dir,
+            )
         # Index repo for codebase search tool (DAA 3.1)
         try:
             from .tools.search_tool import index_repo
@@ -236,6 +243,20 @@ class LogHydrator:
 
         Returns a plain-text string of log lines, or None on failure.
         """
+        # Try cloud log ingestion connectors first
+        try:
+            from .log_connectors import get_configured_connector
+            connector = get_configured_connector()
+            if connector:
+                logs = connector.fetch_logs(app_name, timestamp, limit=500)
+                if logs is not None:
+                    logger.info("Successfully fetched real logs via cloud log connector %s", connector.__class__.__name__)
+                    return logs
+                logger.warning("Cloud log connector %s returned None, falling back to local database logs", connector.__class__.__name__)
+        except Exception as exc:
+            logger.error("Error in cloud log connector execution: %s, falling back", exc)
+
+        # Fallback to local database logs
         url = f"{self.backend_url}/apps/{app_name}/logs"
         try:
             resp = requests.get(

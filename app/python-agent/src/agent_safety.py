@@ -97,15 +97,15 @@ class PlanningValidator:
         return (
             "IMPORTANT: Your FIRST output must be a JSON investigation plan "
             "in this exact format:\n"
-            "{\n"
+            "{{\n"
             '  "hypothesis": "<your hypothesis about the root cause>",\n'
             '  "evidence_needed": [\n'
-            '    {"type": "file"|"metrics"|"logs"|"git", '
+            '    {{"type": "file"|"metrics"|"logs"|"git", '
             '"target": "<file path or signal name>", '
-            '"reason": "<why>"}\n'
+            '"reason": "<why>"}}\n'
             "  ],\n"
             '  "will_not_check": ["<things you will deliberately not investigate>"]\n'
-            "}\n"
+            "}}\n"
             "Only after submitting this plan may you call investigation tools."
         )
 

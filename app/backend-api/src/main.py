@@ -76,6 +76,7 @@ app.include_router(status.router, prefix="/status", tags=["status"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(projects.router, prefix="/projects", tags=["projects"])
 app.include_router(applications.router, prefix="/applications", tags=["applications"])
+app.include_router(applications.router, prefix="/apps", tags=["applications"])
 app.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 app.include_router(dashboard.router, tags=["dashboard"])
 
