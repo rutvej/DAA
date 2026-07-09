@@ -151,15 +151,18 @@ DAA can dynamically consume external MCP tools (e.g., BigQuery, Cloud Logging):
 # 1. Run the unified 1-line installation script
 ./install.sh
 
-# 2. Initialize SRE platform configuration (API keys, Git settings, model selection)
-./daa init
+# 2. Link the DAA CLI globally to your PATH (recommended)
+sudo ln -sf $(pwd)/daa /usr/local/bin/daa
 
-# 3. Spin up local backend & agent services in Docker
-./daa deploy
+# 3. Initialize SRE platform configuration (API keys, Git settings, model selection)
+daa init
 
-# 4. Register your first application and set up SRE policies
-./daa register --name my-service --repo-url http://host.docker.internal:3000/owner/my-service.git --language python
-./daa policy --app my-service --threshold 3 --window 60
+# 4. Spin up local backend & agent services in Docker
+daa redeploy
+
+# 5. Register your first application and set up SRE policies
+daa register --name my-service --repo-url http://host.docker.internal:3000/owner/my-service.git --language python
+daa policy --app my-service --threshold 3 --window 60
 ```
 
 For the full E2E demo walkthrough: **[daa-e2e-demo](https://github.com/rutvej/Desktop/daa-e2e-demo)**

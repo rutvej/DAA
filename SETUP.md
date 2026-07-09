@@ -1,4 +1,4 @@
-# DAA v2.0 Setup & Configuration Guide
+# DAA v3.0 Setup & Configuration Guide
 
 This guide details the end-to-end installation, local infrastructure setup, LLM provider onboarding, and test verification for the **DAA Autonomous SRE Platform**.
 
@@ -19,7 +19,7 @@ DAA is pre-configured with a complete offline testing suite, including a local c
 ### Local Services & Ports
 - **FastAPI Backend-API:** `http://localhost:8000` (Swagger UI at `/docs`)
 - **React Admin Dashboard:** `http://localhost:5003`
-- **Local GitLab Instance:** `http://localhost:8082` (SSH: `2224`)
+- **Local Gitea Instance:** `http://localhost:3000` (for E2E demo walkthrough)
 - **PostgreSQL Database:** `localhost:5433` (Docker internal: `5432`)
 - **RabbitMQ Broker:** `localhost:5672` (Management panel: `http://localhost:15672`)
 - **Mock Checkout Service:** `http://localhost:8001`
@@ -106,15 +106,15 @@ Instead of manual API calls, SREs register applications and define escalation ru
 
 1. **Register the Applications:**
    ```bash
-   ./daa register --name payment-api --repo-url http://host.docker.internal:3000/daa-admin/payment-api.git --language python
-   ./daa register --name payment-worker --repo-url http://host.docker.internal:3000/daa-admin/payment-worker.git --language go
+   daa register --name payment-api --repo-url http://host.docker.internal:3000/daa-admin/payment-api.git --language python
+   daa register --name payment-worker --repo-url http://host.docker.internal:3000/daa-admin/payment-worker.git --language go
    ```
    *This commands automatically registers the apps and creates the corresponding repository connections in the backend database.*
 
 2. **Define SRE Escalation Policies:**
    ```bash
-   ./daa policy --app payment-api --threshold 3 --window 60
-   ./daa policy --app payment-worker --threshold 3 --window 60
+   daa policy --app payment-api --threshold 3 --window 60
+   daa policy --app payment-worker --threshold 3 --window 60
    ```
    *This creates an SRE policy rule where an analysis job will automatically trigger if 3 exception events are logged within a 60-second window.*
 
@@ -158,7 +158,7 @@ Once escalated, the SRE agent automatically:
 2. **Searches git logs** (`check_recent_changes`) over the last 24h to see if a recent commit caused the issue.
 3. **Inspects active environment metrics** (`check_alerts`) to check if Redis or Postgres services are down.
 4. **Performs surgical code diagnostics** (`read_repomap`, `find_symbol`, `view_file_slice`) to locate code flaws.
-5. **Creates a fix branch, commits, pushes, opens a GitLab Merge Request,** and creates an offline **Postmortem report** summarizing the root cause!
+5. **Creates a fix branch, commits, pushes, opens a Gitea/GitLab/GitHub Pull/Merge Request,** and creates an offline **Postmortem report** summarizing the root cause!
 
 ---
 
@@ -185,13 +185,13 @@ By default, the SRE Agent automatically opens a Merge/Pull Request upon generati
    - Complete step-by-step **AI Agent Execution Traces** showing exactly what the LLM thought, what tools it called, and what it observed.
    - The proposed code changes and target branch.
    - The full root-cause Postmortem Report.
-4. **One-Click Approval:** Click **"Approve Fix & Create PR/MR"** to trigger the GitLab/GitHub API and open the merge request immediately.
+4. **One-Click Approval:** Click **"Approve Fix & Create PR/MR"** to trigger the Gitea/GitLab/GitHub API and open the pull/merge request immediately.
 
 ---
 
 ## 🔌 8. Model Context Protocol (MCP) Server & Client
 
-DAA v2.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility and cross-agent collaboration.
+DAA v3.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility and cross-agent collaboration.
 
 ### A. Exposing DAA tools to other AI Agents (Server)
 Other software engineering agents (like Cursor, Claude Desktop, or custom coding copilots) can connect to DAA using the stdio transport to review and approve incident fixes.
@@ -222,7 +222,7 @@ Other coding agents on your host can query the Docker-packaged MCP server using 
 **Exposed Tools:**
 * `get_fixes_awaiting_approval`: Returns all incident fixes waiting for human validation.
 * `get_incident_postmortem(fix_id)`: Fetches the postmortem text, status, and execution logs.
-* `approve_remediation_fix(fix_id)`: Approves the fix and triggers the GitLab/GitHub PR/MR creation.
+* `approve_remediation_fix(fix_id)`: Approves the fix and triggers the Gitea/GitLab/GitHub PR/MR creation.
 
 ---
 

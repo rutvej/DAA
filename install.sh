@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# DAA v2.0 Platform Unified Installation Script
+# DAA v3.0 Platform Unified Installation Script
 # ==============================================================================
 # Setup your entire SRE workspace, virtual environment, and DAA CLI in one command.
 # Run: curl -fsSL http://localhost/install.sh | bash (or run locally: ./install.sh)
@@ -22,7 +22,7 @@ echo "    ██║  ██║███████║███████║"
 echo "    ██║  ██║██╔══██║██╔══██║"
 echo "    ██████╔╝██║  ██║██║  ██║"
 echo "    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝"
-echo -e "  Deduplicated Autonomous Agent — v2.0"
+echo -e "  Deduplicated Autonomous Agent — v3.0"
 echo -e "${RESET}"
 echo -e "${BOLD}Starting DAA Platform installation...${RESET}"
 echo "--------------------------------------------------------"

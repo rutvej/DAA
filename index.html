@@ -1144,7 +1144,7 @@
             <i class="fa-solid fa-ticket"></i>
           </div>
           <h4>Git & Ticket Automation</h4>
-          <p>Creates GitHub Issues, GitLab Merge Requests, and opens offline Jira tickets automatically when a verification fails.</p>
+          <p>Creates GitHub Issues, GitLab/Gitea Pull Requests, and opens offline Jira tickets automatically when a verification fails.</p>
         </div>
 
         <div class="feature-card">
@@ -1235,10 +1235,10 @@
           <text x="710" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">SRE Agent v3.0</text>
           <text x="710" y="135" fill="#d1fae5" font-family="Outfit" font-size="11" text-anchor="middle">(Three-Phase Flow)</text>
 
-          <!-- Node 5: Repository / GitLab -->
+          <!-- Node 5: Repository / Gitea/GitLab -->
           <rect x="450" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-          <text x="510" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">GitLab Repo</text>
-          <text x="510" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Fix MR / Code)</text>
+          <text x="510" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Gitea/GitLab</text>
+          <text x="510" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Fix PR/MR / Code)</text>
 
           <!-- Node 6: Ticketing / Postmortems -->
           <rect x="250" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
@@ -1252,7 +1252,7 @@
           <h3>Services and Roles:</h3>
           <ul>
             <li><strong>backend-api</strong> (<code>app/backend-api</code>): Manages Authentication, Ingests logs via REST API, matches deduplication metrics, and tracks fix progression.</li>
-            <li><strong>python-agent</strong> (<code>app/python-agent</code>): Performs multi-dimension analysis using ReAct agent framework and pushes fixes to GitLab.</li>
+            <li><strong>python-agent</strong> (<code>app/python-agent</code>): Performs multi-dimension analysis using ReAct agent framework and pushes fixes to the Git repository.</li>
             <li><strong>admin-panel</strong> (<code>app/admin-panel</code>): React SPA displaying system configuration parameters, live logs, active incidents, and fix reports.</li>
             <li><strong>daa-sdk</strong> (<code>app/daa-sdk</code>): Multi-language clients enabling direct trace and exception transmission from services.</li>
           </ul>
@@ -1305,9 +1305,9 @@
               <td><span class="status-dot"></span> Active</td>
             </tr>
             <tr>
-              <td><strong>Local GitLab Instance</strong></td>
-              <td><a href="http://localhost:8082" target="_blank" class="port-link">localhost:8082</a></td>
-              <td>Simulated git code forge (SSH: 2224)</td>
+              <td><strong>Local Gitea Instance</strong></td>
+              <td><a href="http://localhost:3000" target="_blank" class="port-link">localhost:3000</a></td>
+              <td>Simulated git code forge for E2E demo</td>
               <td><span class="status-dot"></span> Active</td>
             </tr>
             <tr>
@@ -1464,6 +1464,84 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
         </li>
       </ol>
 
+      <h3 style="margin-top: 2rem;">Redesigned SRE Workflow (Manual CLI Steps)</h3>
+      <p>If you prefer to run the installation, initialization, registration, and policy setup manually to inspect the redesigned DAA SRE workflow, follow these steps:</p>
+      
+      <ol>
+        <li style="margin-bottom: 1rem;">
+          <strong>Initialize Demo Infrastructure &amp; Repositories:</strong>
+          <p>Spin up Gitea, Redis, Postgres, and RabbitMQ, and push the local payment repositories to Gitea:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>cd /home/rutvej/Desktop/daa-e2e-demo
+python3 run_demo.py --skip-registration --skip-load-test</code></pre>
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text-muted);">Take note of the Git Token generated and printed by the script (or retrieve it from <code>.gitea_token</code>).</p>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Install and Initialize DAA:</strong>
+          <p>Navigate to the DAA directory, run the unified installation script, link it globally, and run the configuration wizard:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>cd /home/rutvej/Desktop/DAA
+./install.sh
+sudo ln -sf $(pwd)/daa /usr/local/bin/daa
+daa init</code></pre>
+          </div>
+          <ul style="margin-left: 2rem; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            <li>Select <strong>gitea</strong> as the Git provider.</li>
+            <li>Provide Gitea base URL <code>http://localhost:3000</code> and the generated Git Token.</li>
+            <li>Provide your Gemini API key (e.g. <code>AIzaSyYourGeminiApiKeyHere</code>) and choose <code>gemini-1.5-flash</code> as the model.</li>
+            <li>Skip the cloud log connector configuration setup.</li>
+          </ul>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Deploy DAA Services:</strong>
+          <p>Spin up the local backend, database, queue, and SRE agent services in Docker:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>daa redeploy</code></pre>
+          </div>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Register Applications via DAA CLI:</strong>
+          <p>Register the microservices and obtain their telemetry tokens (you can run this from any folder now):</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>daa register --name payment-api --repo-url http://host.docker.internal:3000/daa-admin/payment-api.git --language python
+daa register --name payment-worker --repo-url http://host.docker.internal:3000/daa-admin/payment-worker.git --language go</code></pre>
+          </div>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Configure Escalation Policies:</strong>
+          <p>Set up SRE escalation rules for the registered applications using the CLI:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>daa policy --app payment-api --threshold 3 --window 60
+daa policy --app payment-worker --threshold 3 --window 60</code></pre>
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text-muted);">This triggers an SRE agent run if more than 3 errors are recorded within a 60-second window.</p>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Inject Telemetry Tokens &amp; Deploy Microservices:</strong>
+          <p>Save the returned <code>DAA_TOKEN</code> values inside the demo's <code>.env</code> file (e.g. <code>DAA_TOKEN_PAYMENT_API=&lt;token&gt;</code>) and start the containers:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># In /home/rutvej/Desktop/daa-e2e-demo/.env
+cd /home/rutvej/Desktop/daa-e2e-demo
+docker-compose up -d --build payment-api payment-worker</code></pre>
+          </div>
+        </li>
+        <li style="margin-bottom: 1rem;">
+          <strong>Simulate the Outage:</strong>
+          <p>Flood the payment API cache to trigger the Redis OOM incident and launch the agent:</p>
+          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code>./load_test.sh</code></pre>
+          </div>
+        </li>
+      </ol>
+
       <h3 style="margin-top: 2rem;">Human-in-the-Loop (HITL) Mode Setup</h3>
       <p>
         To enable safe approval gatekeeper logic, add <code>DAA_HITL_MODE=true</code> to your <code>.env</code> file. When an alert triggers the agent:
@@ -1472,7 +1550,7 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
         <li>The agent will automatically execute the sequential 4-Dimension loop (Change, Infra, Logs, Diagnostics).</li>
         <li>It will push the remediation code to a Git branch but defer PR/MR opening.</li>
         <li>The Admin Panel will display a status of <strong>"Awaiting Approval"</strong> and expose full step-by-step <strong>AI Execution Logs</strong>.</li>
-        <li>Review the changes and click <strong>"Approve Fix & Create PR/MR"</strong> to trigger the GitLab/GitHub REST API instantly.</li>
+        <li>Review the changes and click <strong>"Approve Fix & Create PR/MR"</strong> to trigger the Gitea/GitLab/GitHub REST API instantly.</li>
       </ul>
 
     </section>
@@ -1497,7 +1575,7 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
       <ul style="margin-left: 2rem; margin-top: 0.5rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.95rem;">
         <li style="margin-bottom: 0.25rem;"><strong>get_fixes_awaiting_approval:</strong> Retrieve all DAA SRE incident remediation fixes currently awaiting human approval.</li>
         <li style="margin-bottom: 0.25rem;"><strong>get_incident_postmortem:</strong> Get the detailed root-cause postmortem and AI agent trace for a given fix ID.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>approve_remediation_fix:</strong> Approve a fix and trigger GitLab/GitHub PR/MR creation.</li>
+        <li style="margin-bottom: 0.25rem;"><strong>approve_remediation_fix:</strong> Approve a fix and trigger Gitea/GitLab/GitHub PR/MR creation.</li>
         <li style="margin-bottom: 0.25rem;"><strong>get_active_incidents:</strong> Get all currently active (processing/pending) incidents with their app name, status, fingerprint, and elapsed time.</li>
         <li style="margin-bottom: 0.25rem;"><strong>get_fix_by_fingerprint:</strong> Get fix record by error fingerprint hash. Returns existing PR URL if the same bug was previously fixed.</li>
         <li style="margin-bottom: 0.25rem;"><strong>list_registered_apps:</strong> List all applications registered in DAA with their repository URL, cloud provider config, and escalation policy.</li>
@@ -1837,7 +1915,7 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
       { text: "[*] Generating patch code for local validation tests...", style: "console-info" },
       { text: "    Running tests: PYTHONPATH=app/checkout-service pytest tests/ ... [SUCCESS]", style: "console-success" },
       { text: "[*] Branch created: fix/redis-connection-fallback", style: "console-success" },
-      { text: "[*] Pushed changes to GitLab, opened Merge Request #12 (status: MERGEABLE)", style: "console-success" },
+      { text: "[*] Pushed changes to Gitea, opened Pull Request #12 (status: MERGEABLE)", style: "console-success" },
       { text: "[*] Incident resolved. Ticket postmortem logged in Mock Jira database as DAA-4091.", style: "console-success" }
     ];
 
