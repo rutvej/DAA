@@ -1,425 +1,621 @@
-# DAA Master — Federated Bug Intelligence Network + Zero-Friction Adoption Strategies
+# DAA Master — Self-Healing Feedback Loop (DAA Fixes DAA)
 
 > **Status:** DRAFT — v0.1  
 > **Date:** 2026-07-09  
-> **Two ideas in this spec:**
-> 1. **Master DAA** — A hosted central DAA that receives anonymized bug patterns from community DAA instances, creating a feedback loop that makes every DAA smarter.
-> 2. **Zero-Friction Adoption** — Additional strategies to let users adopt DAA without installing anything new.
+> **Core idea:** When someone runs DAA on their server and DAA itself crashes or errors, that crash report is sent (opt-in) to a Master DAA instance. The Master DAA investigates the bug in the DAA codebase (`github.com/rutvej/DAA`) and opens a PR to fix DAA's own code. **DAA uses DAA to fix DAA.**
 
 ---
 
-## Part 1: Master DAA — Federated Bug Intelligence
-
-### 1.1 The Concept
+## 1. The Concept
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  User A's DAA    │     │  User B's DAA    │     │  User C's DAA    │
-│  (self-hosted)   │     │  (Cloud Run)     │     │  (Docker)        │
-│                  │     │                  │     │                  │
-│  Fixes a Redis   │     │  Fixes an OOM    │     │  Fixes a DB      │
-│  TTL bug         │     │  in Node.js      │     │  deadlock        │
-└────────┬─────────┘     └────────┬─────────┘     └────────┬─────────┘
-         │ opt-in                 │ opt-in                  │ opt-in
-         │ anonymized             │ anonymized              │ anonymized
-         ▼                        ▼                         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                        MASTER DAA (hosted)                          │
-│                                                                     │
-│  Receives:                                                          │
-│  ├── Anonymized fingerprints (no source code, no company data)     │
-│  ├── Exception type + language + framework                          │
-│  ├── Fix pattern (what kind of change fixed it)                    │
-│  ├── Confidence score                                               │
-│  └── Outcome (fix merged? reverted? still open?)                   │
-│                                                                     │
-│  Returns to community:                                              │
-│  ├── "This bug pattern has been seen 847 times across community"   │
-│  ├── "87% of the time, the fix is: add null check / add TTL / etc" │
-│  ├── "Average time to fix: 3.2 minutes"                            │
-│  └── Known fix templates for common patterns                       │
-└─────────────────────────────────────────────────────────────────────┘
+User runs DAA on their server
+         │
+         ▼
+DAA encounters its own internal error
+(e.g., crash in orchestrator.py, unhandled exception, import failure)
+         │
+         ▼ opt-in (with user consent)
+Error report sent to Master DAA (hosted by rutvej)
+         │
+         ▼
+Master DAA receives the crash report
+         │
+         ▼
+Master DAA investigates the bug in github.com/rutvej/DAA
+(the DAA codebase itself — NOT the user's application)
+         │
+         ▼
+Master DAA creates a PR on github.com/rutvej/DAA to fix the bug
+         │
+         ▼
+rutvej reviews and merges
+         │
+         ▼
+Next DAA release includes the fix
+         │
+         ▼
+All DAA instances benefit
 ```
 
-### 1.2 What Gets Shared (Privacy-First)
+**This is the same pattern as:**
+- **Windows Error Reporting** → Microsoft collects crash dumps → engineers fix Windows → Windows Update ships the fix
+- **Linux kernel oops reports** → kernel devs analyze → patch the kernel → distros ship updates
+- **Firefox/Chrome crash reporting** → browser team fixes browser → auto-update ships fix
+- **Sentry on your own product** → but instead of a human triaging, DAA triages and fixes itself
 
-**SHARED (anonymized):**
+**The difference:** In all those examples, humans read the crash reports and write fixes. With Master DAA, **DAA reads its own crash reports and writes its own fixes.** Self-healing software.
 
-| Field | Example | Why safe |
-|---|---|---|
-| `exception_type` | `NullPointerException` | Generic, not proprietary |
-| `language` | `java` | Public knowledge |
-| `framework` | `spring-boot` | Public knowledge |
-| `fix_pattern` | `null_check_added` | Pattern, not actual code |
-| `files_changed_count` | `2` | Number only |
-| `confidence_score` | `85` | Metric only |
-| `outcome` | `pr_merged` | Status only |
-| `fix_category` | `missing_validation` | Category only |
-| `time_to_fix_seconds` | `180` | Metric only |
+---
 
-**NEVER SHARED:**
+## 2. What Gets Reported
 
-| Field | Why excluded |
-|---|---|
-| Source code / diffs | Proprietary |
-| Repository URL | Identifies company |
-| File paths | Could reveal architecture |
-| Stack trace content | May contain secrets |
-| Company/user identity | Privacy |
-| API keys / env vars | Security |
-| Log content | May contain PII |
+When DAA crashes or errors during operation, the error handler captures:
 
-### 1.3 The Telemetry Payload
+### Sent to Master DAA (the DAA project's own errors):
 
 ```python
 @dataclass
-class AnonymizedBugReport:
-    """What a local DAA sends to Master DAA. Privacy-safe by design."""
+class DAAInternalErrorReport:
+    """Crash report about DAA itself — NOT about the user's application."""
     
-    # Bug identity (anonymized)
-    fingerprint_hash: str        # double-hashed: SHA256(SHA256(fingerprint) + salt)
-    exception_type: str          # "NullPointerException", "OOMKilled", etc.
-    language: str                # "python", "java", "go", etc.
-    framework: Optional[str]     # "django", "spring-boot", "express", etc.
+    # What went wrong in DAA
+    exception_type: str          # "ImportError", "AttributeError", "TimeoutError", etc.
+    exception_message: str       # "module 'orchestrator' has no attribute 'run_preflight'"
+    traceback: str               # Full Python traceback (DAA's own code only)
     
-    # Fix metadata (patterns, not code)
-    fix_pattern: str             # "null_check", "add_ttl", "fix_import", "add_retry", etc.
-    fix_category: str            # "missing_validation", "resource_leak", "config_error", etc.
-    files_changed_count: int     # how many files the fix touched
-    lines_changed_count: int     # how many lines changed
+    # Where in DAA it happened
+    daa_file: str                # "src/orchestrator.py"
+    daa_line: int                # 482
+    daa_function: str            # "run_preflight"
     
-    # Outcome
-    outcome: str                 # "pr_created", "pr_merged", "escalated", "reverted"
-    confidence_score: int        # agent's confidence (0-100)
-    time_to_fix_seconds: int     # how long the investigation took
-    
-    # Metadata
+    # DAA environment
     daa_version: str             # "3.0.1"
-    llm_provider: str            # "google", "openai", "anthropic" (no API keys)
+    python_version: str          # "3.11.9"
+    llm_provider: str            # "google" (no API keys!)
+    deployment_mode: str         # "docker-compose", "minimal", "cloud-run"
+    os_info: str                 # "Linux 6.1.0 x86_64"
+    
+    # Context (what DAA was doing when it crashed)
+    phase: str                   # "preflight", "agent_core", "postflight"
+    trigger: str                 # "webhook", "rabbitmq", "mcp", "manual"
+    
+    # Timestamp
     timestamp: str               # ISO 8601
+    
+    # Privacy
+    instance_id: str             # anonymous random ID (not user-identifying)
 ```
 
-### 1.4 Local DAA Integration
+### NEVER sent:
+
+| Data | Why excluded |
+|---|---|
+| User's application code | Not relevant — we're fixing DAA, not their app |
+| User's repo URL | Privacy |
+| User's API keys / tokens | Security |
+| User's error logs / stack traces | Privacy — those are about their app |
+| User's IP address | Privacy |
+| User's company name | Privacy |
+| LLM API keys | Security |
+| Any data from the user's application | Privacy |
+
+**Only DAA's own stack traces, from DAA's own source files, are sent. Nothing from the user's application.**
+
+---
+
+## 3. How It Works Internally
+
+### 3.1 Error capture in local DAA
+
+Every DAA instance wraps its core processing in a try/except that reports internal errors:
 
 ```python
-# In the local DAA, after a successful fix:
+# In the local DAA instance (python-agent/src/main.py or minimal/agent.py)
 
 import os
+import traceback
 import httpx
 
-MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL")  # opt-in
-MASTER_DAA_ENABLED = os.environ.get("DAA_TELEMETRY", "false").lower() == "true"
+MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
+DAA_SELF_REPORT = os.environ.get("DAA_SELF_REPORT", "false").lower() == "true"
+DAA_VERSION = "3.0.1"
 
-async def report_to_master(bug_report: AnonymizedBugReport):
-    """Opt-in: send anonymized bug pattern to Master DAA."""
-    if not MASTER_DAA_ENABLED or not MASTER_DAA_URL:
+async def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
+    """
+    Report a DAA internal error to the Master DAA.
+    This reports errors in DAA's own code, NOT in the user's application.
+    Completely opt-in. Off by default.
+    """
+    if not DAA_SELF_REPORT:
         return
+    
+    tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+    tb_str = "".join(tb)
+    
+    # Extract file/line from traceback (only DAA's own files)
+    daa_file, daa_line, daa_function = _extract_daa_frame(exc)
+    
+    report = {
+        "exception_type": type(exc).__name__,
+        "exception_message": str(exc),
+        "traceback": _sanitize_traceback(tb_str),  # strip any user paths
+        "daa_file": daa_file,
+        "daa_line": daa_line,
+        "daa_function": daa_function,
+        "daa_version": DAA_VERSION,
+        "python_version": platform.python_version(),
+        "llm_provider": os.environ.get("LLM_PROVIDER", "unknown"),
+        "deployment_mode": os.environ.get("DAA_EDITION", "unknown"),
+        "os_info": f"{platform.system()} {platform.release()} {platform.machine()}",
+        "phase": phase,
+        "trigger": os.environ.get("DAA_TRIGGER_SOURCE", "unknown"),
+        "timestamp": datetime.utcnow().isoformat(),
+        "instance_id": _get_anonymous_instance_id(),
+    }
     
     try:
         async with httpx.AsyncClient() as client:
             await client.post(
-                f"{MASTER_DAA_URL}/api/v1/telemetry",
-                json=asdict(bug_report),
-                timeout=5.0,
+                f"{MASTER_DAA_URL}/api/v1/self-report",
+                json=report,
+                timeout=10.0,
             )
     except Exception:
-        pass  # Never block on telemetry failure
+        pass  # Never let reporting failure break DAA
+
+
+def _sanitize_traceback(tb: str) -> str:
+    """
+    Keep only frames from DAA's own source files.
+    Remove any frames from user's application code or system libraries.
+    """
+    safe_lines = []
+    for line in tb.split("\n"):
+        # Only keep frames from DAA's own modules
+        if "daa_minimal/" in line or "python-agent/src/" in line or "backend-api/src/" in line:
+            safe_lines.append(line)
+        elif line.strip().startswith("File "):
+            # External frame — redact the path but keep the error type
+            safe_lines.append("  File <redacted>")
+        else:
+            safe_lines.append(line)
+    return "\n".join(safe_lines)
+
+
+def _extract_daa_frame(exc: Exception) -> tuple[str, int, str]:
+    """Extract the most relevant DAA source file from the traceback."""
+    import traceback as tb_module
+    for frame in reversed(tb_module.extract_tb(exc.__traceback__)):
+        if "daa_minimal/" in frame.filename or "python-agent/src/" in frame.filename:
+            # Return relative path within DAA project
+            for prefix in ["daa_minimal/", "python-agent/src/", "backend-api/src/"]:
+                if prefix in frame.filename:
+                    rel_path = frame.filename[frame.filename.index(prefix):]
+                    return rel_path, frame.lineno, frame.name
+    return "unknown", 0, "unknown"
 ```
 
-### 1.5 Master DAA Returns Value
-
-The Master DAA isn't just a data sink — it returns intelligence to local DAA instances:
+### 3.2 Usage in the agent's main loop
 
 ```python
-# Before investigating, check if Master DAA has a known fix pattern:
-
-async def check_master_intelligence(exception_type: str, language: str) -> Optional[dict]:
-    """Query Master DAA for known fix patterns for this bug type."""
-    if not MASTER_DAA_ENABLED or not MASTER_DAA_URL:
-        return None
-    
+async def process_job(job: Job):
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{MASTER_DAA_URL}/api/v1/patterns",
-                params={"exception_type": exception_type, "language": language},
-                timeout=5.0,
-            )
-            if resp.status_code == 200:
-                return resp.json()
-                # Returns: {
-                #   "seen_count": 847,
-                #   "common_fix_patterns": [
-                #     {"pattern": "add_null_check", "frequency": 0.62},
-                #     {"pattern": "add_retry_logic", "frequency": 0.23},
-                #   ],
-                #   "avg_fix_time_seconds": 192,
-                #   "success_rate": 0.87
-                # }
-    except Exception:
-        return None
+        # Phase 1: Pre-flight
+        try:
+            preflight = run_preflight(job.__dict__, backend_url, daa_token)
+        except Exception as e:
+            await report_daa_internal_error(e, phase="preflight")
+            raise  # still propagate — reporting doesn't swallow errors
+        
+        # Phase 2: Agent core
+        try:
+            result = await run_agent(preflight, llm, tools)
+        except Exception as e:
+            await report_daa_internal_error(e, phase="agent_core")
+            raise
+        
+        # Phase 3: Post-flight
+        try:
+            await run_postflight(result, preflight)
+        except Exception as e:
+            await report_daa_internal_error(e, phase="postflight")
+            raise
+            
+    except Exception as e:
+        await report_daa_internal_error(e, phase="top_level")
+        logging.error(f"Job failed: {e}")
 ```
 
-This intelligence gets injected into the LLM prompt:
+### 3.3 Master DAA receives the report
 
-```
-Community Intelligence:
-- This exception type (NullPointerException in Java) has been seen 847 times
-  across the DAA community.
-- 62% of the time, the fix was: add null check before the failing call.
-- 23% of the time, the fix was: add retry logic with exponential backoff.
-- Average fix time: 3.2 minutes.
-- Community success rate for this bug type: 87%.
-
-Use this context to guide your investigation.
-```
-
-### 1.6 The Feedback Loop
-
-```
-Local DAA encounters bug
-        │
-        ▼
-Checks Master DAA for known patterns ──────────────────────┐
-        │                                                    │
-        ▼                                                    │
-Investigates with community intelligence                     │
-        │                                                    │
-        ▼                                                    │
-Creates fix (PR / Jira ticket)                               │
-        │                                                    │
-        ▼                                                    │
-Reports anonymized result back to Master DAA ───────────────┘
-        │
-        ▼
-Master DAA updates pattern database
-        │
-        ▼
-Next DAA instance gets better intelligence
-```
-
-**Every fix makes every DAA smarter.**
-
-### 1.7 Privacy Controls
+The Master DAA is a DAA instance hosted by you (rutvej), configured to fix the DAA repo itself:
 
 ```bash
-# ── Telemetry is OFF by default ──
-DAA_TELEMETRY=false           # default: no data leaves your instance
-
-# ── Opt-in levels ──
-DAA_TELEMETRY=true            # share anonymized patterns with Master DAA
-DAA_MASTER_URL=https://master.daa.dev   # Master DAA endpoint
-
-# ── Receive-only mode (get intelligence without sharing) ──
-DAA_TELEMETRY=receive-only    # query Master DAA for patterns, but don't send your data
+# Master DAA configuration
+DAA_REPO_URL=https://github.com/rutvej/DAA.git
+GITHUB_TOKEN=ghp_xxx                    # your personal token for rutvej/DAA
+LLM_PROVIDER=google
+GEMINI_API_KEY=xxx
+DAA_MASTER_MODE=true                    # enables /api/v1/self-report endpoint
 ```
 
-### 1.8 Master DAA Hosting
+When a crash report arrives:
 
-The Master DAA is a simple service you (rutvej) host:
+```python
+# master_daa/self_report_handler.py
+
+@app.post("/api/v1/self-report")
+async def receive_self_report(report: DAAInternalErrorReport):
+    """
+    Receive a crash report about DAA's own code.
+    Investigate in the DAA repository and create a fix PR.
+    """
+    
+    # 1. Compute fingerprint from DAA's own error
+    fingerprint = hashlib.sha256(
+        f"DAA|{report.exception_type}|{report.daa_file}|{report.daa_line}".encode()
+    ).hexdigest()
+    
+    # 2. Dedup — don't create duplicate PRs for the same bug
+    if check_git_dedup("https://github.com/rutvej/DAA.git", fingerprint):
+        return {"status": "known_bug", "fingerprint": fingerprint}
+    
+    # 3. Create investigation job — but targeting the DAA repo itself
+    job = InvestigationJob(
+        app_name="DAA",
+        repo_url="https://github.com/rutvej/DAA.git",
+        exception_type=report.exception_type,
+        error_file=report.daa_file,           # e.g., "python-agent/src/orchestrator.py"
+        line_number=report.daa_line,           # e.g., 482
+        stack_trace=report.traceback,          # DAA's own traceback
+        log_content=report.exception_message,
+        severity="error",
+        source="self-report",
+        metadata={
+            "daa_version": report.daa_version,
+            "python_version": report.python_version,
+            "deployment_mode": report.deployment_mode,
+            "phase": report.phase,
+            "occurrence_count": 1,  # incremented by dedup
+        }
+    )
+    
+    # 4. Run the standard DAA investigation pipeline
+    #    → clone github.com/rutvej/DAA
+    #    → read the failing code
+    #    → understand the bug
+    #    → create a fix
+    #    → push branch fix/<fingerprint>
+    #    → create PR on github.com/rutvej/DAA
+    await enqueue_investigation(job)
+    
+    return {"status": "accepted", "fingerprint": fingerprint}
+```
+
+### 3.4 The PR gets created on the DAA repo
 
 ```
-master.daa.dev
-├── POST /api/v1/telemetry     ← receive anonymized bug reports
-├── GET  /api/v1/patterns      ← serve community intelligence
-├── GET  /api/v1/stats         ← public dashboard (community stats)
-└── GET  /                     ← public website with leaderboard
+github.com/rutvej/DAA
+├── Pull Request: "fix: handle missing attribute in orchestrator.run_preflight"
+│   ├── Branch: fix/a1b2c3d4e5f6
+│   ├── Description:
+│   │   ## Bug Report (auto-generated from community self-report)
+│   │
+│   │   **Exception:** AttributeError in orchestrator.py:482
+│   │   **Function:** run_preflight
+│   │   **Error:** module 'orchestrator' has no attribute 'run_preflight'
+│   │   **Reported by:** 3 community instances (anonymous)
+│   │   **DAA versions affected:** 3.0.0, 3.0.1
+│   │   **Deployment modes affected:** minimal, docker-compose
+│   │
+│   │   ## Root Cause
+│   │   The `run_preflight` function was renamed in commit abc123 but the
+│   │   import in `main.py` was not updated.
+│   │
+│   │   ## Fix
+│   │   Updated import statement to use the new function name.
+│   │
+│   ├── Files changed:
+│   │   └── app/python-agent/src/main.py (+1, -1)
+│   └── Labels: [auto-fix, self-report, community]
 ```
-
-**Monetization possibilities (future):**
-- Free tier: community intelligence for open-source projects
-- Pro tier: priority pattern matching, private bug databases for companies
-- Enterprise: self-hosted Master DAA behind corporate firewall
 
 ---
 
-## Part 2: Zero-Friction Adoption Strategies
-
-Beyond alert integrations and the SDK, here are additional ways to make DAA trivially easy to adopt by leveraging tools users already have.
-
-### 2.1 GitHub App (Zero Install)
+## 4. The Self-Healing Loop (Visual)
 
 ```
-GitHub Marketplace → Install "DAA Agent" on your repo
-         │
-         ▼
-DAA watches for:
-  - Failed CI/CD runs (GitHub Actions)
-  - New issues labeled "bug"
-  - Error comments in PRs
-         │
-         ▼
-Automatically investigates and opens fix PRs
+┌─────────────────────────────────────────────────────────────────┐
+│                    THE SELF-HEALING LOOP                         │
+│                                                                 │
+│  ┌──────────┐    ┌──────────┐    ┌──────────┐                  │
+│  │ User A   │    │ User B   │    │ User C   │                  │
+│  │ runs DAA │    │ runs DAA │    │ runs DAA │                  │
+│  └────┬─────┘    └────┬─────┘    └────┬─────┘                  │
+│       │               │               │                         │
+│       │  DAA crashes   │  Same crash   │  Same crash            │
+│       │  on line 482   │  on line 482  │  on line 482           │
+│       ▼               ▼               ▼                         │
+│  ┌─────────────────────────────────────────┐                   │
+│  │         Master DAA (hosted by you)       │                   │
+│  │                                         │                   │
+│  │  Receives 3 crash reports               │                   │
+│  │  Same fingerprint → processes once      │                   │
+│  │                                         │                   │
+│  │  Investigates github.com/rutvej/DAA     │                   │
+│  │  Finds the bug in orchestrator.py:482   │                   │
+│  │  Creates fix PR #247                    │                   │
+│  └──────────────┬──────────────────────────┘                   │
+│                 │                                               │
+│                 ▼                                               │
+│  ┌──────────────────────────┐                                  │
+│  │  You (rutvej) review PR  │                                  │
+│  │  Merge → release v3.0.2  │                                  │
+│  └──────────────┬───────────┘                                  │
+│                 │                                               │
+│                 ▼                                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                     │
+│  │ User A   │  │ User B   │  │ User C   │                     │
+│  │ updates  │  │ updates  │  │ updates  │                     │
+│  │ to 3.0.2 │  │ to 3.0.2 │  │ to 3.0.2 │                     │
+│  │ Bug gone │  │ Bug gone │  │ Bug gone │                     │
+│  └──────────┘  └──────────┘  └──────────┘                     │
+│                                                                 │
+│                 ↺ LOOP CONTINUES FOREVER                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**User effort:** Click "Install" on GitHub Marketplace. **That's it.**
+---
 
-```yaml
-# .github/daa.yml (optional config in user's repo)
-enabled: true
-auto_fix: true          # automatically create fix PRs
-languages: [python, javascript]
-severity_filter: [error, critical]
+## 5. Real-World Analogy Comparison
+
+| System | What crashes | What collects | What fixes | Who reviews |
+|---|---|---|---|---|
+| **Windows Error Reporting** | Windows OS | WER service | Microsoft engineers (humans) | Microsoft |
+| **Chrome crash reports** | Chrome browser | Breakpad/Crashpad | Google engineers (humans) | Google |
+| **Linux kernel oops** | Linux kernel | kdump/netconsole | Kernel devs (humans) | Linus/maintainers |
+| **Sentry (self-hosted)** | Your SaaS product | Sentry SDK | Your engineers (humans) | Your team |
+| **DAA Master** | **DAA itself** | **DAA error handler** | **DAA agent (AI)** | **You (rutvej)** |
+
+**The difference:** In every other system, humans read the crash reports and write the fixes. With Master DAA, **the AI agent reads its own crash reports and proposes its own fixes.** You just review and merge.
+
+---
+
+## 6. Privacy & Consent
+
+### 6.1 Off by default
+
+```bash
+# Default: nothing is sent anywhere
+DAA_SELF_REPORT=false    # ← default
+
+# Opt-in: user explicitly enables self-reporting
+DAA_SELF_REPORT=true
 ```
 
-### 2.2 GitLab Integration
-
-Same concept as GitHub App but via GitLab webhook:
+### 6.2 First-run consent prompt (via `daa init`)
 
 ```
-GitLab → Settings → Webhooks → Add
-URL: https://your-daa.run.app/ingest/gitlab
-Events: Pipeline events (failures), Issue events
+═══════════════════════════════════════════════════════════════
+  DAA Self-Improvement Program (optional)
+═══════════════════════════════════════════════════════════════
+
+  Help improve DAA by automatically reporting DAA's own internal
+  errors back to the DAA project.
+
+  What is sent:
+  ✓ DAA's own stack traces (only DAA source files)
+  ✓ DAA version, Python version, deployment mode
+  ✗ Your application code — NEVER sent
+  ✗ Your API keys — NEVER sent
+  ✗ Your repo URLs — NEVER sent
+  ✗ Your error logs — NEVER sent
+
+  This is like Windows Error Reporting or Chrome crash reports,
+  but for DAA. Your crash reports help DAA fix itself faster.
+
+  Enable self-reporting? [y/N]: _
 ```
 
-### 2.3 GitHub Actions (CI/CD Step)
+### 6.3 Transparency
 
-```yaml
-# .github/workflows/daa.yml
-name: DAA Analysis
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
+Users can see exactly what would be sent before enabling:
 
-jobs:
-  daa-analyze:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: rutvej/daa-action@v1
-        with:
-          daa-url: https://your-daa.run.app
-          api-key: ${{ secrets.DAA_API_KEY }}
+```bash
+# Preview mode — shows what would be sent without actually sending
+daa self-report --preview
+
+# Output:
+# Would send to https://master.daa.dev/api/v1/self-report:
+# {
+#   "exception_type": "AttributeError",
+#   "daa_file": "python-agent/src/orchestrator.py",
+#   "daa_line": 482,
+#   "daa_version": "3.0.1",
+#   ...
+# }
+# No user application data included.
 ```
 
-**User effort:** Copy this YAML into `.github/workflows/`. Done.
+---
 
-### 2.4 Slack Bot
+## 7. Master DAA Infrastructure
 
-```
-/daa analyze payment-api "NullPointerException in PaymentHandler.java:42"
-```
+### 7.1 What you (rutvej) host
 
-Or auto-trigger from Slack alert channels:
-```
-When a message containing "ERROR" or "CRITICAL" appears in #alerts channel,
-DAA bot picks it up and starts investigating.
-```
+The Master DAA is literally a DAA instance configured to fix the DAA repo:
 
-### 2.5 VS Code / IDE Extension
-
-```
-Error in terminal → right-click → "Analyze with DAA"
-                                        │
-                                        ▼
-                               DAA investigates locally
-                                        │
-                                        ▼
-                               Opens fix diff in IDE
+```bash
+# Deploy Master DAA on Cloud Run
+gcloud run deploy master-daa \
+  --image rutvej/daa-minimal:latest \
+  --port 8080 \
+  --set-env-vars="\
+    DAA_MASTER_MODE=true,\
+    DAA_REPO_URL=https://github.com/rutvej/DAA.git,\
+    GITHUB_TOKEN=ghp_xxx,\
+    LLM_PROVIDER=google,\
+    GEMINI_API_KEY=xxx"
 ```
 
-### 2.6 Docker Compose Sidecar
+**Cost estimate:** Cloud Run free tier (2 million requests/month) + LLM API costs for investigations. For a project with ~100 active users, this might cost $5-10/month in LLM tokens.
 
-For users already running Docker Compose, DAA can be a sidecar that watches container logs:
+### 7.2 Additional endpoint: public stats dashboard
 
-```yaml
-# Add to existing docker-compose.yml:
-services:
-  daa-watcher:
-    image: rutvej/daa-minimal:latest
-    environment:
-      - DAA_MODE=log-watcher
-      - DAA_WATCH_CONTAINERS=payment-api,user-service
-      - LLM_PROVIDER=google
-      - GEMINI_API_KEY=xxx
-      - GITHUB_TOKEN=ghp_xxx
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
 ```
+GET https://master.daa.dev/stats
 
-**User effort:** Add 10 lines to existing `docker-compose.yml`. No code changes.
-
-### 2.7 Kubernetes Operator
-
-```yaml
-apiVersion: daa.dev/v1
-kind: DAAAgent
-metadata:
-  name: daa-agent
-spec:
-  watchNamespaces: ["production"]
-  llmProvider: google
-  geminiApiKey:
-    secretRef: daa-secrets
-  githubToken:
-    secretRef: daa-secrets
-  errorSeverityFilter: ["error", "critical"]
-```
-
-### 2.8 Terraform Module (One-Click Cloud Deploy)
-
-```hcl
-module "daa" {
-  source  = "rutvej/daa/google"
-  version = "1.0.0"
-
-  project_id    = "my-project"
-  region        = "us-central1"
-  llm_provider  = "google"
-  gemini_api_key = var.gemini_api_key
-  github_token   = var.github_token
+{
+  "total_reports_received": 847,
+  "unique_bugs_found": 42,
+  "prs_created": 38,
+  "prs_merged": 31,
+  "avg_time_to_fix": "4.2 minutes",
+  "active_reporters": 89,
+  "most_common_phase": "preflight",
+  "most_common_exception": "AttributeError"
 }
+```
 
-# Output: DAA webhook URL
-output "daa_url" {
-  value = module.daa.webhook_url
-}
+This can be shown on the DAA website as a badge:
+
+```markdown
+![DAA Self-Healing](https://master.daa.dev/badge?metric=prs_merged)
+<!-- Shows: "31 bugs auto-fixed by community reports" -->
 ```
 
 ---
 
-## 3. Adoption Funnel — Easiest to Most Invested
+## 8. Aggregation & Dedup on Master DAA
 
-| Level | Effort | What they get |
-|---|---|---|
-| **1. Alert webhook** | 1 line config change | Error → auto-investigation |
-| **2. GitHub App** | Click "Install" | CI failure → auto-fix PR |
-| **3. GitHub Action** | Copy YAML file | CI failure → auto-fix PR |
-| **4. Docker sidecar** | 10 lines in docker-compose | Container errors → auto-fix |
-| **5. Slack bot** | Install bot | `/daa analyze` command |
-| **6. Terraform module** | 1 Terraform resource | Full cloud deployment |
-| **7. SDK integration** | Code changes | Richest error context |
-| **8. Master DAA opt-in** | 1 env var | Community intelligence |
+When multiple users hit the same bug:
 
-**The first 5 levels require ZERO code changes to the user's application.**
+```python
+@app.post("/api/v1/self-report")
+async def receive_self_report(report: DAAInternalErrorReport):
+    fingerprint = compute_fingerprint(report)
+    
+    # Check if we already know about this bug
+    existing = await get_existing_report(fingerprint)
+    
+    if existing:
+        # Increment occurrence count — more reports = higher priority
+        existing.occurrence_count += 1
+        existing.affected_versions.add(report.daa_version)
+        existing.affected_modes.add(report.deployment_mode)
+        await update_report(existing)
+        
+        return {
+            "status": "known_bug",
+            "fingerprint": fingerprint,
+            "pr_url": existing.pr_url,  # share the fix PR URL back
+            "message": f"This bug is known. Fix PR: {existing.pr_url}"
+        }
+    
+    # New bug — investigate
+    await create_investigation(report, fingerprint)
+    return {"status": "new_bug_accepted", "fingerprint": fingerprint}
+```
+
+**The PR description shows aggregated data:**
+
+```markdown
+## Community Bug Report
+
+**Exception:** `AttributeError` in `orchestrator.py:482`
+**Reported by:** 14 community instances (anonymous)
+**DAA versions affected:** 3.0.0, 3.0.1
+**Deployment modes affected:** minimal (9), docker-compose (5)
+**Python versions:** 3.11 (12), 3.12 (2)
+**First seen:** 2026-07-09T14:22:00Z
+**Last seen:** 2026-07-09T18:15:00Z
+```
 
 ---
 
-## 4. Priority Implementation Order
+## 9. Bonus: What Local DAA Gets Back
 
-| Priority | Integration | Rationale |
-|---|---|---|
-| **P0** | Prometheus/Alertmanager webhook | Most common in self-hosted / Kubernetes |
-| **P0** | Sentry webhook | Most common in SaaS / startups |
-| **P1** | GitHub App | Lowest friction, highest visibility |
-| **P1** | GitHub Action | Easy to try, no infrastructure needed |
-| **P1** | Master DAA (basic) | Start collecting community patterns early |
-| **P2** | Datadog / CloudWatch / Grafana adapters | Enterprise adoption |
-| **P2** | Docker sidecar mode | DevOps-friendly |
-| **P3** | Slack bot | Nice to have |
-| **P3** | VS Code extension | Nice to have |
-| **P3** | Kubernetes operator | Enterprise |
-| **P3** | Terraform module | Enterprise |
+When a user's DAA reports an error, the Master DAA can return helpful information:
+
+```json
+// Response from Master DAA
+{
+  "status": "known_bug",
+  "fingerprint": "a1b2c3...",
+  "pr_url": "https://github.com/rutvej/DAA/pull/247",
+  "workaround": "Set DAA_FALLBACK=v2 to use the DAA 2.0 code path while this is fixed",
+  "fixed_in_version": "3.0.2",
+  "message": "This bug has been reported by 14 instances and a fix PR is open."
+}
+```
+
+The local DAA can display this to the user:
+
+```
+⚠️  DAA encountered an internal error in orchestrator.py:482
+    This is a known bug (reported by 14 community instances).
+    Fix PR: https://github.com/rutvej/DAA/pull/247
+    Workaround: Set DAA_FALLBACK=v2 in your .env
+    Fixed in: DAA v3.0.2 (not yet released)
+```
 
 ---
 
-## 5. Summary
+## 10. Implementation Plan
 
-Three new dimensions for DAA adoption:
+### Phase 1: Error capture (local DAA side)
+1. Add `report_daa_internal_error()` function
+2. Wrap `process_job()` phases in try/except that calls reporter
+3. Add `_sanitize_traceback()` to strip user data
+4. Add `DAA_SELF_REPORT` env var (default: false)
+5. Add consent prompt to `daa init`
 
-1. **Alert Integrations** → Users add DAA webhook URL to their existing Prometheus/Sentry/Datadog. Zero code changes.
-2. **Master DAA** → Opt-in federated intelligence. Every fix makes every DAA smarter. Privacy-first by design.
-3. **Platform Integrations** → GitHub App, GitHub Action, Slack bot, Docker sidecar, Terraform module — meet users where they already are.
+### Phase 2: Master DAA endpoint
+1. Add `/api/v1/self-report` endpoint
+2. Add fingerprint dedup for self-reports
+3. Wire self-reports into the standard DAA investigation pipeline
+4. Configure Master DAA to target `github.com/rutvej/DAA`
 
-**The guiding principle: Don't ask users to change their workflow. Plug into their existing workflow.**
+### Phase 3: Aggregation & feedback
+1. Count occurrences per fingerprint
+2. Return known-bug status + PR URL to reporting instances
+3. Add stats endpoint for public dashboard
+4. Add badge for README
+
+---
+
+## 11. Environment Variables
+
+### On local DAA instances (users):
+```bash
+DAA_SELF_REPORT=true                              # opt-in
+DAA_MASTER_URL=https://master.daa.dev             # default Master DAA
+```
+
+### On Master DAA (hosted by rutvej):
+```bash
+DAA_MASTER_MODE=true
+DAA_REPO_URL=https://github.com/rutvej/DAA.git   # fix THIS repo
+GITHUB_TOKEN=ghp_xxx                              # for creating PRs
+LLM_PROVIDER=google
+GEMINI_API_KEY=xxx
+```
+
+---
+
+## 12. Why This Is Powerful
+
+1. **Faster bug discovery** — Instead of waiting for users to file GitHub issues, bugs are reported automatically the moment they happen.
+
+2. **Faster fixes** — Instead of a human reading the issue, understanding the bug, and writing a fix, DAA does it in minutes.
+
+3. **Better bug reports** — Machine-generated crash reports are more detailed and consistent than human-written issue descriptions.
+
+4. **Prioritization by frequency** — The most common crashes get fixed first because the occurrence count tells you exactly how many users are affected.
+
+5. **Zero effort for users** — They don't need to write bug reports, open issues, or create repro steps. Just opt in and DAA handles everything.
+
+6. **Self-improving software** — The more people use DAA, the more bugs get found and fixed, which makes DAA more reliable, which attracts more users. A virtuous cycle.
+
+7. **Marketing / trust signal** — "DAA has auto-fixed 31 of its own bugs from community reports" is a powerful trust signal for an open-source project.
