@@ -30,6 +30,86 @@ from .tools.search_tool import search_repo
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
 RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
 
+import traceback
+import platform
+import requests
+from datetime import datetime
+
+MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
+DAA_SELF_REPORT = os.environ.get("DAA_SELF_REPORT", "false").lower() == "true"
+DAA_VERSION = "3.0.1"
+
+def _get_anonymous_instance_id() -> str:
+    import uuid
+    stable_file = "/tmp/.daa_instance_id"
+    if os.path.exists(stable_file):
+        try:
+            with open(stable_file, "r") as f:
+                return f.read().strip()
+        except Exception:
+            pass
+    uid = str(uuid.uuid4())
+    try:
+        with open(stable_file, "w") as f:
+            f.write(uid)
+    except Exception:
+        pass
+    return uid
+
+def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
+    if not DAA_SELF_REPORT:
+        return
+    try:
+        tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+        tb_str = "".join(tb)
+        daa_file, daa_line, daa_function = _extract_daa_frame(exc)
+        report = {
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc),
+            "traceback": _sanitize_traceback(tb_str),
+            "daa_file": daa_file,
+            "daa_line": daa_line,
+            "daa_function": daa_function,
+            "daa_version": DAA_VERSION,
+            "python_version": platform.python_version(),
+            "llm_provider": os.environ.get("LLM_PROVIDER", "unknown"),
+            "deployment_mode": os.environ.get("DAA_EDITION", "unknown"),
+            "os_info": f"{platform.system()} {platform.release()} {platform.machine()}",
+            "phase": phase,
+            "trigger": os.environ.get("DAA_TRIGGER_SOURCE", "unknown"),
+            "timestamp": datetime.utcnow().isoformat(),
+            "instance_id": _get_anonymous_instance_id(),
+        }
+        requests.post(
+            f"{MASTER_DAA_URL.rstrip('/')}/api/v1/self-report",
+            json=report,
+            timeout=10.0,
+        )
+    except Exception:
+        pass
+
+def _sanitize_traceback(tb: str) -> str:
+    safe_lines = []
+    for line in tb.split("\n"):
+        if "daa_minimal/" in line or "python-agent/src/" in line or "backend-api/src/" in line:
+            safe_lines.append(line)
+        elif line.strip().startswith("File "):
+            safe_lines.append("  File <redacted>")
+        else:
+            safe_lines.append(line)
+    return "\n".join(safe_lines)
+
+def _extract_daa_frame(exc: Exception) -> tuple[str, int, str]:
+    import traceback as tb_module
+    if exc.__traceback__:
+        for frame in reversed(tb_module.extract_tb(exc.__traceback__)):
+            if "daa_minimal/" in frame.filename or "python-agent/src/" in frame.filename or "backend-api/src/" in frame.filename:
+                for prefix in ["daa_minimal/", "python-agent/src/", "backend-api/src/"]:
+                    if prefix in frame.filename:
+                        rel_path = frame.filename[frame.filename.index(prefix):]
+                        return rel_path, frame.lineno, frame.name
+    return "unknown", 0, "unknown"
+
 
 def scrub_secrets(text: str) -> str:
     """Masks sensitive credentials, API keys, JWTs, and passwords from log content before LLM ingestion."""
@@ -493,6 +573,7 @@ def process_job(job: Job):
         daa30_available = True
     except Exception as e:
         logging.warning(f"[DAA 3.0] Pre-flight failed ({e}), falling back to DAA 2.0 mode")
+        report_daa_internal_error(e, "preflight")
         worktree_path = None
         structured_context = None
         fingerprint = None
@@ -612,20 +693,24 @@ def process_job(job: Job):
 
     callback_handler = ExecutionLogCallbackHandler(job.log_id)
 
-    # Apply the hard-cap safety wrapper in DAA 3.0 mode to prevent runaway loops
-    if daa30_available:
-        from .agent_safety import AgentSafetyWrapper, HardCapCallbackHandler
-        cap_handler = HardCapCallbackHandler(max_calls=8, warning_at=5)
-        safety_wrapper = AgentSafetyWrapper(agent_executor, max_calls=8, warning_at=5)
-        result = safety_wrapper.invoke(
-            {"input": question},
-            callbacks=[callback_handler, cap_handler]
-        )
-    else:
-        result = agent_executor.invoke(
-            {"input": question},
-            config={"callbacks": [callback_handler]}
-        )
+    try:
+        if daa30_available:
+            from .agent_safety import AgentSafetyWrapper, HardCapCallbackHandler
+            cap_handler = HardCapCallbackHandler(max_calls=8, warning_at=5)
+            safety_wrapper = AgentSafetyWrapper(agent_executor, max_calls=8, warning_at=5)
+            result = safety_wrapper.invoke(
+                {"input": question},
+                callbacks=[callback_handler, cap_handler]
+            )
+        else:
+            result = agent_executor.invoke(
+                {"input": question},
+                config={"callbacks": [callback_handler]}
+            )
+    except Exception as e:
+        logging.error(f"Agent core failed: {e}", exc_info=True)
+        report_daa_internal_error(e, "agent_core")
+        raise e
 
     output_text = result.get("output", "")
 
@@ -659,6 +744,7 @@ def process_job(job: Job):
             postmortem_text = pf_result.get("postmortem", output_text)
         except Exception as e:
             logging.error(f"[DAA 3.0] Post-flight error: {e}", exc_info=True)
+            report_daa_internal_error(e, "postflight")
             pull_request_url = None
             postmortem_text = output_text
         finally:

@@ -8,10 +8,110 @@ import uuid
 def generate_uuid():
     return str(uuid.uuid4())
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./test.db")
+DAA_DB_PROVIDER = os.environ.get("DAA_DB_PROVIDER")
+if not DAA_DB_PROVIDER:
+    db_url = os.environ.get("DATABASE_URL", "")
+    if "postgresql" in db_url or "postgres" in db_url:
+        DAA_DB_PROVIDER = "postgres"
+    else:
+        DAA_DB_PROVIDER = "sqlite"
+else:
+    DAA_DB_PROVIDER = DAA_DB_PROVIDER.lower()
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+default_policy = "true" if DAA_DB_PROVIDER in ("sqlite", "postgres", "internal-postgres", "external-postgres") else "false"
+default_auth = "true" if DAA_DB_PROVIDER in ("sqlite", "postgres", "internal-postgres", "external-postgres") else "false"
+
+DAA_POLICY_ENABLED = os.environ.get("DAA_POLICY_ENABLED", default_policy).lower() == "true"
+DAA_AUTH_ENABLED = os.environ.get("DAA_AUTH_ENABLED", default_auth).lower() == "true"
+
+class MockQuery:
+    def __init__(self, model_class=None, data=None):
+        self.model_class = model_class
+        self.data = data or []
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def filter_by(self, *args, **kwargs):
+        return self
+
+    def join(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def offset(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        return None
+
+    def all(self):
+        return []
+
+    def count(self):
+        return 0
+
+class MockSession:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def query(self, model_class):
+        return MockQuery(model_class)
+
+    def add(self, instance):
+        pass
+
+    def delete(self, instance):
+        pass
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def refresh(self, instance):
+        pass
+
+    def close(self):
+        pass
+
+    def begin(self):
+        class MockTransaction:
+            def __enter__(self):
+                return self
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+        return MockTransaction()
+
+if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+    engine = None
+    SessionLocal = MockSession
+elif DAA_DB_PROVIDER == "sqlite":
+    DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False, "timeout": 30.0}
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    
+    # Configure SQLite WAL mode
+    from sqlalchemy import event
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
+else:
+    DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db")
+    engine = create_engine(DATABASE_URL)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 Base = declarative_base()
 
 class User(Base):

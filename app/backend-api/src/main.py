@@ -5,10 +5,11 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine, SessionLocal, Application, run_db_migrations
-from .routers import auth, fixes, logs, status, alerts, projects, applications, incidents, dashboard
+from .routers import auth, fixes, logs, status, alerts, projects, applications, incidents, dashboard, ingest, telemetry
 
-Base.metadata.create_all(bind=engine)
-run_db_migrations(engine)
+if engine is not None:
+    Base.metadata.create_all(bind=engine)
+    run_db_migrations(engine)
 
 app = FastAPI(
     title="DAA v2.0 — Autonomous SRE Platform",
@@ -79,6 +80,8 @@ app.include_router(applications.router, prefix="/applications", tags=["applicati
 app.include_router(applications.router, prefix="/apps", tags=["applications"])
 app.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 app.include_router(dashboard.router, tags=["dashboard"])
+app.include_router(ingest.router, tags=["ingest"])
+app.include_router(telemetry.router, tags=["telemetry"])
 
 
 @app.get("/")

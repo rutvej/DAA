@@ -5,9 +5,10 @@ import os
 import requests
 import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from ..notifications.webhook import send_outbound_webhook
 
 from ..database import Fix as DBFix
 from ..database import Log as DBLog
@@ -201,7 +202,12 @@ def approve_fix(id: str, db: Session = Depends(get_db), current_user: dict = Dep
     return {"status": "success", "pull_request_url": pr_url}
 
 @router.post("")
-def post_analysis(report: AnalysisReport, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def post_analysis(
+    report: AnalysisReport,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     if current_user.get("role") == "application":
         raise HTTPException(status_code=403, detail="Applications are not authorized to perform this action")
     logging.info(f"Received analysis report: {report}")
@@ -262,6 +268,22 @@ def post_analysis(report: AnalysisReport, db: Session = Depends(get_db), current
             incident.root_cause_summary = report.postmortem[:500]
             
     db.commit()
+    
+    # Trigger outbound webhook if investigation finished
+    if status == "completed":
+        status_val = "fixed" if (pr_url and pr_url.startswith("http")) else "escalated"
+        fingerprint_val = incident.fingerprint if incident else ""
+        webhook_payload = {
+            "event": "daa.investigation.completed",
+            "job_id": report.log_id,
+            "fingerprint": fingerprint_val,
+            "app_name": log.app_name if log else "unknown",
+            "status": status_val,
+            "pr_url": pr_url or "",
+            "postmortem": report.postmortem or "",
+        }
+        background_tasks.add_task(send_outbound_webhook, webhook_payload)
+
     return {"status": "success"}
 
 class AppendLogRequest(BaseModel):
@@ -289,5 +311,20 @@ def append_log(log_id: str, payload: AppendLogRequest, db: Session = Depends(get
             fix.status = "processing"
     db.commit()
     return {"status": "success"}
+
+@router.get("/fingerprint/{fingerprint}")
+def get_fix_by_fingerprint(fingerprint: str, db: Session = Depends(get_db)):
+    incident = db.query(DBIncident).filter(DBIncident.fingerprint == fingerprint).order_by(DBIncident.last_seen_at.desc()).first()
+    if not incident:
+        return {"status": "no_fix", "pr_url": None, "fix_id": None}
+    
+    if incident.pr_url or incident.status in ("pr_open", "cooldown", "resolved"):
+        status_val = "fix_open" if incident.status == "pr_open" else "fix_merged"
+        return {
+            "status": status_val,
+            "pr_url": incident.pr_url,
+            "fix_id": incident.id
+        }
+    return {"status": "no_fix", "pr_url": None, "fix_id": None}
 
 

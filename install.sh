@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# DAA v3.0 Platform Unified Installation Script
+# DAA Platform Unified Installation Script
 # ==============================================================================
 # Setup your entire SRE workspace, virtual environment, and DAA CLI in one command.
 # Run: curl -fsSL http://localhost/install.sh | bash (or run locally: ./install.sh)
@@ -22,7 +22,7 @@ echo "    ██║  ██║███████║███████║"
 echo "    ██║  ██║██╔══██║██╔══██║"
 echo "    ██████╔╝██║  ██║██║  ██║"
 echo "    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝"
-echo -e "  Deduplicated Autonomous Agent — v3.0"
+echo -e "  Deduplicated Autonomous Agent"
 echo -e "${RESET}"
 echo -e "${BOLD}Starting DAA Platform installation...${RESET}"
 echo "--------------------------------------------------------"
@@ -103,8 +103,7 @@ fi
 
 echo "  Installing dependencies..."
 .venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r app/python-agent/requirements.txt
-.venv/bin/pip install -q requests pyjwt cryptography passlib bcrypt sqlalchemy psycopg2-binary
+.venv/bin/pip install -q -r requirements.txt
 echo -e "${GREEN}✔${RESET} Package dependencies installed."
 
 # 3. CLI Installation & Executable Rights
@@ -129,7 +128,7 @@ fi
 run_wizard=${run_wizard:-Y}
 
 if [[ "$run_wizard" =~ ^[Yy]$ ]]; then
-    .venv/bin/python daa init
+    .venv/bin/python3 daa init
 else
     echo -e "\nSetup skipped. You can initialize DAA later by running:"
     echo -e "  ${CYAN}./daa init${RESET}"

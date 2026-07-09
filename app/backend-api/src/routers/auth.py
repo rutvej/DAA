@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import User, get_db, Application
+from ..database import User, get_db, Application, DAA_AUTH_ENABLED
 
 router = APIRouter()
 
@@ -50,9 +50,14 @@ def login_user(user: UserLogin, db: Session = Depends(get_db)):
     return {"token": encoded_jwt}
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    if not DAA_AUTH_ENABLED:
+        return {"username": "admin", "id": "admin-id", "role": "admin"}
+    
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         role = payload.get("role")

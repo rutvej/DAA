@@ -285,6 +285,24 @@ def cmd_init(_args):
         cfg["cloud_logging"] = None
         info("Cloud logging configuration skipped.")
 
+    # ── Step 4: Self-Healing Telemetry (Opt-in) ──
+    header("Step 4 — DAA Self-Improvement Telemetry (Opt-in)")
+    print("  Help improve DAA by automatically reporting DAA's own internal")
+    print("  errors back to the DAA project.")
+    print("  What is sent:")
+    print(f"  {GREEN}✓{RESET} DAA's own stack traces (only DAA source files)")
+    print(f"  {GREEN}✓{RESET} DAA version, Python version, deployment mode")
+    print(f"  {RED}✗{RESET} Your application code — NEVER sent")
+    print(f"  {RED}✗{RESET} Your API keys — NEVER sent")
+    print(f"  {RED}✗{RESET} Your repo URLs — NEVER sent")
+    print(f"  {RED}✗{RESET} Your error logs — NEVER sent\n")
+    print("  This is like Windows Error Reporting or Chrome crash reports,")
+    print("  but for DAA. Your crash reports help DAA fix itself faster.")
+    
+    self_report_opt = ask("Enable self-reporting? [y/N]", "N")
+    enable_self_report = "true" if self_report_opt.upper().startswith("Y") else "false"
+    cfg["DAA_SELF_REPORT"] = enable_self_report
+
     # ── Save and Write files ──
     save_config(cfg)
     
@@ -294,6 +312,7 @@ def cmd_init(_args):
         "LLM_MODEL": llm_model,
         "SECRET_KEY": cfg.get("SECRET_KEY", "demo_secret_key"),
         "RABBITMQ_HOST": "rabbitmq",
+        "DAA_SELF_REPORT": enable_self_report,
     }
     
     # LLM Keys
@@ -536,6 +555,36 @@ def cmd_mcp(args):
             sys.exit(1)
 
 
+def cmd_self_report(args):
+    if args.preview:
+        header("━━━ DAA Self-Report Preview ━━━")
+        print("Would send to https://master.daa.dev/api/v1/self-report:")
+        report_preview = {
+            "exception_type": "AttributeError",
+            "exception_message": "module 'orchestrator' has no attribute 'run_preflight'",
+            "traceback": "  File \"app/python-agent/src/main.py\", line 480, in process_job\n    preflight = run_preflight(job.__dict__, backend_url, daa_token)",
+            "daa_file": "app/python-agent/src/main.py",
+            "daa_line": 480,
+            "daa_function": "process_job",
+            "daa_version": "3.0.1",
+            "python_version": "3.11.9",
+            "llm_provider": "google",
+            "deployment_mode": "docker-compose",
+            "os_info": "Linux 6.1.0 x86_64",
+            "phase": "preflight",
+            "trigger": "webhook",
+            "timestamp": "2026-07-09T14:22:00.000000",
+            "instance_id": "anon-uuid-value-123"
+        }
+        import pprint
+        pprint.pprint(report_preview)
+        print("\nNo user application data is included in self-reports.")
+    else:
+        cfg = load_config()
+        enabled = cfg.get("DAA_SELF_REPORT", "false")
+        print(f"DAA Self-Reporting enabled: {BOLD}{enabled}{RESET}")
+
+
 def cmd_config_set_model(args):
     if not args.provider or not args.model:
         err("set-model requires --provider and --model flags.")
@@ -766,6 +815,10 @@ def main():
     # redeploy
     subparsers.add_parser("redeploy", help="Redeploy DAA Services")
 
+    # self-report
+    sr_parser = subparsers.add_parser("self-report", help="Manage self-healing telemetry reports")
+    sr_parser.add_argument("--preview", action="store_true", help="Preview a sample crash report payload")
+
     # status, test, logs, version
     subparsers.add_parser("status", help="Health check all services")
     subparsers.add_parser("test", help="Send a test error")
@@ -785,6 +838,7 @@ def main():
         "test": cmd_test,
         "logs": cmd_logs,
         "version": cmd_version,
+        "self-report": cmd_self_report,
     }
 
     if args.command in commands:

@@ -6,7 +6,6 @@ from urllib.parse import urlparse, urlunparse
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 
-
 from .auth_helper import handle_request_with_retry
 
 def get_project_connection(app_name: str) -> dict:
@@ -87,6 +86,10 @@ def clone_repo(app_name: str) -> str:
     app_name = app_name.strip()
     if ":" in app_name:
         app_name = app_name.split(":")[1].strip()
+
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        return f"/tmp/{app_name}"
+
     repo_url = _build_repo_url(app_name)
     temp_dir = f"/tmp/{app_name}"
     if os.path.exists(temp_dir):
@@ -112,6 +115,15 @@ def create_branch(repo_path_and_branch_name: str) -> None:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
     repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
+
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        app_name = repo_path.split("/")[-1]
+        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        client = CloneFreeGitClient(app_name)
+        client.create_branch(branch_name)
+        ACTIVE_BRANCHES[app_name] = branch_name
+        return
+
     repo = _get_repo(repo_path)
     
     # Delete the branch if it exists locally
@@ -136,6 +148,10 @@ def commit(repo_path_and_message: str) -> None:
     Args:
         repo_path_and_message: A string containing the repository path and the commit message, separated by a comma.
     """
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        # In API mode, write_file directly commits, so commit is a no-op
+        return
+
     repo_path, message = _split_repo_input(repo_path_and_message)
     repo = _get_repo(repo_path)
     repo.git.add(A=True)
@@ -153,6 +169,10 @@ def push(repo_path_and_branch_name: str) -> None:
     Args:
         repo_path_and_branch_name: A string containing the repository path and the branch name, separated by a comma.
     """
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        # In API mode, write_file directly commits and pushes, so push is a no-op
+        return
+
     repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
     repo = _get_repo(repo_path)
     repo.git.push("--set-upstream", "--force", "origin", branch_name)
@@ -181,9 +201,15 @@ def create_pull_request(data: str) -> str:
     if not all([repo_path, title, description]):
         return "Error: 'repo_path', 'title', and 'description' are required."
 
-    repo = _get_repo(repo_path.strip())
-    branch_name = repo.active_branch.name
-    project_name = repo.working_dir.split('/')[-1]
+    project_name = repo_path.strip().split('/')[-1]
+
+    # Handle API Mode or Local Mode for determining branch name
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        from .clonefree_client import ACTIVE_BRANCHES
+        branch_name = ACTIVE_BRANCHES.get(project_name, "fix-branch")
+    else:
+        repo = _get_repo(repo_path.strip())
+        branch_name = repo.active_branch.name
 
     # Intercept for Human-in-the-Loop Mode
     if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
@@ -265,4 +291,3 @@ def create_pull_request(data: str) -> str:
             'description': description.strip()
         })
         return mr.web_url
-

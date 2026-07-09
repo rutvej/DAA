@@ -542,6 +542,82 @@ class PostflightOrchestrator:
         """
         start_time = time.time()
 
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            from .tools.clonefree_client import CloneFreeGitClient
+            client = CloneFreeGitClient(app_name)
+            branch_name = f"fix/{fingerprint[:12]}"
+            
+            # 1. Parse modified files from diff
+            modified_files = []
+            for line in diff_text.splitlines():
+                if line.startswith("+++ b/"):
+                    file_path = line[6:].split('\t')[0].strip()
+                    modified_files.append(file_path)
+            
+            # 2. Setup local virtual worktree to run patch command
+            os.makedirs(worktree_path, exist_ok=True)
+            for file_path in modified_files:
+                original_content = client.get_file_content(file_path) or ""
+                local_file_path = os.path.join(worktree_path, file_path)
+                os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                with open(local_file_path, "w", encoding="utf-8") as f:
+                    f.write(original_content)
+            
+            # 3. Apply the patch locally
+            try:
+                subprocess.run(
+                    ["patch", "-p1", "-d", worktree_path],
+                    input=diff_text,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+            except subprocess.CalledProcessError as exc:
+                logger.error("patch failed in API mode: %s", exc.stderr)
+                postmortem = self._generate_postmortem(
+                    app_name=app_name,
+                    fingerprint=fingerprint,
+                    elapsed_sec=time.time() - start_time,
+                    explanation=f"ESCALATION: patch failed -- {exc.stderr[:200]}",
+                    pr_url=None,
+                    files_changed=[]
+                )
+                return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
+                
+            # 4. Create remote branch
+            client.create_branch(branch_name)
+            
+            # 5. Read patched files and commit them via API
+            for file_path in modified_files:
+                local_file_path = os.path.join(worktree_path, file_path)
+                with open(local_file_path, "r", encoding="utf-8") as f:
+                    patched_content = f.read()
+                client.write_file_content(
+                    file_path=file_path,
+                    content=patched_content,
+                    branch_name=branch_name,
+                    commit_message=f"fix: {app_name} -- {explanation[:60]}"
+                )
+                
+            # 6. Create PR via API
+            pr_url = self._create_pr_idempotent(
+                repo_url=client.repo_url,
+                branch_name=branch_name,
+                app_name=app_name,
+                explanation=explanation
+            )
+            
+            elapsed = time.time() - start_time
+            postmortem = self._generate_postmortem(
+                app_name=app_name,
+                fingerprint=fingerprint,
+                elapsed_sec=elapsed,
+                explanation=explanation,
+                pr_url=pr_url,
+                files_changed=modified_files
+            )
+            return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
+
         # ---- 1. Apply the diff -------------------------------------------
         try:
             patch_result = subprocess.run(
@@ -826,6 +902,56 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
 
     # ---- 2. Dedup check -------------------------------------------------
     fix_status = dedup.check(fingerprint)
+    
+    # If no fix found from DB, check Git remote branches in API mode (or as fallback)
+    if fix_status["status"] == "no_fix":
+        repo_url = job.get("repo_url")
+        token_val = token or os.environ.get("GITHUB_TOKEN") or os.environ.get("GITLAB_PRIVATE_TOKEN")
+        if not repo_url:
+            try:
+                resp = requests.get(
+                    f"{backend_url.rstrip('/')}/apps/{app_name}",
+                    headers={"Authorization": f"Bearer {token}"} if token else {},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    repo_url = resp.json().get("repo_url", "")
+            except Exception:
+                pass
+                
+        if repo_url:
+            branch_name = f"fix/{fingerprint[:12]}"
+            try:
+                auth_url = repo_url
+                if token_val:
+                    parsed = urlparse(repo_url)
+                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.hostname}").geturl()
+                
+                git_res = subprocess.run(
+                    ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
+                    capture_output=True, text=True, timeout=15
+                )
+                if git_res.stdout.strip():
+                    logger.info("Dedup hit via Git remote: branch %s exists", branch_name)
+                    pr_url = None
+                    try:
+                        from .tools.clonefree_client import CloneFreeGitClient
+                        client = CloneFreeGitClient(app_name)
+                        if "github" in client.repo_url:
+                            pr_url = client.repo_url.replace(".git", "") + f"/pull/{branch_name}"
+                        else:
+                            pr_url = client.repo_url.replace(".git", "") + f"/-/merge_requests"
+                    except Exception:
+                        pass
+                    
+                    fix_status = {
+                        "status": "fix_open",
+                        "pr_url": pr_url or f"https://github.com/check-branch-for-pr?branch={branch_name}",
+                        "fix_id": fingerprint
+                    }
+            except Exception as exc:
+                logger.warning("Git remote dedup check failed: %s", exc)
+
     if fix_status["status"] in ("fix_open", "fix_merged"):
         logger.info(
             "Dedup hit: status=%s pr_url=%s -- skipping fix",
@@ -861,15 +987,18 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     cache_manager = RepoCacheManager()
     worktree_path = None
     if repo_url:
-        try:
-            worktree_path = cache_manager.get_worktree(
-                app_name=app_name,
-                repo_url=repo_url,
-                incident_id=incident_id,
-            )
-        except Exception as exc:
-            logger.error("Failed to obtain worktree: %s", exc)
-            worktree_path = None
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            worktree_path = f"/tmp/{app_name}"
+        else:
+            try:
+                worktree_path = cache_manager.get_worktree(
+                    app_name=app_name,
+                    repo_url=repo_url,
+                    incident_id=incident_id,
+                )
+            except Exception as exc:
+                logger.error("Failed to obtain worktree: %s", exc)
+                worktree_path = None
     else:
         logger.warning("No repo_url available; worktree will be unavailable")
 

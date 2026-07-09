@@ -4,7 +4,7 @@ import ast
 import re
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
-from .file_system_tool import get_full_path
+from .file_system_tool import get_full_path, parse_api_path
 
 class ViewFileSliceInput(BaseModel):
     data: str = Field(description="A JSON string containing 'file_path', optional 'start_line' (1-indexed, default 1), and optional 'end_line' (default 100). Example: {\"file_path\": \"/app/main.py\", \"start_line\": 10, \"end_line\": 50}")
@@ -30,12 +30,22 @@ def view_file_slice(data: str) -> str:
             end_line = start_line + 99
             truncated_msg = "\n[TRUNCATED: Maximum slice limit is 100 lines per call to prevent token flooding]"
 
-        full_path = get_full_path(file_path.strip())
-        if not os.path.exists(full_path):
-            return f"Error: File not found at {file_path}"
+        # Support DAA_GIT_MODE=api
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            app_name, relative_path = parse_api_path(file_path)
+            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            client = CloneFreeGitClient(app_name)
+            content = client.get_file_content(relative_path, ref=ACTIVE_BRANCHES.get(app_name, "main"))
+            if content is None:
+                return f"Error: File not found via API at {file_path}"
+            lines = content.splitlines(keepends=True)
+        else:
+            full_path = get_full_path(file_path.strip())
+            if not os.path.exists(full_path):
+                return f"Error: File not found at {file_path}"
 
-        with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
-            lines = f.readlines()
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
+                lines = f.readlines()
 
         total_lines = len(lines)
         if start_line > total_lines:
@@ -58,14 +68,25 @@ class GrepSearchInput(BaseModel):
 
 @tool(args_schema=GrepSearchInput)
 def grep_search(data: str) -> str:
-    """Searches for a string or regex pattern across files in a directory, returning filenames and matching line numbers. Capped at 50 matches."""
+    """Performs a grep-like search across files in the codebase."""
     try:
         input_data = json.loads(data)
-        query = input_data.get("query") or input_data.get("pattern")
+        query = input_data.get("query")
         if not query:
             return "Error: 'query' is required."
         search_path = input_data.get("search_path", ".")
-        
+
+        # Support DAA_GIT_MODE=api
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            app_name, relative_path = parse_api_path(search_path)
+            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            client = CloneFreeGitClient(app_name)
+            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            results = client.search_code(query, ref=ref)
+            if not results:
+                return f"No matches found for query: '{query}'"
+            return "\n".join(results)
+
         full_dir = get_full_path(search_path.strip())
         if not os.path.exists(full_dir):
             return f"Error: Search directory not found: {search_path}"
@@ -73,10 +94,11 @@ def grep_search(data: str) -> str:
         ignore_dirs = {".git", "node_modules", "__pycache__", ".venv", "venv", "bin", "obj", "dist", "build"}
         matches = []
         max_matches = 50
-
+        
+        # Determine query patterns (supports case-insensitivity)
         try:
             pattern = re.compile(query, re.IGNORECASE)
-        except re.error:
+        except Exception:
             pattern = re.compile(re.escape(query), re.IGNORECASE)
 
         for root, dirs, files in os.walk(full_dir):
@@ -126,6 +148,19 @@ def find_symbol(data: str) -> str:
             return "Error: 'symbol_name' is required."
         search_path = input_data.get("search_path", ".")
         
+        # Support DAA_GIT_MODE=api
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            app_name, relative_path = parse_api_path(search_path)
+            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            client = CloneFreeGitClient(app_name)
+            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            results = client.search_code(symbol, ref=ref)
+            if not results:
+                return f"Symbol '{symbol}' not found via API."
+            res_str = f"Found potential matches for symbol '{symbol}':\n"
+            res_str += "\n".join(results)
+            return res_str
+
         full_dir = get_full_path(search_path.strip())
         if not os.path.exists(full_dir):
             return f"Error: Search directory not found: {search_path}"
@@ -148,21 +183,22 @@ def find_symbol(data: str) -> str:
                             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                                 if node.name == symbol:
                                     doc = ast.get_docstring(node) or "No docstring"
-                                    results.append(f"Found in {rel_path} (Line {node.lineno}):\n  Type: {type(node).__name__}\n  Name: {node.name}\n  Docstring: {doc.splitlines()[0] if doc else ''}")
+                                    results.append(f"File: {rel_path}\nType: {'Class' if isinstance(node, ast.ClassDef) else 'Function'}\nLine: {node.lineno}\nDocstring: {doc}\n")
                     except Exception:
                         pass
-                elif file.endswith((".go", ".js", ".ts", ".java", ".rb", ".cs")):
+                elif file.endswith((".go", ".js", ".ts", ".java", ".rb")):
                     try:
                         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                             for idx, line in enumerate(f, start=1):
-                                if re.search(rf"\b(def|class|func|interface|struct|type)\s+{re.escape(symbol)}\b", line):
-                                    results.append(f"Found in {rel_path} (Line {idx}): {line.strip()}")
+                                stripped = line.strip()
+                                if symbol in stripped and any(stripped.startswith(prefix) for prefix in ["func", "class", "function", "interface", "def", "public class"]):
+                                    results.append(f"File: {rel_path}\nMatch: {stripped}\nLine: {idx}\n")
                     except Exception:
                         pass
 
         if not results:
-            return f"Symbol '{symbol}' not found in codebase."
-        return "\n\n".join(results)
+            return f"Symbol '{symbol}' not found in {search_path}"
+        return "\n".join(results)
     except json.JSONDecodeError:
         return "Error: Invalid JSON string."
     except Exception as e:
@@ -174,11 +210,34 @@ class ReadRepomapInput(BaseModel):
 
 @tool(args_schema=ReadRepomapInput)
 def read_repomap(data: str) -> str:
-    """Generates a compressed architectural skeleton (repomap) of the codebase by stripping implementation bodies, showing only class definitions, function signatures, and docstrings."""
+    """Generates a skeleton map of the repository showing key classes, functions, and files."""
     try:
         input_data = json.loads(data)
         repo_path = input_data.get("repo_path", ".")
         
+        # Support DAA_GIT_MODE=api
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            app_name, relative_path = parse_api_path(repo_path)
+            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            client = CloneFreeGitClient(app_name)
+            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            
+            all_files = client.list_all_files(ref=ref)
+            matching_files = [f for f in all_files if f.endswith((".py", ".go", ".js", ".ts", ".java", ".rb"))]
+            
+            skeleton_lines = []
+            max_lines = 1000
+            for file_path in sorted(matching_files)[:10]:
+                skeleton_lines.append(f"\n=== File: {file_path} ===")
+                content = client.get_file_content(file_path, ref=ref)
+                if content:
+                    for line in content.splitlines()[:50]:
+                        stripped = line.strip()
+                        if re.match(r"^(class|def|func|interface|function)\s+", stripped):
+                            skeleton_lines.append(f"  {stripped}")
+                            
+            return "\n".join(skeleton_lines)
+
         full_dir = get_full_path(repo_path.strip())
         if not os.path.exists(full_dir):
             return f"Error: Repository directory not found: {repo_path}"

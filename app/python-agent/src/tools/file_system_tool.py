@@ -4,7 +4,6 @@ from langchain.tools import tool
 from typing import List
 from pydantic.v1 import BaseModel, Field
 
-
 ROOT_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
 
 def get_full_path(file_path: str) -> str:
@@ -18,6 +17,20 @@ def get_full_path(file_path: str) -> str:
         return os.path.join(ROOT_DIR, file_path[1:])
     return os.path.join(ROOT_DIR, file_path)
 
+def parse_api_path(file_path: str) -> tuple[str, str]:
+    """Extracts app_name and relative path from a file path."""
+    file_path = file_path.strip().strip("'\"")
+    if file_path.startswith("/tmp/"):
+        parts = [p for p in file_path.split("/") if p]
+        if len(parts) >= 3:
+            app_name = parts[1]
+            relative_path = "/".join(parts[2:])
+            return app_name, relative_path
+    
+    parts = [p for p in file_path.split("/") if p]
+    if parts:
+        return parts[0], "/".join(parts[1:])
+    return "unknown", file_path
 
 @tool
 def read_file(file_path: str) -> str:
@@ -29,6 +42,15 @@ def read_file(file_path: str) -> str:
     Returns:
         The content of the file.
     """
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        app_name, relative_path = parse_api_path(file_path)
+        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        client = CloneFreeGitClient(app_name)
+        content = client.get_file_content(relative_path, ref=ACTIVE_BRANCHES.get(app_name, "main"))
+        if content is not None:
+            return content
+        return f"File not found via API: {relative_path}"
+
     try:
         full_path = get_full_path(file_path)
         with open(full_path, "r") as f:
@@ -36,10 +58,8 @@ def read_file(file_path: str) -> str:
     except FileNotFoundError:
         return f"File not found: {file_path}"
 
-
 class WriteFileInput(BaseModel):
     data: str = Field(description="A JSON string containing 'file_path' and 'content'. Example: {\"file_path\": \"/app/main.py\", \"content\": \"print('hello')\"}")
-
 
 @tool(args_schema=WriteFileInput)
 def write_file(data: str) -> str:
@@ -56,6 +76,16 @@ def write_file(data: str) -> str:
         if not file_path or content is None:
             return "Error: 'file_path' and 'content' are required in the JSON string."
 
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            app_name, relative_path = parse_api_path(file_path)
+            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            client = CloneFreeGitClient(app_name)
+            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            success = client.write_file_content(relative_path, content, branch_name=ref, commit_message=f"Update {relative_path}")
+            if success:
+                return "File written and committed successfully via API."
+            return f"Error writing file via API: {relative_path}"
+
         full_path = get_full_path(file_path.strip())
         with open(full_path, "w") as f:
             f.write(content.strip())
@@ -64,7 +94,6 @@ def write_file(data: str) -> str:
         return "Error: Invalid JSON string."
     except Exception as e:
         return f"Error writing file: {e}"
-
 
 @tool
 def list_files(path: str) -> List[str]:
@@ -76,8 +105,14 @@ def list_files(path: str) -> List[str]:
     Returns:
         A list of files in the directory.
     """
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        app_name, relative_path = parse_api_path(path)
+        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        client = CloneFreeGitClient(app_name)
+        ref = ACTIVE_BRANCHES.get(app_name, "main")
+        return client.list_files(relative_path, ref=ref)
+
     full_path = get_full_path(path)
     if not os.path.exists(full_path):
         raise FileNotFoundError(f"Directory not found: {full_path}")
     return os.listdir(full_path)
-

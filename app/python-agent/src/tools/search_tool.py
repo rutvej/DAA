@@ -15,7 +15,6 @@ def index_repo(repo_path: str):
     """
     db_path = os.path.join(repo_path, ".daa_search_index.db")
     
-    # Delete old index if exists to start fresh
     if os.path.exists(db_path):
         try:
             os.remove(db_path)
@@ -25,7 +24,6 @@ def index_repo(repo_path: str):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    # Create FTS5 virtual table
     try:
         cursor.execute("""
             CREATE VIRTUAL TABLE code_chunks USING fts5(
@@ -37,7 +35,6 @@ def index_repo(repo_path: str):
         """)
         conn.commit()
     except Exception:
-        # Fallback to standard table with LIKE if FTS5 is not compiled in
         cursor.execute("""
             CREATE TABLE code_chunks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -50,12 +47,10 @@ def index_repo(repo_path: str):
         cursor.execute("CREATE INDEX idx_content ON code_chunks(content);")
         conn.commit()
 
-    # Allowed extensions
     allowed_exts = {".py", ".go", ".js", ".ts", ".jsx", ".tsx", ".java", ".cpp", ".c", ".h", ".rs", ".rb", ".php", ".cs", ".kt"}
     ignored_dirs = {".git", "node_modules", "venv", ".venv", "__pycache__", "build", "dist", "target", ".idea", ".vscode"}
 
     for root, dirs, files in os.walk(repo_path):
-        # Ignore hidden and built directories
         dirs[:] = [d for d in dirs if d not in ignored_dirs and not d.startswith(".")]
         
         for file in files:
@@ -72,7 +67,6 @@ def index_repo(repo_path: str):
             except Exception:
                 continue
 
-            # Chunking: 40-line window, 10-line overlap
             window_size = 40
             overlap = 10
             i = 0
@@ -100,12 +94,32 @@ def search_repo(query: str, repo_path: str = "/tmp/payment-api") -> str:
         query: The search terms or code query.
         repo_path: The path to the repository directory.
     """
-    # Clean paths
     repo_path = repo_path.strip().strip("'\"")
+
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        from .file_system_tool import parse_api_path
+        app_name, relative_path = parse_api_path(repo_path)
+        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        client = CloneFreeGitClient(app_name)
+        ref = ACTIVE_BRANCHES.get(app_name, "main")
+        results = client.search_code(query, ref=ref)
+        if not results:
+            return "No matching code snippets found. Try different search terms."
+            
+        snippets = []
+        for match in results[:3]:
+            file_path = match.split(":")[0]
+            content = client.get_file_content(file_path, ref=ref)
+            if content:
+                lines = content.splitlines()[:40]
+                snippets.append(f"=== File: {file_path} (Lines 1-{len(lines)}) ===\n" + "\n".join(lines))
+        if snippets:
+            return "\n\n".join(snippets)
+        return "\n".join(results)
+
     db_path = os.path.join(repo_path, ".daa_search_index.db")
     
     if not os.path.exists(db_path):
-        # If index doesn't exist, build it now
         try:
             index_repo(repo_path)
         except Exception as e:
@@ -118,10 +132,7 @@ def search_repo(query: str, repo_path: str = "/tmp/payment-api") -> str:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Clean query for FTS5 (remove special characters that break FTS5 query parser)
         clean_query = re.sub(r'[^\w\s]', ' ', query).strip()
-        
-        # Fallback to standard LIKE if no keywords remain
         if not clean_query:
             clean_query = query
 
@@ -135,13 +146,11 @@ def search_repo(query: str, repo_path: str = "/tmp/payment-api") -> str:
             pass
 
         if is_fts5:
-            # Query using FTS5 match
             cursor.execute(
                 "SELECT file_path, start_line, end_line, content FROM code_chunks WHERE code_chunks MATCH ? LIMIT 5",
                 (clean_query,)
             )
         else:
-            # Query using standard SQL LIKE
             like_pat = f"%{clean_query}%"
             cursor.execute(
                 "SELECT file_path, start_line, end_line, content FROM code_chunks WHERE content LIKE ? LIMIT 5",

@@ -8,6 +8,9 @@ class ErrorLog(BaseModel):
     content: str
     stack_trace: str
     timestamp: str
+    exception_type: Optional[str] = None
+    trace_id: Optional[str] = None
+    error_file: Optional[str] = None
 
 class Job(BaseModel):
     id: UUID
@@ -18,6 +21,9 @@ class Job(BaseModel):
     updated_at: str
     error_log: ErrorLog
     pull_request_url: Optional[str] = None
+    incident_id: Optional[str] = None
+    fingerprint: Optional[str] = None
+    trace_id: Optional[str] = None
 
 class MissingModelError(Exception):
     """
