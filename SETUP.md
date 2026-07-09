@@ -354,3 +354,70 @@ DAA_TOOL_CALL_WARNING_AT=5
 # Max LangChain iterations (default: 10)
 DAA_MAX_ITERATIONS=10
 ```
+
+---
+
+## 🌐 4. Serverless & Pluggable Configurations
+
+DAA supports running in a lightweight, single-container, stateless serverless mode without requiring Postgres or RabbitMQ databases. Toggle these behaviors via environment variables.
+
+### 4.1 Master Configurations
+
+| Environment Variable | Allowed Values | Default | Description |
+|---|---|---|---|
+| `DAA_POLICY_ENABLED` | `true`, `false` | `false` | Enable/disable error thresholds, deduplication, and cooldowns. |
+| `DAA_AUTH_ENABLED` | `true`, `false` | `false` | Enable/disable user login authentication (JWT web portal). |
+| `DAA_DB_PROVIDER` | `none`, `sqlite`, `internal-postgres`, `external-postgres`, `internal-redis`, `external-redis` | `sqlite` | Select state database engine. |
+| `DAA_GIT_MODE` | `api`, `local` | `local` | `api` uses GitHub/GitLab REST APIs (no local cloning). `local` clones repository workspace. |
+| `DAA_QUEUE_MODE` | `sync`, `rabbitmq` | `sync` | `sync` processes jobs inline/background tasks. `rabbitmq` uses external queue broker. |
+
+> [!NOTE]
+> If `DAA_POLICY_ENABLED=false` and `DAA_AUTH_ENABLED=false`, you can run DAA in completely **stateless mode (`DAA_DB_PROVIDER=none`)** with zero databases. This is the recommended configuration for Google Cloud Run and AWS Fargate deployments.
+
+---
+
+### 4.2 Webhook Alert Ingestion (SDK-Free Mode)
+
+Instead of instrumenting your code with the DAA telemetry SDK, you can route Sentry or Prometheus Alertmanager webhooks directly to the DAA endpoint.
+
+#### 1. Sentry Webhook Setup
+1. In Sentry, go to **Settings** → **Integrations** → **Internal Integration** → **Webhooks**.
+2. Set the Webhook URL to `https://your-daa-service.run.app/ingest/sentry`.
+3. Select the `issue.created` event trigger.
+
+#### 2. Prometheus Alertmanager Webhook Setup
+Add the DAA endpoint to your `alertmanager.yml` configurations:
+```yaml
+receivers:
+  - name: 'daa-webhook'
+    webhook_configs:
+      - url: 'https://your-daa-service.run.app/ingest/prometheus'
+        send_resolved: false
+```
+
+#### 3. Securing Webhooks
+Set the `DAA_API_KEY` environment variable in the DAA container. Your webhook requests must pass this key in the `X-DAA-API-Key` or `Authorization` header to authenticate.
+
+---
+
+### 4.3 Serverless Cloud Run Deployment
+
+Deploy DAA to Google Cloud Run in under 60 seconds with zero-database configurations:
+
+```bash
+gcloud run deploy daa-minimal \
+  --image rutvej/daa:latest \
+  --port 8080 \
+  --allow-unauthenticated \
+  --set-env-vars="\
+    LLM_PROVIDER=google,\
+    GEMINI_API_KEY=your-gemini-key,\
+    GITHUB_TOKEN=your-github-token,\
+    DAA_POLICY_ENABLED=false,\
+    DAA_AUTH_ENABLED=false,\
+    DAA_DB_PROVIDER=none,\
+    DAA_GIT_MODE=api,\
+    DAA_QUEUE_MODE=sync"
+```
+Once deployed, point your alerting systems (Sentry/Prometheus) to the generated Cloud Run service URL.
+

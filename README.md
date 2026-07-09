@@ -145,6 +145,22 @@ DAA can dynamically consume external MCP tools (e.g., BigQuery, Cloud Logging):
 
 ---
 
+## 🚀 Pluggable Deployment Modes (Serverless to Datacenter)
+
+DAA can be deployed as a single, lightweight container or scaled out as a full-scale multi-service cluster. Toggle the modes via environment variables to match your infrastructure requirements:
+
+*   **Stateless Serverless (Cloud Run / Fargate):** Zero databases, zero message queues. DAA parses incoming alerts via Sentry or Prometheus webhooks and manages code changes directly via Git REST APIs. Offloads auth to Cloud IAM.
+*   **Self-Contained Edge (Single VM):** A single container deployment that spins up lightweight internal Postgres/Redis databases to handle policy deduplication and user logins.
+*   **Datacenter Scale (Kubernetes / Compose):** Standard multi-container deployment splitting the FastAPI web server, background workers, Postgres DB, and RabbitMQ queue.
+
+| Mode | `DAA_DB_PROVIDER` | `DAA_GIT_MODE` | `DAA_QUEUE_MODE` | Description |
+|---|---|---|---|---|
+| **Stateless** | `none` | `api` (REST API) | `sync` (Async task) | Zero local disk usage. Scales to zero. |
+| **Self-Contained** | `internal-postgres` | `api` or `local` | `sync` (Threaded worker) | Boots PG DB inside the container automatically. |
+| **Scale Out** | `external-postgres` | `local` (Workspace clone) | `rabbitmq` (Distributed) | Dedicated worker pool, local test execution. |
+
+---
+
 ## ⚡ Quickstart
 
 ```bash
