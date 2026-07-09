@@ -493,3 +493,104 @@ The SDK is **not deprecated** — it provides features that alert integrations c
 | Real-time streaming (not batched) | ❌ | ✅ |
 
 **Recommendation:** Market alert integrations for **adoption** (zero friction), SDK for **power users** (richer context).
+
+---
+
+## 11. Declarative & Extensible Webhook Architecture (Point 3 Elaborated)
+
+To keep the core codebase lean, prevent bloating, and allow the community to easily add new alerting integrations, DAA uses a two-pronged pluggable architecture: **Declarative Mapping Rules** (no code needed) and **Dynamic Python Plugins** (for complex payload transformation).
+
+### 11.1 Declarative Mappings via YAML
+
+For 90% of alerting tools, payloads are standard JSON where the fields just need to be extracted using JSONPath expressions. Instead of writing Python code, users or community contributors define new integrations in a simple YAML config:
+
+```yaml
+# daa-webhook-mappings.yaml
+integrations:
+  my-custom-monitor:
+    trigger_path: "/ingest/custom-monitor"
+    headers:
+      auth_check: "X-Monitor-Key"
+    mapping:
+      app_name: "$.event.service"
+      exception_type: "$.event.error_class"
+      error_file: "$.event.file_path"
+      line_number: "$.event.line_no"
+      stack_trace: "$.event.stack_trace"
+      log_content: "$.event.message"
+      severity: "$.event.level"
+```
+
+The DAA engine loads this YAML on startup and dynamically generates a FastAPI endpoint for `/ingest/custom-monitor`. When a request arrives, the JSONPath engine parses the payload according to these rules:
+
+```python
+# ingest/declarative_parser.py
+from jsonpath_ng import parse
+
+class DeclarativeAdapter:
+    def __init__(self, mapping_config: dict):
+        self.mappings = {
+            field: parse(expression) 
+            for field, expression in mapping_config.items()
+        }
+
+    def parse_payload(self, json_data: dict) -> dict:
+        result = {}
+        for field, jsonpath_expr in self.mappings.items():
+            matches = jsonpath_expr.find(json_data)
+            if matches:
+                result[field] = matches[0].value
+            else:
+                result[field] = None
+        return result
+```
+
+This allows support for any in-house or custom monitoring tool to be added instantly via environment variables or a config file mount, with **zero Python changes**.
+
+### 11.2 Dynamic Python Plugins (For Complex Payloads)
+
+For integrations that require complex logic (like decoding base64 payloads, fetching external schemas, or handling multiplexed arrays of alerts), DAA checks a plugin directory `/app/plugins/ingest/` on startup:
+
+1. **Plugin Interface**: Every custom python plugin implements the standard `BaseIngestPlugin` interface:
+   ```python
+   # plugins/ingest/base.py
+   class BaseIngestPlugin:
+       @property
+       def endpoint_name(self) -> str:
+           """Return the URL path suffix (e.g. 'mytool' maps to /ingest/mytool)"""
+           pass
+
+       def parse(self, payload: dict, headers: dict) -> List[InvestigationJob]:
+           """Transform complex JSON payload into DAA investigation jobs."""
+           pass
+   ```
+
+2. **Automatic Registry**: The FastAPI app loops through `/app/plugins/ingest/` and imports all subclasses of `BaseIngestPlugin` dynamically:
+   ```python
+   # ingest/plugin_loader.py
+   import importlib.util
+   import os
+
+   def load_custom_plugins(app, plugin_dir="/app/plugins/ingest"):
+       if not os.path.exists(plugin_dir):
+           return
+           
+       for filename in os.listdir(plugin_dir):
+           if filename.endswith(".py") and filename != "base.py":
+               spec = importlib.util.spec_from_file_location("plugin_mod", os.path.join(plugin_dir, filename))
+               module = importlib.util.module_from_spec(spec)
+               spec.loader.exec_module(module)
+               
+               # Register the plugin's parse method under a dynamic endpoint
+               for attr in dir(module):
+                   obj = getattr(module, attr)
+                   if isinstance(obj, type) and issubclass(obj, BaseIngestPlugin) and obj != BaseIngestPlugin:
+                       plugin_instance = obj()
+                       register_plugin_route(app, plugin_instance)
+   ```
+
+### 11.3 Benefits of the Plugin/Declarative Architecture
+* **Decoupled Lifecycle**: Core DAA stays stable and clean. If a third-party service (e.g., Datadog) changes their webhook format, only a mapping YAML or a plugin module needs updating, not the core agent.
+* **Community-Led Growth**: Users can contribute new plugins simply by placing a python file in `/app/plugins/ingest/` or submitting a PR to a separate plugins repository.
+* **Zero Compilation/Rebuild**: New mappings can be injected live as config maps in Kubernetes or environment variables in Cloud Run, allowing rapid tuning on production networks.
+
