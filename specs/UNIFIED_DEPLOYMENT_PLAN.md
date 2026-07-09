@@ -14,7 +14,7 @@ To simplify runtime behavior, we introduce two master switches:
 
 ### State Matrix & DB Requirements
 
-If **either** flag is set to `true`, a state database is required. DAA automatically resolves the database location based on the `DAA_DB_PROVIDER` and `DAA_CACHE_PROVIDER` flags.
+If **either** flag is set to `true`, a state database is required to store policy state (cooldowns, counts) or authentication credentials. DAA automatically resolves the database location based on the `DAA_DB_PROVIDER` flag.
 
 ```
                   ┌─────────────────────────────────────────┐
@@ -29,40 +29,38 @@ If **either** flag is set to `true`, a state database is required. DAA automatic
                      │                        └─────────────────────┘
          ┌───────────┴───────────┐
          ▼                       ▼
- ┌───────────────┐       ┌───────────────┐
- │  DB Providers │       │Cache Providers│
- └───────┬───────┘       └───────┬───────┘
-         ├─ sqlite               ├─ in-memory
-         ├─ internal-postgres    ├─ internal-redis
-         └─ external-postgres    └─ external-redis
+ ┌────────────────────────────────────────────────────────┐
+ │                      DB Providers                      │
+ └──────────────────────────┬─────────────────────────────┘
+                            ├─ sqlite (local file)
+                            ├─ internal-postgres (in-image)
+                            ├─ external-postgres (cloud)
+                            ├─ internal-redis (in-image)
+                            └─ external-redis / upstash (cloud)
 ```
 
 ---
 
-## 2. Pluggable Storage & Cache Providers
+## 2. Pluggable Database Providers
 
 ### 2.1 DB Providers (`DAA_DB_PROVIDER`)
 
-| Provider | Internal/External | Setup Complexity | Persistence | Best For |
+| Provider | Type | Setup Complexity | Persistence | Best For |
 |---|---|---|---|---|
 | `none` | N/A | None | None | Pure stateless Cloud Run / Fargate |
-| `sqlite` | **Internal** | Zero | Persistent file | Single VM, local testing |
-| `internal-postgres` | **Internal** | Zero (auto-started) | Internal data directory | Self-contained single-image Postgres |
-| `external-postgres` | **External** | Manual | Cloud Managed | High availability production |
+| `sqlite` | **SQL** (Internal) | Zero | Persistent file | Single VM, local testing |
+| `internal-postgres` | **SQL** (Internal) | Zero (auto-started) | Internal data directory | Self-contained single-image Postgres DB |
+| `external-postgres` | **SQL** (External) | Manual | Cloud Managed | High availability production DB |
+| `internal-redis` | **NoSQL** (Internal) | Zero (auto-started) | Volatile | Self-contained single-image Redis DB |
+| `external-redis` / `upstash` | **NoSQL** (External) | Manual | Cloud Managed / Upstash | Serverless stateful runs DB |
 
-### 2.2 Cache Providers (`DAA_CACHE_PROVIDER`)
-
-| Provider | Internal/External | Setup Complexity | Persistence | Best For |
-|---|---|---|---|---|
-| `none` / `in-memory` | **Internal** | Zero | Volatile | Stateless runs, small workloads |
-| `internal-redis` | **Internal** | Zero (auto-started) | Volatile | Self-contained single-image Redis |
-| `external-redis` | **External** | Manual | Cloud Managed / Upstash | Serverless stateful runs |
+*Note: Redis/Upstash is used directly as a key-value database for policy state, cooldown tracking, and error counter tables. There is no cache layer in DAA.*
 
 ---
 
 ## 3. Single-Image Multi-Process Architecture
 
-To allow users to run a full stack (with API, Agent, Postgres, and Redis) using a single `docker run` command, the DAA image uses an intelligent shell entrypoint (`entrypoint.sh`) that acts as a lightweight process supervisor.
+To allow users to run a full stack (with API, Agent, and internal database) using a single `docker run` command, the DAA image uses an intelligent shell entrypoint (`entrypoint.sh`) that acts as a lightweight process supervisor.
 
 ### 3.1 Dockerfile with Postgres & Redis Installed
 
@@ -91,7 +89,6 @@ COPY . .
 
 # Setup default environment variables
 ENV DAA_DB_PROVIDER=sqlite
-ENV DAA_CACHE_PROVIDER=in-memory
 ENV PORT=8080
 
 EXPOSE 8080
@@ -134,7 +131,7 @@ if [ "$DAA_DB_PROVIDER" = "internal-postgres" ]; then
 fi
 
 # ── 2. Handle Internal Redis ──
-if [ "$DAA_CACHE_PROVIDER" = "internal-redis" ]; then
+if [ "$DAA_DB_PROVIDER" = "internal-redis" ]; then
     echo "Starting internal Redis server..."
     redis-server --daemonize yes
     export REDIS_URL="redis://localhost:6379/0"
@@ -183,14 +180,13 @@ docker run -p 8080:8080 \
   rutvej/daa:latest
 ```
 
-### C. Self-Contained Full Stack (Internal Postgres + Redis)
+### C. Self-Contained Full Stack (Internal Postgres)
 ```bash
 docker run -p 8080:8080 \
   -v daa-db-data:/var/lib/postgresql/data \
   -e DAA_POLICY_ENABLED=true \
   -e DAA_AUTH_ENABLED=true \
   -e DAA_DB_PROVIDER=internal-postgres \
-  -e DAA_CACHE_PROVIDER=internal-redis \
   -e DAA_GIT_MODE=api \
   -e GITHUB_TOKEN=ghp_xxx \
   rutvej/daa:latest
@@ -200,7 +196,7 @@ docker run -p 8080:8080 \
 
 ## 5. Integrating with Docker Compose (Multi-Container Scaling)
 
-When deploying to production, running Postgres and Redis inside the same container as the API limits scalability and fault tolerance. 
+When deploying to production, running Postgres or Redis inside the same container as the API limits scalability and fault tolerance. 
 
 To scale up, DAA uses the **same Docker image** in a multi-container `docker-compose.yml` topology, turning off internal services and delegating them to external containers:
 
@@ -208,7 +204,7 @@ To scale up, DAA uses the **same Docker image** in a multi-container `docker-com
 version: '3.8'
 
 services:
-  # 1. External Postgres Database
+  # 1. External Postgres Database (Relational Store)
   postgres:
     image: postgres:15
     restart: always
@@ -219,7 +215,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # 2. External Redis Cache
+  # 2. External Redis Database (Key-Value State Store)
   redis:
     image: redis:7-alpine
     restart: always
@@ -232,14 +228,11 @@ services:
     environment:
       - DAA_DB_PROVIDER=external-postgres
       - DATABASE_URL=postgresql://daa_admin:secure_password@postgres:5432/daa_prod
-      - DAA_CACHE_PROVIDER=external-redis
-      - REDIS_URL=redis://redis:6379/0
       - DAA_QUEUE_MODE=rabbitmq # or kafka
       - DAA_POLICY_ENABLED=true
       - DAA_AUTH_ENABLED=true
     depends_on:
       - postgres
-      - redis
 
   # 4. DAA Agent Workers (Can scale independently)
   daa-worker:
@@ -248,13 +241,10 @@ services:
     environment:
       - DAA_DB_PROVIDER=external-postgres
       - DATABASE_URL=postgresql://daa_admin:secure_password@postgres:5432/daa_prod
-      - DAA_CACHE_PROVIDER=external-redis
-      - REDIS_URL=redis://redis:6379/0
       - DAA_QUEUE_MODE=rabbitmq
       - DAA_GIT_MODE=local # Allow local workspace clones for compiling/testing code
     depends_on:
       - postgres
-      - redis
 
 volumes:
   postgres_data:
@@ -264,3 +254,4 @@ volumes:
 * **Single Image Maintenance**: You build and maintain only one image (`rutvej/daa:latest`).
 * **Scale Workers Independently**: Scale the background worker tasks with `docker-compose scale daa-worker=5` to handle high incident rates without impacting web server latency.
 * **Separation of Concerns**: Database data is safely persistent in a dedicated container volume.
+
