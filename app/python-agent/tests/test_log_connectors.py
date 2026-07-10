@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 from datetime import timezone
 
-from src.log_connectors import (
+from agent_src.log_connectors import (
     parse_timestamp,
     get_configured_connector,
     AWSCloudWatchConnector,

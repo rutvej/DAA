@@ -1,100 +1,76 @@
 # DAA — Deduplicated Autonomous SRE Platform
 
-DAA is an open-source, pluggable **Autonomous SRE Platform** that replaces the first 30–60 minutes of manual triage toil when production microservices break. It ingests alerts (via Sentry, Prometheus Alertmanager, or custom webhooks), deduplicates incident runs, performs a 4-dimension diagnostic investigation (code, commits, logs, metrics), applies code remedies, and opens pull/merge requests with generated postmortems.
+DAA is a pluggable, open-source **Autonomous SRE Platform** designed to automate the first 30–60 minutes of manual triage toil when production microservices break. 
+
+The platform ingests exception logs (via client SDKs or Sentry/Prometheus webhooks), groups them using SHA256 fingerprints to deduplicate runs, matches them against sliding-window escalation policies, and deploys a LangChain SRE Agent. The agent performs a 4-dimension diagnostic investigation (logs, metrics, commits, and codebase navigation), applies dynamic hotfixes, runs verification tests, and opens Merge/Pull Requests with generated postmortem reports.
 
 ---
 
 ## 🚀 Pluggable Deployment Combinations
 
-DAA is built as a **single-image pluggable architecture**. It can run from a single lightweight serverless container (DB-free, clone-free) up to a dedicated multi-container datacenter environment.
-
-You can mix and match configuration modes depending on your infrastructure requirements:
+DAA is built as a **single-image pluggable architecture** that can scale from a stateless, zero-disk serverless container up to a distributed multi-container cluster.
 
 | Deployment Mode | `DAA_DB_PROVIDER` | `DAA_GIT_MODE` | `DAA_QUEUE_MODE` | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Stateless Serverless** | `none` | `api` (Git REST calls) | `sync` (Inline background) | **Zero-disk, scales-to-zero.** Resolves files and commits via GitHub/GitLab REST APIs. Offloads authentication. Best for Google Cloud Run / AWS Fargate. |
-| **2. Self-Contained Edge** | `internal-postgres` | `local` (Workspace clone) | `sync` (Threaded worker) | **Single VM.** Automatically boots internal Postgres & Redis databases inside the single container for policy tracking and JWT login support. |
-| **3. Distributed Scale-Out** | `external-postgres` | `local` (Workspace clone) | `rabbitmq` (Distributed) | **Datacenter.** Splits web service, RabbitMQ broker, external Postgres database, and dedicated SRE agent worker pools. |
+| **1. Stateless Serverless** | `none` | `api` (Git REST calls) | `sync` (Inline background) | **Zero-disk, scales-to-zero.** Queries and commits files directly via GitHub/GitLab REST APIs. Bypasses local DB and enqueues inline in FastAPI background tasks. Best for Google Cloud Run / AWS Fargate. |
+| **2. Self-Contained Edge** | `sqlite` | `api` or `local` | `sync` | **Single VM.** Uses SQLite with WAL mode for local policy tracking and JWT session storage. |
+| **3. Distributed Scale-Out** | `postgres` | `local` (Worktree clones) | `rabbitmq` (Distributed) | **Datacenter.** Separates FastAPI API container, RabbitMQ broker, PostgreSQL database, and dedicated agent worker pools. |
 
 ---
 
-## 🛠️ Unified Installation & Setup
+## 🛡️ Secure Multi-Repository Context Access
 
-### 1. Run the Unified Installer
-Install python virtualenv, dependencies, and configure CLI rights locally:
+To allow DAA to safely diagnose issues stemming from shared libraries or upstream microservices without introducing security vulnerabilities or workspace bloat:
+
+1. **Authorization via Registration:** The SRE Agent can only pull code from repositories explicitly pre-registered in the DAA database (preventing SSRF and exfiltration attacks via dynamically injected URLs).
+2. **Work Isolation:** The agent only clones, checks out, and executes code modifications/tests on the primary target repository (e.g., `/tmp/daa/<incident_id>`).
+3. **Read-Only API Queries:** Any auxiliary repositories registered as dependencies are accessed in a read-only manner. Instead of cloning them to disk, the agent dynamically queries specific files via the GitLab/GitHub Git Data REST APIs.
+
+---
+
+## 🛠️ Unified Installation & Quickstart
+
+### 1. Run the Installer
+Set up Python virtual environments, pip dependencies, and link the DAA CLI tool:
 ```bash
 ./install.sh
 ```
 
-### 2. Run the Guided Setup Wizard
-Initialize LLM provider choices (Gemini, Claude, GPT, or Ollama), Git tokens, and cloud logging connectors:
+### 2. Run the Configuration Wizard
+Initialize Git tokens, LLM providers (Gemini, OpenAI, or Claude), and select your deployment profile:
 ```bash
-./daa init
+daa init
 ```
 
-### 3. Deploy/Redeploy DAA Services
-```bash
-./daa redeploy
-```
+### 3. Deploy DAA Services
+* **For Distributed Stateful Mode (Docker Compose):**
+  ```bash
+  docker compose up -d --build
+  ```
+* **For Stateless Serverless Mode:**
+  ```bash
+  docker build -t daa-stateless:latest .
+  docker run -d --name daa-stateless -p 8080:8080 --env-file .env daa-stateless:latest
+  ```
 
 ---
 
-## 🐳 Universal Docker Registry Upload
+## 📂 Codebase Layout
 
-To distribute DAA universally on your servers, Kubernetes, or cloud containers, build and push the single unified Docker image:
-
-```bash
-# 1. Build and tag the single unified Docker image
-docker build -t your-docker-registry-username/daa:latest .
-
-# 2. Login to your container registry (Docker Hub, GitHub Packages, or GCP Artifact Registry)
-docker login
-
-# 3. Push the image
-docker push your-docker-registry-username/daa:latest
 ```
-
----
-
-## ☁️ One-Line Serverless Cloud Deployments
-
-You can deploy the single DAA image directly to serverless cloud environments in stateless mode:
-
-### Google Cloud Run (One-liner)
-```bash
-gcloud run deploy daa-service --image your-docker-registry-username/daa:latest --port 8080 --allow-unauthenticated --set-env-vars="LLM_PROVIDER=google,GEMINI_API_KEY=your-gemini-key,GITHUB_TOKEN=your-github-token,DAA_POLICY_ENABLED=false,DAA_AUTH_ENABLED=false,DAA_DB_PROVIDER=none,DAA_GIT_MODE=api,DAA_QUEUE_MODE=sync"
+/home/rutvej/Desktop/DAA/
+├── daa                          # main python CLI helper
+├── entrypoint.sh                # entrypoint shell script for single-container
+├── install.sh                   # shell script installer
+├── requirements.txt             # platform dependencies
+├── app/
+│   ├── backend-api/             # FastAPI REST backend & JIRA mock
+│   │   ├── src/                 # REST endpoints & Database session local
+│   │   └── tests/               # 17 pytest suites (SQLite based)
+│   ├── python-agent/            # LangChain SRE Agent
+│   │   ├── agent_src/           # Worker main, LLM models & ReAct tools
+│   │   └── tests/               # 27 unittest suites (Mocks based)
+│   ├── admin-panel/             # React dashboard frontend
+│   └── daa-sdk/                 # Multi-language telemetry SDKs (Node, Go, Python...)
+└── specs/                       # Platform specifications
 ```
-
-### AWS Fargate (using AWS Copilot)
-```bash
-copilot init --name daa --type "Request-Driven Web Service" --image your-docker-registry-username/daa:latest --port 8080
-```
-
----
-
-## 🧪 Triggering Outage Scenarios
-
-Simulate microservice outages in the sandbox environment to test DAA's 4-dimension diagnostic loops:
-
-### Scenario A: Redis Cache Timeout (Infrastructure Cascade)
-Simulates connection pool exhaustion on the checkout service:
-```bash
-curl -X POST 'http://localhost:8001/checkout' \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id": "fail_redis", "cart_total": 150.0}'
-```
-
-### Scenario B: Payment Gateway Failures (Client/External Decline)
-Simulates a transaction failure due to declined cards or gateway error:
-```bash
-curl -X POST 'http://localhost:8001/checkout' \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id": "user-123", "cart_total": 6000.0}'
-```
-
----
-
-## 🛡️ Context Safety & Token Optimization
-*   **Planning Step:** Agent writes a JSON investigation plan before calling tools.
-*   **Hard Cap:** Forced escalation after 8 tool calls (warning at 5) to prevent runaways.
-*   **Token efficiency:** Under 4,000 tokens per incident (65% reduction from v2.0). Duplicate runs consume **0 tokens** via fingerprint deduplication.

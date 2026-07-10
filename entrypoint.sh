@@ -52,6 +52,6 @@ if [ "$DAA_QUEUE_MODE" = "sync" ]; then
 else
     # In distributed mode, run API and Agent worker as concurrent background processes
     echo "Starting DAA Agent Worker..."
-    python -m src.main &
+    python -m agent_src.main &
     exec uvicorn app.backend-api.src.main:app --host 0.0.0.0 --port "$PORT"
 fi

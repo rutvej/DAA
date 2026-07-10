@@ -141,32 +141,9 @@ class CodexChatModel(BaseChatModel):
         # 3.5. Fix completely missing "Action Input:" for any Action
         action_match = re.search(r'Action:\s*([a-zA-Z_0-9_]+)', output)
         if action_match and "Action Input:" not in output:
-            tool_name = action_match.group(1)
-            default_input = ""
-            if tool_name in ["clone_repo", "check_alerts"]:
-                default_input = "checkout-service"
-            elif tool_name in ["read_repomap", "check_recent_changes"]:
-                default_input = '{"repo_path": "/tmp/checkout-service"}'
-            elif tool_name in ["grep_search", "find_symbol"]:
-                default_input = '{"query": "connec", "search_path": "/tmp/checkout-service"}'
-            elif tool_name == "view_file_slice":
-                default_input = '{"file_path": "/tmp/checkout-service/app.py", "start_line": 1, "end_line": 100}'
-            elif tool_name == "write_file":
-                default_input = '{"file_path": "/tmp/checkout-service/app.py", "content": ""}'
-            elif tool_name == "run_tests":
-                default_input = '{"repo_path": "/tmp/checkout-service", "test_command": "pytest"}'
-            elif tool_name in ["create_branch", "push"]:
-                default_input = "/tmp/checkout-service, remediation/fix"
-            elif tool_name == "commit":
-                default_input = "/tmp/checkout-service, fix RedisCache.connec typo"
-            elif tool_name == "create_pull_request":
-                default_input = '{"repo_path": "/tmp/checkout-service", "title": "Fix RedisCache.connec typo", "description": "Auto fix"}'
-            else:
-                default_input = "{}"
-
             output = re.sub(
                 r'(Action:\s*[a-zA-Z_0-9_]+)',
-                rf'\1\nAction Input: {default_input}',
+                r'\1\nAction Input: {}',
                 output
             )
         

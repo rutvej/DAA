@@ -1,86 +1,90 @@
-# DAA Setup & Deployment Guide
+# DAA Platform Setup Guide
 
-This guide details the installation, deployment combinations, registry upload, and cloud deployment methods for the **DAA Autonomous SRE Platform**.
+This guide details the steps to install, configure, deploy, and verify the DAA platform in both Stateless Serverless and Stateful Full-Stack environments.
 
 ---
 
 ## 📦 1. Installation
 
-To setup your SRE workspace, install virtualenv dependencies, and grant CLI rights:
+To install all platform dependencies, create the Python virtual environment, and link the DAA CLI globally:
 ```bash
 ./install.sh
 ```
 
-To initialize LLM API keys (Gemini, Claude, GPT, or Ollama), Git repository access tokens, and cloud logging integration:
+To configure Git tokens, LLM API keys (Gemini, Claude, GPT, or Ollama), and select the target deployment profile:
 ```bash
-./daa init
+daa init
 ```
+This script populates `.env` and `.env.daa` configuration files in the root directory.
 
 ---
 
-## 🚀 2. Pluggable Deployment Combinations
+## 🚀 2. Deploying Different Combinations
 
-DAA's architecture is fully pluggable and runs off a single unified Docker image. Configure DAA using these variables to customize database, Git, and worker execution paths:
+DAA's architecture uses environment variables to trigger different operational flows:
 
-### Environment Settings Matrix
+### A. Stateless Serverless Mode (Cloud Run / AWS Fargate)
+* **Configuration:**
+  ```env
+  DAA_DB_PROVIDER=none
+  DAA_GIT_MODE=api
+  DAA_QUEUE_MODE=sync
+  DAA_AUTH_ENABLED=false
+  DAA_POLICY_ENABLED=false
+  ```
+* **How it works:** 
+  1. Exception log is posted to `/logs/` or webhook `/ingest/`.
+  2. Because `DAA_QUEUE_MODE=sync` is active, the Backend API directly imports the agent logic from `agent_src.main` (no RabbitMQ needed).
+  3. It enqueues the job inline as a FastAPI `BackgroundTask`.
+  4. The SRE Agent runs in-process. It uses `CloneFreeGitClient` to fetch/modify files directly via Git REST APIs (no local disk clones).
+  5. PR/MR is created via Git provider API. Database sessions are stubbed using `MockSession`.
 
-| Mode | `DAA_DB_PROVIDER` | `DAA_GIT_MODE` | `DAA_QUEUE_MODE` | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| **Stateless (Serverless)** | `none` | `api` | `sync` | No local database, Git clone, or queues. Operates via Webhooks and Git REST APIs. |
-| **Self-Contained Edge** | `internal-postgres` | `api` or `local` | `sync` | Spins up PostgreSQL and Redis internally inside the container. |
-| **Scale-Out Distributed** | `external-postgres` | `local` | `rabbitmq` | Standard multi-container datacenter scale with RabbitMQ broker and worker pools. |
+### B. Stateful Edge Mode (Single VM SQLite)
+* **Configuration:**
+  ```env
+  DAA_DB_PROVIDER=sqlite
+  DAA_GIT_MODE=local
+  DAA_QUEUE_MODE=sync
+  DAA_AUTH_ENABLED=true
+  DAA_POLICY_ENABLED=true
+  ```
+* **How it works:**
+  1. Uses local SQLite WAL database `daa.db` in the container to track JWT logins and sliding-window error policies.
+  2. Enqueues jobs inline in background tasks.
+  3. Clones the target repository locally on-disk and creates isolated worktrees under `/tmp/daa/` to modify code and run local verification tests.
+
+### C. Scale-Out Stateful Mode (Postgres + RabbitMQ)
+* **Configuration:**
+  ```env
+  DAA_DB_PROVIDER=postgres
+  DATABASE_URL=postgresql://daa:daa_pass@localhost:5432/daa_db
+  DAA_GIT_MODE=local
+  DAA_QUEUE_MODE=rabbitmq
+  RABBITMQ_HOST=rabbitmq
+  ```
+* **How it works:**
+  1. The Backend API container registers user logs, runs policy checks on Postgres, and publishes a job to RabbitMQ.
+  2. The standalone worker container (`python -m agent_src.main`) consumes the job from RabbitMQ.
+  3. The worker clones the codebase, creates worktrees, triages the bug, runs tests, and pushes fix branches to create Pull Requests.
 
 ---
 
-## 🐳 3. Docker Registry Upload Guide
+## 🧪 3. E2E Verification & Outage Triggers
 
-To prepare DAA for cloud deployment or Kubernetes cluster rollouts, build and push the single unified Docker image to a registry (Docker Hub, GitHub Packages, or GCP Artifact Registry):
+To test that DAA is functioning correctly in your environment, you can trigger mock microservice outages using these commands:
 
-```bash
-# 1. Build and tag the single unified Docker image
-docker build -t your-docker-registry-username/daa:latest .
-
-# 2. Login to your container registry
-docker login
-
-# 3. Push the image
-docker push your-docker-registry-username/daa:latest
-```
-
----
-
-## ☁️ 4. One-Line Cloud Deployments (Stateless Serverless)
-
-DAA can be deployed to serverless container runtimes with zero-database dependencies:
-
-### Google Cloud Run (One-liner)
-```bash
-gcloud run deploy daa-service --image your-docker-registry-username/daa:latest --port 8080 --allow-unauthenticated --set-env-vars="LLM_PROVIDER=google,GEMINI_API_KEY=your-gemini-key,GITHUB_TOKEN=your-github-token,DAA_POLICY_ENABLED=false,DAA_AUTH_ENABLED=false,DAA_DB_PROVIDER=none,DAA_GIT_MODE=api,DAA_QUEUE_MODE=sync"
-```
-
-### AWS Fargate (using AWS Copilot)
-```bash
-copilot init --name daa --type "Request-Driven Web Service" --image your-docker-registry-username/daa:latest --port 8080
-```
-
----
-
-## 💥 5. Triggering Outage Scenarios
-
-To verify your DAA installation, trigger sandbox microservice outage incidents using the curls below:
-
-### Scenario A: Redis Cache Timeout (Infrastructure Cascade)
-Simulates a Redis connection pool exhaustion on the checkout service:
+### Trigger Redis Timeout Outage
 ```bash
 curl -X POST 'http://localhost:8001/checkout' \
   -H 'Content-Type: application/json' \
   -d '{"user_id": "fail_redis", "cart_total": 150.0}'
 ```
 
-### Scenario B: Payment Gateway Failures (Client/External Decline)
-Simulates a transaction failure due to declined cards or gateway error:
+### Trigger Payment Gateway Outage
 ```bash
 curl -X POST 'http://localhost:8001/checkout' \
   -H 'Content-Type: application/json' \
   -d '{"user_id": "user-123", "cart_total": 6000.0}'
 ```
+
+Monitor the SRE diagnostic logs and postmortems in the React Admin panel at `http://localhost:5003`.

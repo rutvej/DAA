@@ -1,15 +1,15 @@
 import unittest
 import uuid
 from unittest.mock import patch
-from src.main import process_job, scrub_secrets
-from src.models import Job, ErrorLog
+from agent_src.main import process_job, scrub_secrets
+from agent_src.models import Job, ErrorLog
 
 class TestMain(unittest.TestCase):
 
-    @patch('src.orchestrator.run_preflight')
-    @patch('src.main.AgentExecutor')
-    @patch('src.main.get_llm')
-    @patch('src.main.AnalysisUpdater')
+    @patch('agent_src.orchestrator.run_preflight')
+    @patch('agent_src.main.AgentExecutor')
+    @patch('agent_src.main.get_llm')
+    @patch('agent_src.main.AnalysisUpdater')
     def test_process_job_daa20_fallback(self, mock_analysis_updater, mock_get_llm, mock_agent_executor, mock_run_preflight):
         # Arrange
         mock_run_preflight.side_effect = Exception("Simulated pre-flight failure")
@@ -51,12 +51,12 @@ class TestMain(unittest.TestCase):
         mock_updater_instance.set_postmortem.assert_called_once_with('Some report')
         mock_updater_instance.update_analysis_completed.assert_called_once()
 
-    @patch('src.orchestrator.RepoCacheManager')
-    @patch('src.orchestrator.PostflightOrchestrator')
-    @patch('src.orchestrator.run_preflight')
-    @patch('src.agent_safety.AgentSafetyWrapper')
-    @patch('src.main.get_llm')
-    @patch('src.main.AnalysisUpdater')
+    @patch('agent_src.orchestrator.RepoCacheManager')
+    @patch('agent_src.orchestrator.PostflightOrchestrator')
+    @patch('agent_src.orchestrator.run_preflight')
+    @patch('agent_src.agent_safety.AgentSafetyWrapper')
+    @patch('agent_src.main.get_llm')
+    @patch('agent_src.main.AnalysisUpdater')
     def test_process_job_daa30(self, mock_analysis_updater, mock_get_llm, mock_safety_wrapper, mock_run_preflight, mock_postflight, mock_repo_cache):
         # Arrange
         mock_run_preflight.return_value = {

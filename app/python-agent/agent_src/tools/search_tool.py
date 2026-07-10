@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 class SearchRepoInput(BaseModel):
     query: str = Field(description="The search query to find relevant code snippets (e.g. 'redis cache session key timeout')")
-    repo_path: str = Field(default="/tmp/payment-api", description="The path to the cloned repository to search.")
+    repo_path: str = Field(default=".", description="The path to the cloned repository to search.")
 
 def index_repo(repo_path: str):
     """
@@ -87,7 +87,7 @@ def index_repo(repo_path: str):
     conn.close()
 
 @tool(args_schema=SearchRepoInput)
-def search_repo(query: str, repo_path: str = "/tmp/payment-api") -> str:
+def search_repo(query: str, repo_path: str = ".") -> str:
     """Queries the local codebase search index to return the top relevant code snippets.
 
     Args:

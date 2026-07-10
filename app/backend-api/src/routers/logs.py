@@ -158,13 +158,10 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
 
     queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
     if queue_mode == "sync":
-        import shutil
         import sys
-        agent_src_dir = "/app/app/agent_src"
-        if not os.path.exists(agent_src_dir):
-            shutil.copytree("/app/app/python-agent/src", agent_src_dir)
-        if "/app/app" not in sys.path:
-            sys.path.insert(0, "/app/app")
+        agent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../python-agent"))
+        if agent_dir not in sys.path:
+            sys.path.insert(0, agent_dir)
             
         from agent_src.main import process_job
         from agent_src.models import Job

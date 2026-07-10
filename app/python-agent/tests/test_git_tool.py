@@ -1,7 +1,7 @@
 import unittest
 import json
 from unittest.mock import patch, MagicMock
-from src.tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
+from agent_src.tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
 
 class TestGitTool(unittest.TestCase):
 
@@ -18,8 +18,8 @@ class TestGitTool(unittest.TestCase):
         os.environ.clear()
         os.environ.update(self.old_env)
 
-    @patch('src.tools.git_tool.os.path.exists', return_value=False)
-    @patch('src.tools.git_tool.git.Repo')
+    @patch('agent_src.tools.git_tool.os.path.exists', return_value=False)
+    @patch('agent_src.tools.git_tool.git.Repo')
     def test_clone_repo(self, mock_repo, mock_exists):
         # Arrange
         app_name = 'test-app'
@@ -35,8 +35,8 @@ class TestGitTool(unittest.TestCase):
         mock_repo.clone_from.assert_called_once_with("http://root:None@gitlab:80/root/test-app.git", expected_path)
         mock_repo_instance.config_writer.assert_called_once()
 
-    @patch('src.tools.git_tool.os.path.exists', return_value=True)
-    @patch('src.tools.git_tool._get_repo')
+    @patch('agent_src.tools.git_tool.os.path.exists', return_value=True)
+    @patch('agent_src.tools.git_tool._get_repo')
     def test_clone_repo_updates_existing_remote(self, mock_get_repo, mock_exists):
         app_name = 'test-app'
         mock_repo = MagicMock()
@@ -50,7 +50,7 @@ class TestGitTool(unittest.TestCase):
             "http://root:None@gitlab:80/root/test-app.git"
         )
 
-    @patch('src.tools.git_tool._get_repo')
+    @patch('agent_src.tools.git_tool._get_repo')
     def test_create_branch(self, mock_get_repo):
         # Arrange
         repo_path = '/tmp/test-app'
@@ -65,7 +65,7 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.assert_called_once_with(repo_path)
         mock_repo.git.checkout.assert_called_once_with('-b', branch_name)
 
-    @patch('src.tools.git_tool._get_repo')
+    @patch('agent_src.tools.git_tool._get_repo')
     def test_commit(self, mock_get_repo):
         # Arrange
         repo_path = '/tmp/test-app'
@@ -81,7 +81,7 @@ class TestGitTool(unittest.TestCase):
         mock_repo.git.add.assert_called_once_with(A=True)
         mock_repo.git.commit.assert_called_once_with(m=message)
 
-    @patch('src.tools.git_tool._get_repo')
+    @patch('agent_src.tools.git_tool._get_repo')
     def test_push(self, mock_get_repo):
         # Arrange
         repo_path = '/tmp/test-app'
@@ -96,8 +96,8 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.assert_called_once_with(repo_path)
         mock_repo.git.push.assert_called_once_with('--set-upstream', '--force', 'origin', branch_name)
 
-    @patch('src.tools.git_tool.gitlab.Gitlab')
-    @patch('src.tools.git_tool._get_repo')
+    @patch('agent_src.tools.git_tool.gitlab.Gitlab')
+    @patch('agent_src.tools.git_tool._get_repo')
     def test_create_pull_request(self, mock_get_repo, mock_gitlab):
         # Arrange
         repo_path = '/tmp/test-app'

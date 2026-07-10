@@ -9,4 +9,4 @@ RUN pip install -r requirements.txt
 
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-CMD ["python", "-u", "-m", "src.main"]
+CMD ["python", "-u", "-m", "agent_src.main"]

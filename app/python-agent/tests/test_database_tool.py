@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch
-from src.tools.database_tool import AnalysisUpdater
+from agent_src.tools.database_tool import AnalysisUpdater
 
 class TestDatabaseTool(unittest.TestCase):
 
-    @patch('src.tools.database_tool._send_request')
+    @patch('agent_src.tools.database_tool._send_request')
     def test_update_status_processing(self, mock_send_request):
         # Arrange
         log_id = '123'
@@ -16,7 +16,7 @@ class TestDatabaseTool(unittest.TestCase):
         # Assert
         mock_send_request.assert_called_once_with({"log_id": log_id, "status": "processing"})
 
-    @patch('src.tools.database_tool._send_request')
+    @patch('agent_src.tools.database_tool._send_request')
     def test_update_status_completed(self, mock_send_request):
         # Arrange
         log_id = '123'

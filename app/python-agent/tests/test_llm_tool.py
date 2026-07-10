@@ -1,11 +1,11 @@
 import unittest
 import json
 from unittest.mock import patch, MagicMock
-from src.tools.llm_tool import get_instructions
+from agent_src.tools.llm_tool import get_instructions
 
 class TestLlmTool(unittest.TestCase):
 
-    @patch('src.tools.llm_tool.get_llm')
+    @patch('agent_src.tools.llm_tool.get_llm')
     def test_get_instructions(self, mock_get_llm):
         # Arrange
         error_log = 'division by zero'
