@@ -111,9 +111,11 @@ echo -e "\n${BOLD}Step 3: Installing DAA SRE CLI...${RESET}"
 chmod +x daa
 echo -e "${GREEN}✔${RESET} Executable permissions granted for './daa' CLI."
 
-# Check if we should globally link
-echo -e "  To run 'daa' globally from any directory, execute:"
-echo -e "  ${CYAN}sudo ln -sf \$(pwd)/daa /usr/local/bin/daa${RESET}"
+# Link globally to user PATH
+echo "  Linking daa CLI globally to ~/.local/bin/daa..."
+mkdir -p "$HOME/.local/bin"
+ln -sf "$(pwd)/daa" "$HOME/.local/bin/daa"
+echo -e "${GREEN}✔${RESET} Globally linked CLI to ~/.local/bin/daa"
 
 # 4. Prompt Setup Wizard
 echo "--------------------------------------------------------"

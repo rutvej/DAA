@@ -57,13 +57,32 @@ def header(msg): print(f"\n{BOLD}{msg}{RESET}")
 
 
 def load_config() -> dict:
+    cfg = {}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE) as f:
-                return json.load(f)
+                cfg.update(json.load(f))
         except Exception:
             pass
-    return {}
+    for env_path in (".env", ".env.daa"):
+        if os.path.exists(env_path):
+            try:
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip()
+                            if k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+                                cfg["LLM_API_KEY"] = v
+                            elif k in ("GITHUB_TOKEN", "GITLAB_PRIVATE_TOKEN"):
+                                cfg["GIT_TOKEN"] = v
+                            else:
+                                cfg[k] = v
+            except Exception:
+                pass
+    return cfg
 
 
 def save_config(cfg: dict):
@@ -415,8 +434,13 @@ def cmd_init(_args):
 
     write_env_vars(env_map)
     header("━━━ Setup Complete! ━━━")
-    print(f"\n  To applyLLM configurations and deploy DAA services, run:")
-    print(f"    {CYAN}daa redeploy{RESET}")
+    if deploy_choice.startswith("Stateless"):
+        print(f"\n  To build and run DAA as a single unified stateless Docker container, run:")
+        print(f"    {CYAN}docker build -t daa:latest .{RESET}")
+        print(f"    {CYAN}docker run -d -p 8000:80 --env-file .env daa:latest{RESET}")
+    else:
+        print(f"\n  To apply LLM configurations and deploy DAA services, run:")
+        print(f"    {CYAN}daa redeploy{RESET}")
     print()
 
 
