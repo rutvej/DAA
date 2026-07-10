@@ -78,6 +78,7 @@ services:
       - ${DAA_GIT_DIR:-/home/rutvej/Desktop/DAA/.git}:/app/.git:ro
       - /home/rutvej/.local/bin/agy:/usr/local/bin/agy:ro
       - /home/rutvej/.gemini:/root/.gemini:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "gitlab:host-gateway"
