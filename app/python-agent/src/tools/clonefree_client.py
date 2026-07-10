@@ -22,6 +22,20 @@ def get_project_connection(app_name: str) -> dict:
             return response.json()
     except Exception as e:
         logger.error(f"Error fetching project connection: {e}")
+        
+    # Stateless env fallback
+    env_safe_name = app_name.upper().replace("-", "_")
+    env_repo_url = os.getenv(f"DAA_REPO_URL_{env_safe_name}")
+    if env_repo_url:
+        return {
+            "app_name": app_name,
+            "repo_url": env_repo_url,
+            "repo_token": os.getenv(f"DAA_REPO_TOKEN_{env_safe_name}"),
+            "repo_provider": os.getenv(f"DAA_REPO_PROVIDER_{env_safe_name}", "github"),
+            "jira_url": os.getenv(f"DAA_JIRA_URL_{env_safe_name}"),
+            "jira_token": os.getenv(f"DAA_JIRA_TOKEN_{env_safe_name}"),
+            "jira_project_key": os.getenv(f"DAA_JIRA_PROJECT_KEY_{env_safe_name}")
+        }
     return {}
 
 def _parse_github_repo(repo_url: str) -> tuple[str, str]:
