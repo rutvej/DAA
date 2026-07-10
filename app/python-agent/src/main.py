@@ -696,8 +696,10 @@ def process_job(job: Job):
     try:
         if daa30_available:
             from .agent_safety import AgentSafetyWrapper, HardCapCallbackHandler
-            cap_handler = HardCapCallbackHandler(max_calls=8, warning_at=5)
-            safety_wrapper = AgentSafetyWrapper(agent_executor, max_calls=8, warning_at=5)
+            max_tool_calls = int(os.environ.get("DAA_MAX_TOOL_CALLS", "8"))
+            warning_at = int(os.environ.get("DAA_TOOL_CALL_WARNING_AT", "5"))
+            cap_handler = HardCapCallbackHandler(max_calls=max_tool_calls, warning_at=warning_at)
+            safety_wrapper = AgentSafetyWrapper(agent_executor, max_calls=max_tool_calls, warning_at=warning_at)
             result = safety_wrapper.invoke(
                 {"input": question},
                 callbacks=[callback_handler, cap_handler]

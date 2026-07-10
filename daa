@@ -254,8 +254,60 @@ def cmd_init(_args):
     if llm_base_url:
         cfg["LLM_BASE_URL"] = llm_base_url
 
-    # ── Step 3: Cloud Logging Credentials (Skippable) ──
-    header("Step 3 — Cloud Logging Access (Skippable)")
+    # ── Step 3: Deployment Mode & Engine Selector ──
+    header("Step 3 — Deployment Mode & Engine Selector")
+    print("  Configure DAA's infrastructure profile (Stateless vs. Full-Stack).")
+    
+    deploy_choice = ask_choice(
+        "Choose your deployment architecture:",
+        ["Stateless / Serverless (GCP Cloud Run, AWS Fargate)", "Full-Stack (Multi-container, VM, Kubernetes)"],
+        default=cfg.get("DEPLOY_CHOICE", "Full-Stack (Multi-container, VM, Kubernetes)")
+    )
+    
+    if deploy_choice.startswith("Stateless"):
+        print(f"\n  {YELLOW}⚠ INFO on Stateless / Serverless Deployments:{RESET}")
+        print("    Stateless deployment runs without local database storage.")
+        print("    - If you select 'none' for the database, auth and policies are disabled.")
+        print("    - If you select 'sqlite', it will work, but there is NO guarantee")
+        print("      of data persistence when the serverless container restarts/scales to zero.")
+        print("      For persistence in serverless, configure an external database.")
+        
+        db_choice = ask_choice(
+            "Select database provider:",
+            ["none (Bypass auth, zero dependencies)", "sqlite (In-memory, testing only)", "external-postgres (Persistent DB)"],
+            default="none (Bypass auth, zero dependencies)"
+        )
+        db_provider = db_choice.split(" ")[0]
+        git_mode = "api"
+        queue_mode = "sync"
+        policy_enabled = "false" if db_provider == "none" else "true"
+        auth_enabled = "false" if db_provider == "none" else "true"
+    else:
+        db_choice = ask_choice(
+            "Select database engine:",
+            ["sqlite", "internal-postgres", "external-postgres"],
+            default="sqlite"
+        )
+        db_provider = db_choice
+        git_mode = "local"
+        queue_choice = ask_choice(
+            "Select background queue engine:",
+            ["sync (Threaded worker, single container)", "rabbitmq (Distributed worker pool)"],
+            default="sync (Threaded worker, single container)"
+        )
+        queue_mode = queue_choice.split(" ")[0]
+        policy_enabled = "true"
+        auth_enabled = "true"
+
+    cfg["DEPLOY_CHOICE"] = deploy_choice
+    cfg["DAA_DB_PROVIDER"] = db_provider
+    cfg["DAA_GIT_MODE"] = git_mode
+    cfg["DAA_QUEUE_MODE"] = queue_mode
+    cfg["DAA_POLICY_ENABLED"] = policy_enabled
+    cfg["DAA_AUTH_ENABLED"] = auth_enabled
+
+    # ── Step 4: Cloud Logging Credentials (Skippable) ──
+    header("Step 4 — Cloud Logging Access (Skippable)")
     configure_cloud_logs = ask("Configure Cloud Logging connector (AWS/GCP/Datadog) to pull live logs? [y/N]", "N")
     
     cloud_config = {}
@@ -285,8 +337,8 @@ def cmd_init(_args):
         cfg["cloud_logging"] = None
         info("Cloud logging configuration skipped.")
 
-    # ── Step 4: Self-Healing Telemetry (Opt-in) ──
-    header("Step 4 — DAA Self-Improvement Telemetry (Opt-in)")
+    # ── Step 5: Self-Healing Telemetry (Opt-in) ──
+    header("Step 5 — DAA Self-Improvement Telemetry (Opt-in)")
     print("  Help improve DAA by automatically reporting DAA's own internal")
     print("  errors back to the DAA project.")
     print("  What is sent:")
@@ -313,6 +365,11 @@ def cmd_init(_args):
         "SECRET_KEY": cfg.get("SECRET_KEY", "demo_secret_key"),
         "RABBITMQ_HOST": "rabbitmq",
         "DAA_SELF_REPORT": enable_self_report,
+        "DAA_DB_PROVIDER": db_provider,
+        "DAA_GIT_MODE": git_mode,
+        "DAA_QUEUE_MODE": queue_mode,
+        "DAA_POLICY_ENABLED": policy_enabled,
+        "DAA_AUTH_ENABLED": auth_enabled,
     }
     
     # LLM Keys
