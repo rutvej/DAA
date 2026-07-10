@@ -1,14 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.11-alpine
 
-# Install system dependencies, git, postgres, redis, and golang
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    postgresql \
-    postgresql-contrib \
-    redis-server \
-    golang-go \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apk add --no-cache git curl bash
 
 WORKDIR /app
 
