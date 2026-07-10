@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pika
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
@@ -38,7 +38,7 @@ class LogDetailsResponse(LogResponse):
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
     if not log.content or not isinstance(log.content, str):
         raise HTTPException(status_code=400, detail="Invalid log content")
     
@@ -135,61 +135,76 @@ def submit_log(log: LogCreate, db: Session = Depends(get_db), current_user: dict
     db.commit()
     db.refresh(new_incident)
 
-    try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
-        channel = connection.channel()
-        
-        # Configure DLX and DLQ
-        channel.exchange_declare(exchange='fix_jobs_dlx', exchange_type='direct', durable=True)
-        channel.queue_declare(queue='fix_jobs_dlq', durable=True)
-        channel.queue_bind(queue='fix_jobs_dlq', exchange='fix_jobs_dlx', routing_key='failed_fixes')
-
-        arguments = {
-            'x-dead-letter-exchange': 'fix_jobs_dlx',
-            'x-dead-letter-routing-key': 'failed_fixes',
-            'x-message-ttl': 1800000  # 30 minutes in ms
+    job_data = {
+        "id": str(db_log.id),
+        "log_id": str(db_log.id),
+        "incident_id": str(new_incident.id),
+        "fingerprint": fingerprint,
+        "trace_id": log.trace_id,
+        "app_name": db_log.app_name,
+        "status": "pending",
+        "created_at": db_log.timestamp.isoformat(),
+        "updated_at": db_log.timestamp.isoformat(),
+        "error_log": {
+            "id": str(db_log.id),
+            "app_name": db_log.app_name,
+            "content": db_log.content,
+            "stack_trace": log.content,
+            "exception_type": log.exception_type,
+            "trace_id": log.trace_id,
+            "timestamp": db_log.timestamp.isoformat()
         }
+    }
+
+    queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
+    if queue_mode == "sync":
+        import shutil
+        import sys
+        agent_src_dir = "/app/app/agent_src"
+        if not os.path.exists(agent_src_dir):
+            shutil.copytree("/app/app/python-agent/src", agent_src_dir)
+        if "/app/app" not in sys.path:
+            sys.path.insert(0, "/app/app")
+            
+        from agent_src.main import process_job
+        from agent_src.models import Job
         
+        job = Job(**job_data)
+        background_tasks.add_task(process_job, job)
+    else:
         try:
-            channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
-        except Exception:
-            # If queue exists with different parameters, recreate it
+            connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+            channel = connection.channel()
+            
+            # Configure DLX and DLQ
+            channel.exchange_declare(exchange='fix_jobs_dlx', exchange_type='direct', durable=True)
+            channel.queue_declare(queue='fix_jobs_dlq', durable=True)
+            channel.queue_bind(queue='fix_jobs_dlq', exchange='fix_jobs_dlx', routing_key='failed_fixes')
+
+            arguments = {
+                'x-dead-letter-exchange': 'fix_jobs_dlx',
+                'x-dead-letter-routing-key': 'failed_fixes',
+                'x-message-ttl': 1800000  # 30 minutes in ms
+            }
+            
             try:
-                connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
-                channel = connection.channel()
-                channel.queue_delete(queue='fix_jobs')
                 channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
             except Exception:
-                # Fallback to simple declare
-                connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
-                channel = connection.channel()
-                channel.queue_declare(queue='fix_jobs', durable=True)
-        job_data = {
-            "id": str(db_log.id),
-            "log_id": str(db_log.id),
-            "incident_id": str(new_incident.id),
-            "fingerprint": fingerprint,
-            "trace_id": log.trace_id,
-            "app_name": db_log.app_name,
-            "status": "pending",
-            "created_at": db_log.timestamp.isoformat(),
-            "updated_at": db_log.timestamp.isoformat(),
-            "error_log": {
-                "id": str(db_log.id),
-                "app_name": db_log.app_name,
-                "content": db_log.content,
-                "stack_trace": log.content,
-                "exception_type": log.exception_type,
-                "trace_id": log.trace_id,
-                "timestamp": db_log.timestamp.isoformat()
-            }
-        }
-        channel.basic_publish(exchange='',
-                              routing_key='fix_jobs',
-                              body=json.dumps(job_data))
-        connection.close()
-    except pika.exceptions.AMQPConnectionError:
-        raise HTTPException(status_code=503, detail="Could not connect to RabbitMQ")
+                try:
+                    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                    channel = connection.channel()
+                    channel.queue_delete(queue='fix_jobs')
+                    channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
+                except Exception:
+                    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                    channel = connection.channel()
+                    channel.queue_declare(queue='fix_jobs', durable=True)
+            channel.basic_publish(exchange='',
+                                  routing_key='fix_jobs',
+                                  body=json.dumps(job_data))
+            connection.close()
+        except pika.exceptions.AMQPConnectionError:
+            raise HTTPException(status_code=503, detail="Could not connect to RabbitMQ")
 
     return {"logId": db_log.id, "status": "Escalated to Agent", "incidentId": new_incident.id, "fingerprint": fingerprint}
 

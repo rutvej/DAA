@@ -446,6 +446,13 @@ def cmd_init(_args):
 
 def cmd_register(args):
     cfg = load_config()
+    if cfg.get("DAA_DB_PROVIDER") == "none":
+        header("━━━ Register Application ━━━")
+        info("Registration is bypassed: DAA is running in Stateless / Serverless mode (zero-database).")
+        info("All configuration is loaded dynamically from environment variables.")
+        print()
+        return
+
     backend = cfg.get("backend_url", DEFAULT_BACKEND)
 
     header("━━━ Register Application ━━━")
@@ -518,6 +525,13 @@ def cmd_register(args):
 
 def cmd_policy(args):
     cfg = load_config()
+    if cfg.get("DAA_DB_PROVIDER") == "none":
+        header("━━━ Configure Escalation Policy ━━━")
+        info("Escalation policies are bypassed: DAA is running in Stateless / Serverless mode (zero-database).")
+        info("Alert processing defaults to immediate escalation.")
+        print()
+        return
+
     backend = cfg.get("backend_url", DEFAULT_BACKEND)
 
     header("━━━ Configure Escalation Policy ━━━")

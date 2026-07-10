@@ -41,6 +41,8 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
+    if not DAA_AUTH_ENABLED:
+        return {"token": "dummy_token"}
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not pwd_context.verify(user.password, db_user.passwordHash):
         raise HTTPException(status_code=401, detail="Incorrect username or password")

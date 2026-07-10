@@ -191,9 +191,18 @@ async def dispatch_investigation(
     if queue_mode == "sync":
         agent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../python-agent"))
         if agent_dir not in sys.path:
-            sys.path.append(agent_dir)
-        from src.main import process_job
-        from src.models import Job
+            sys.path.insert(0, agent_dir)
+            
+        old_src_modules = {}
+        for k in list(sys.modules.keys()):
+            if k == "src" or k.startswith("src."):
+                old_src_modules[k] = sys.modules.pop(k)
+        try:
+            from src.main import process_job
+            from src.models import Job
+        finally:
+            for k, v in old_src_modules.items():
+                sys.modules[k] = v
         
         job = Job(**job_data)
         background_tasks.add_task(process_job, job)

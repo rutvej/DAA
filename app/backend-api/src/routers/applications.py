@@ -1,4 +1,5 @@
 from typing import List, Optional
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -92,7 +93,7 @@ def create_application(app: ApplicationCreate, db: Session = Depends(get_db), cu
         team_owner=db_app.team_owner,
         allowed_ip=db_app.allowed_ip,
         token=token,
-        created_at=db_app.created_at.isoformat()
+        created_at=(db_app.created_at or datetime.utcnow()).isoformat()
     )
 
 @router.get("/", response_model=List[ApplicationResponse])
