@@ -332,6 +332,11 @@ class GitHubLikeProvider(BaseGitProvider):
 
     def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
         base_branch = base_branch or self.default_branch
+        
+        if self.provider == "gitea":
+            created, already_existed = self._create_branch_gitea(new_branch, base_branch)
+            # Plain (non-locking) create: reusing an existing branch is fine.
+            return created or already_existed
         base_sha = self.get_branch_sha(base_branch)
         if not base_sha and base_branch != "master":
             base_sha = self.get_branch_sha("master")
@@ -353,6 +358,48 @@ class GitHubLikeProvider(BaseGitProvider):
         except Exception as e:
             logger.error("Error creating branch via API: %s", e)
         return False
+    def create_branch_lock(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+       base_branch = base_branch or self.default_branch
+       if self.provider == "gitea":
+           created, _already_existed = self._create_branch_gitea(new_branch, base_branch)
+           # Atomic-lock semantics: only a *fresh* creation counts as
+           # acquiring the lock, mirroring GitHub's 409-on-existing-ref.
+           return created
+
+       return super().create_branch_lock(new_branch, base_branch)
+    def _create_branch_gitea(self, new_branch: str, base_branch: str) -> tuple[bool, bool]:
+       """Create a branch via Gitea's dedicated branches endpoint.
+
+       Gitea does NOT implement the GitHub-style `POST /git/refs` write
+       path (only reads exist under `git/refs`/`git/ref`), so branch
+       creation must go through `POST /repos/{owner}/{repo}/branches`.
+
+       Returns (created, already_existed).
+       """
+       try:
+           resp = self._request(
+               "POST",
+               "branches",
+               headers={**self.headers, "Content-Type": "application/json"},
+               json={
+                   "new_branch_name": new_branch,
+                   # Gitea has used both field names across versions; send both.
+                   "old_branch_name": base_branch,
+                   "old_ref_name": base_branch,
+               },
+           )
+           if resp.status_code in (200, 201):
+               return True, False
+           if resp.status_code in (409, 422):
+               logger.info("Gitea branch %s already exists", new_branch)
+               return False, True
+           logger.error(
+               "Gitea branch creation failed (%s): %s",
+               resp.status_code, resp.text[:300],
+           )
+       except Exception as e:
+           logger.error("Error creating branch via Gitea API: %s", e)
+       return False, False
 
     def write_file_content(self, file_path: str, content: str, branch_name: str, commit_message: str) -> bool:
         try:
