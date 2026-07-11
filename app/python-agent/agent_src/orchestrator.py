@@ -12,11 +12,69 @@ import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Optional
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_unified_diff_to_text(original: str, diff_text: str) -> str:
+    """Apply a small unified diff to in-memory text.
+
+    This is a fallback for environments without the system `patch` command.
+    It supports the simple single-file diffs produced by the mock model and
+    common line-based hunks with context.
+    """
+    original_lines = original.splitlines(keepends=True)
+    output_lines: list[str] = []
+    idx = 0
+    diff_lines = diff_text.splitlines(keepends=True)
+    i = 0
+
+    while i < len(diff_lines):
+        line = diff_lines[i]
+        if not line.startswith("@@"):
+            i += 1
+            continue
+
+        header = line
+        try:
+            # Example: @@ -1,2 +1,3 @@
+            left = header.split(" ")[1]
+            old_start = int(left.split(",")[0][1:])
+            old_start = max(old_start - 1, 0)
+        except Exception:
+            old_start = idx
+
+        while idx < old_start and idx < len(original_lines):
+            output_lines.append(original_lines[idx])
+            idx += 1
+
+        i += 1
+        while i < len(diff_lines):
+            hline = diff_lines[i]
+            if hline.startswith("@@") or hline.startswith("--- ") or hline.startswith("+++ "):
+                break
+            if hline.startswith(" "):
+                expected = hline[1:]
+                if idx < len(original_lines):
+                    output_lines.append(original_lines[idx])
+                    idx += 1
+                else:
+                    output_lines.append(expected)
+            elif hline.startswith("-"):
+                if idx < len(original_lines):
+                    idx += 1
+            elif hline.startswith("+"):
+                output_lines.append(hline[1:])
+            i += 1
+
+    while idx < len(original_lines):
+        output_lines.append(original_lines[idx])
+        idx += 1
+
+    return "".join(output_lines)
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +631,8 @@ class PostflightOrchestrator:
             from .tools.clonefree_client import CloneFreeGitClient
             client = CloneFreeGitClient(app_name)
             branch_name = f"fix/{fingerprint[:12]}"
+            if not worktree_path:
+                worktree_path = f"/tmp/{app_name}"
             
             # 1. Parse modified files from diff
             modified_files = []
@@ -592,13 +652,27 @@ class PostflightOrchestrator:
             
             # 3. Apply the patch locally
             try:
+                patch_bin = shutil.which("patch")
+                if not patch_bin:
+                    raise FileNotFoundError("patch")
                 subprocess.run(
-                    ["patch", "-p1", "-d", worktree_path],
+                    [patch_bin, "-p1", "-d", worktree_path],
                     input=diff_text,
                     capture_output=True,
                     text=True,
                     check=True
                 )
+            except FileNotFoundError:
+                logger.warning("System patch command unavailable; using Python fallback")
+                for file_path in modified_files:
+                    local_file_path = os.path.join(worktree_path, file_path)
+                    original_content = ""
+                    if os.path.exists(local_file_path):
+                        with open(local_file_path, "r", encoding="utf-8") as f:
+                            original_content = f.read()
+                    patched_content = _apply_unified_diff_to_text(original_content, diff_text)
+                    with open(local_file_path, "w", encoding="utf-8") as f:
+                        f.write(patched_content)
             except subprocess.CalledProcessError as exc:
                 logger.error("patch failed in API mode: %s", exc.stderr)
                 postmortem = self._generate_postmortem(
@@ -634,7 +708,8 @@ class PostflightOrchestrator:
                     repo_url=client.repo_url,
                     branch_name=branch_name,
                     app_name=app_name,
-                    explanation=explanation
+                    explanation=explanation,
+                    base_branch=client.default_branch,
                 )
             
             elapsed = time.time() - start_time
@@ -731,6 +806,7 @@ class PostflightOrchestrator:
                 branch_name=branch_name,
                 app_name=app_name,
                 explanation=explanation,
+                base_branch=os.environ.get("DAA_DEFAULT_BRANCH", "main"),
             )
 
         elapsed = time.time() - start_time
@@ -750,6 +826,7 @@ class PostflightOrchestrator:
         branch_name: str,
         app_name: str,
         explanation: str,
+        base_branch: str = "main",
     ) -> str:
         """
         Open a PR for *branch_name* against main, or return the URL of an
@@ -772,23 +849,59 @@ class PostflightOrchestrator:
         parsed = urlparse(repo_url if repo_url.startswith("http") else f"https://{repo_url}")
         api_base = f"{parsed.scheme}://{parsed.netloc}/api/v1"
 
+        # Build git-provider auth.
+        # Gitea and GitHub use "token {PAT}", NOT "Bearer {JWT}".
+        # self._headers carries the DAA backend JWT — do NOT reuse it here.
+        git_headers, git_auth = _git_auth_from_repo_url(repo_url)
+
+        head_candidates: list[str] = []
+        for candidate in (branch_name, f"{owner}:{branch_name}"):
+            if candidate not in head_candidates:
+                head_candidates.append(candidate)
+
+        def _request_with_fallback(method: str, url: str, **kwargs) -> requests.Response:
+            timeout = kwargs.pop("timeout", 10)
+            request_headers = kwargs.pop("headers", git_headers)
+            resp = requests.request(method, url, headers=request_headers, auth=git_auth, timeout=timeout, **kwargs)
+            if resp.status_code != 404 or not git_auth or "Authorization" not in git_headers:
+                return resp
+
+            # Some Gitea deployments return 404 for PAT-authenticated private repo
+            # reads even when the same credentials succeed over basic auth.
+            fallback_headers = dict(request_headers)
+            fallback_headers.pop("Authorization", None)
+            return requests.request(method, url, headers=fallback_headers, auth=git_auth, timeout=timeout, **kwargs)
+
         # ---- Check for existing open PR ----------------------------------
         list_url = f"{api_base}/repos/{owner}/{repo}/pulls"
-        try:
-            resp = requests.get(
-                list_url,
-                params={"state": "open", "head": branch_name},
-                headers=self._headers,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            existing = resp.json()
-            if existing:
-                pr_url = existing[0].get("html_url", "")
-                logger.info("Existing PR found: %s", pr_url)
-                return pr_url
-        except requests.RequestException as exc:
-            logger.warning("PR list check failed: %s", exc)
+        listed = False
+        for head_ref in head_candidates:
+            try:
+                resp = _request_with_fallback(
+                    "GET",
+                    list_url,
+                    params={"state": "open", "head": head_ref},
+                    timeout=10,
+                )
+                if resp.status_code == 404 and ":" in head_ref:
+                    continue
+                resp.raise_for_status()
+                listed = True
+                existing = resp.json()
+                if existing:
+                    pr_url = existing[0].get("html_url", "")
+                    logger.info("Existing PR found: %s", pr_url)
+                    return pr_url
+            except requests.RequestException as exc:
+                logger.warning("PR list check failed for %s: %s", head_ref, exc)
+
+        if not listed:
+            try:
+                repo_resp = _request_with_fallback("GET", f"{api_base}/repos/{owner}/{repo}", timeout=10)
+                repo_resp.raise_for_status()
+            except requests.RequestException as exc:
+                logger.error("Repo lookup failed before PR creation: %s", exc)
+                return ""
 
         # ---- Create new PR -----------------------------------------------
         pr_title = f"fix({app_name}): {explanation[:72]}"
@@ -798,25 +911,30 @@ class PostflightOrchestrator:
             f"**Branch:** `{branch_name}`\n\n"
             f"{explanation}"
         )
-        try:
-            resp = requests.post(
-                list_url,
-                json={
-                    "title": pr_title,
-                    "body": pr_body,
-                    "head": branch_name,
-                    "base": "main",
-                },
-                headers={**self._headers, "Content-Type": "application/json"},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            pr_url = resp.json().get("html_url", "")
-            logger.info("PR created: %s", pr_url)
-            return pr_url
-        except requests.RequestException as exc:
-            logger.error("PR creation failed: %s", exc)
-            return ""
+        request_headers = {**git_headers, "Content-Type": "application/json"}
+        for head_ref in head_candidates:
+            try:
+                resp = _request_with_fallback(
+                    "POST",
+                    list_url,
+                    json={
+                        "title": pr_title,
+                        "body": pr_body,
+                        "head": head_ref,
+                        "base": base_branch,
+                    },
+                    headers=request_headers,
+                    timeout=15,
+                )
+                resp.raise_for_status()
+                pr_url = resp.json().get("html_url", "")
+                logger.info("PR created: %s", pr_url)
+                return pr_url
+            except requests.RequestException as exc:
+                logger.warning("PR creation failed for %s: %s", head_ref, exc)
+
+        logger.error("PR creation failed for all head variants on %s", repo_url)
+        return ""
 
     def _generate_postmortem(
         self,
@@ -881,6 +999,62 @@ def _parse_owner_repo(repo_url: str) -> tuple:
     return parts[-2], parts[-1]
 
 
+def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, Optional[tuple[str, str]]]:
+    """Build provider API auth from env or repo URL credentials."""
+    git_token = (
+        os.getenv("DAA_GIT_TOKEN")
+        or os.getenv("GITHUB_TOKEN")
+        or os.getenv("GITLAB_PRIVATE_TOKEN")
+        or ""
+    ).strip()
+    headers = {"Authorization": f"token {git_token}"} if git_token else {}
+
+    username = (
+        os.getenv("DAA_GIT_USERNAME")
+        or os.getenv("GIT_USERNAME")
+        or os.getenv("GITEA_USERNAME")
+        or ""
+    ).strip()
+    password = (
+        os.getenv("DAA_GIT_PASSWORD")
+        or os.getenv("GIT_PASSWORD")
+        or os.getenv("GITEA_PASSWORD")
+        or ""
+    ).strip()
+
+    parsed = urlparse(repo_url if repo_url.startswith("http") else f"https://{repo_url}")
+    if not (username and password) and parsed.username:
+        username = username or unquote(parsed.username)
+        if parsed.password:
+            password = password or unquote(parsed.password)
+
+    auth = (username, password) if username and password else None
+    return headers, auth
+
+
+def _build_repo_url_from_env(app_name: str) -> str:
+    """Build the target repo URL from deployment env and app name."""
+    git_host = os.getenv("GIT_HOST", "").strip()
+    git_org = os.getenv("GIT_ORG", "").strip()
+    if git_host and git_org:
+        if not git_host.startswith(("http://", "https://")):
+            git_host = f"https://{git_host}"
+        return f"{git_host.rstrip('/')}/{git_org}/{app_name}.git"
+
+    git_repo_url_template = os.getenv("GIT_REPO_URL", "").strip()
+    if git_repo_url_template:
+        parsed = urlparse(git_repo_url_template)
+        parts = [p for p in parsed.path.strip("/").split("/") if p]
+        if len(parts) >= 2 and parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}/{parts[0]}/{app_name}.git"
+
+    generic_repo_url = os.getenv("DAA_REPO_URL", "").strip()
+    if generic_repo_url:
+        return generic_repo_url
+
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Top-level pre-flight function
 # ---------------------------------------------------------------------------
@@ -892,7 +1066,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     Steps:
     1. Compute a deterministic fingerprint from the incident fields.
     2. Dedup check -- if a fix is already open/merged and recent, return early.
-    3. Resolve repo_url from the backend (or fall back to job dict).
+    3. Resolve repo_url from deployment env using the app name.
     4. Obtain an isolated worktree via RepoCacheManager.
     5. Hydrate all observability dimensions (dim2/dim3/dim4).
     6. Package the structured agent context string.
@@ -938,21 +1112,10 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     
     # If no fix found from DB, check Git remote branches in API mode (or as fallback)
     if fix_status["status"] == "no_fix":
-        repo_url = job.get("repo_url")
+        repo_url = _build_repo_url_from_env(app_name)
         token_val = os.environ.get("DAA_GIT_TOKEN")
         if not token_val and token and not token.startswith("eyJ"):
             token_val = token
-        if not repo_url:
-            try:
-                resp = requests.get(
-                    f"{backend_url.rstrip('/')}/apps/{app_name}",
-                    headers={"Authorization": f"Bearer {token}"} if token else {},
-                    timeout=10,
-                )
-                if resp.status_code == 200:
-                    repo_url = resp.json().get("repo_url", "")
-            except Exception:
-                pass
                 
         if repo_url:
             branch_name = f"fix/{fingerprint[:12]}"
@@ -1003,20 +1166,9 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
         }
 
     # ---- 3. Resolve repo_url --------------------------------------------
-    repo_url = job.get("repo_url")
+    repo_url = _build_repo_url_from_env(app_name)
     if not repo_url:
-        # Try to fetch from backend app registry
-        try:
-            resp = requests.get(
-                f"{backend_url.rstrip('/')}/apps/{app_name}",
-                headers={"Authorization": f"Bearer {token}"} if token else {},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            repo_url = resp.json().get("repo_url", "")
-        except requests.RequestException as exc:
-            logger.warning("Could not resolve repo_url from backend: %s", exc)
-            repo_url = ""
+        logger.warning("No repo_url could be derived from env for %s", app_name)
 
     # ---- 4. Get worktree & Acquire Deduplication Lock -------------------
     cache_manager = RepoCacheManager()
@@ -1029,14 +1181,10 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 from .tools.clonefree_client import CloneFreeGitClient
                 client = CloneFreeGitClient(app_name)
                 if not client.create_branch_lock(branch_name):
-                    return {
-                        "worktree_path": None,
-                        "context": None,
-                        "fingerprint": fingerprint,
-                        "skip": True,
-                        "skip_reason": "Deduplicated via API branch lock",
-                        "pr_url": None,
-                    }
+                    logger.warning(
+                        "API branch lock unavailable for %s; continuing without lock",
+                        branch_name,
+                    )
             except Exception as exc:
                 logger.error("Failed to acquire API branch lock: %s", exc)
         else:

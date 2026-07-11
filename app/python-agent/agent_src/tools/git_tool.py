@@ -1,37 +1,65 @@
 import os
-import git
-import gitlab
-import requests
 from urllib.parse import urlparse, urlunparse
-from langchain.tools import tool
-from pydantic.v1 import BaseModel, Field
+from .git_api_providers import build_project_connection
 
-from .auth_helper import handle_request_with_retry
+try:
+    from langchain.tools import tool
+except Exception:
+    class _LocalToolWrapper:
+        def __init__(self, func):
+            self.func = func
+
+        def run(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+    def tool(*dargs, **dkwargs):
+        if dargs and callable(dargs[0]) and not dkwargs:
+            return _LocalToolWrapper(dargs[0])
+
+        def decorator(func):
+            return _LocalToolWrapper(func)
+
+        return decorator
+
+try:
+    from pydantic.v1 import BaseModel, Field
+except Exception:
+    class BaseModel:
+        pass
+
+    def Field(default=None, **kwargs):
+        return default
+
+try:
+    import git as _git
+except Exception:
+    class _GitStub:
+        Repo = None
+
+    _git = _GitStub()
+
+git = _git
+
+def _infer_provider_from_repo_url(repo_url: str) -> str:
+    """Infer a sensible provider from the repository URL host."""
+    repo_url = (repo_url or "").strip().lower()
+    if "github.com" in repo_url:
+        return "github"
+    return "gitea"
+
+
+def _resolve_provider(provider: str, repo_url: str = "") -> str:
+    """Normalize known aliases while preserving gitea as a distinct API shape."""
+    provider = (provider or "").strip().lower()
+    if provider in ("github", "gitea", "gitlab"):
+        return provider
+    return _infer_provider_from_repo_url(repo_url)
 
 def get_project_connection(app_name: str) -> dict:
-    """Fetches the project connection configuration from the backend API."""
-    backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
-    try:
-        response = handle_request_with_retry("GET", f"{backend_url}/projects/{app_name}", timeout=10)
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        print(f"Error fetching project connection: {e}")
-    
-    # Stateless env fallback
-    env_safe_name = app_name.upper().replace("-", "_")
-    env_repo_url = os.getenv(f"DAA_REPO_URL_{env_safe_name}")
-    if env_repo_url:
-        return {
-            "app_name": app_name,
-            "repo_url": env_repo_url,
-            "repo_token": os.getenv(f"DAA_REPO_TOKEN_{env_safe_name}"),
-            "repo_provider": os.getenv(f"DAA_REPO_PROVIDER_{env_safe_name}", "github"),
-            "jira_url": os.getenv(f"DAA_JIRA_URL_{env_safe_name}"),
-            "jira_token": os.getenv(f"DAA_JIRA_TOKEN_{env_safe_name}"),
-            "jira_project_key": os.getenv(f"DAA_JIRA_PROJECT_KEY_{env_safe_name}")
-        }
-    return {}
+    return build_project_connection(app_name)
 
 
 def _parse_github_repo(repo_url: str) -> tuple[str, str]:
@@ -75,7 +103,7 @@ def _split_repo_input(value: str) -> tuple[str, str]:
     return repo_path.strip(), payload.strip()
 
 
-def _get_repo(repo_path: str) -> git.Repo:
+def _get_repo(repo_path: str):
     """Gets the repository object.
 
     Args:
@@ -216,11 +244,13 @@ def create_pull_request(data: str) -> str:
         return "Error: 'repo_path', 'title', and 'description' are required."
 
     project_name = repo_path.strip().split('/')[-1]
+    client = None
 
     # Handle API Mode or Local Mode for determining branch name
     if os.environ.get("DAA_GIT_MODE") == "api":
-        from .clonefree_client import ACTIVE_BRANCHES
-        branch_name = ACTIVE_BRANCHES.get(project_name, "fix-branch")
+        from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
+        client = CloneFreeGitClient(project_name)
+        branch_name = ACTIVE_BRANCHES.get(project_name) or client.default_branch or "fix-branch"
     else:
         repo = _get_repo(repo_path.strip())
         branch_name = repo.active_branch.name
@@ -229,79 +259,13 @@ def create_pull_request(data: str) -> str:
     if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
         return f"AWAITING_APPROVAL:{branch_name}"
 
-    # Fetch configuration dynamically
-    proj = get_project_connection(project_name)
-    provider = proj.get("repo_provider", "gitlab")
-    token = proj.get("repo_token") or os.getenv('GITLAB_PRIVATE_TOKEN')
-
-    if provider == "github" or provider == "gitea":
-        owner, r_name = _parse_github_repo(proj.get("repo_url", ""))
-        repo_url = proj.get("repo_url", "")
-        parsed = urlparse(repo_url)
-        if provider == "github":
-            prs_url = f"https://api.github.com/repos/{owner}/{r_name}/pulls"
-            headers = {
-                "Authorization": f"token {token}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-        else:
-            prs_url = f"{parsed.scheme}://{parsed.netloc}/api/v1/repos/{owner}/{r_name}/pulls"
-            headers = {
-                "Authorization": f"token {token}",
-                "Content-Type": "application/json"
-            }
-        
-        # Check if a PR already exists
-        try:
-            check_res = requests.get(prs_url, headers=headers, params={"head": f"{owner}:{branch_name}"})
-            if check_res.status_code == 200 and check_res.json():
-                return check_res.json()[0]["html_url"]
-        except Exception as e:
-            print(f"Error checking existing PRs: {e}")
-
-        # Create the PR
-        pr_payload = {
-            "title": title.strip(),
-            "body": description.strip(),
-            "head": branch_name,
-            "base": "master"  # default base branch
-        }
-        try:
-            res = requests.post(prs_url, headers=headers, json=pr_payload)
-            if res.status_code == 201:
-                return res.json().get("html_url")
-            else:
-                # Try fallback base branch 'main'
-                pr_payload["base"] = "main"
-                res_fallback = requests.post(prs_url, headers=headers, json=pr_payload)
-                if res_fallback.status_code == 201:
-                    return res_fallback.json().get("html_url")
-                return f"Error creating {provider} PR: {res.text} (Fallback error: {res_fallback.text})"
-        except Exception as e:
-            return f"Exception while creating {provider} PR: {e}"
-
-    else:
-        # GitLab Integration
-        repo_url = proj.get("repo_url")
-        if repo_url:
-            parsed_url = urlparse(repo_url)
-            gl_url = f"{parsed_url.scheme or 'http'}://{parsed_url.netloc}"
-        else:
-            gl_host = os.getenv('GITLAB_HOST', 'gitlab')
-            gl_url = f"http://{gl_host}"
-
-        gl = gitlab.Gitlab(gl_url, private_token=token)
-        project = gl.projects.get(f"{os.getenv('GITLAB_USER','root')}/{project_name}")
-        
-        # Check if a merge request already exists
-        mrs = project.mergerequests.list(source_branch=branch_name)
-        if mrs:
-            return mrs[0].web_url
-
-        mr = project.mergerequests.create({
-            'source_branch': branch_name,
-            'target_branch': 'master',
-            'title': title.strip(),
-            'description': description.strip()
-        })
-        return mr.web_url
+    from .clonefree_client import CloneFreeGitClient
+    if client is None:
+        client = CloneFreeGitClient(project_name)
+    pr_url = client.create_pull_request(
+        branch_name,
+        title.strip(),
+        description.strip(),
+        base_branch=client.default_branch,
+    )
+    return pr_url or "Error: pull request creation failed."

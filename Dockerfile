@@ -1,7 +1,7 @@
 FROM python:3.11-alpine
 
 # Install system dependencies
-RUN apk add --no-cache git curl bash docker-cli
+RUN apk add --no-cache git curl bash docker-cli patch
 
 WORKDIR /app
 

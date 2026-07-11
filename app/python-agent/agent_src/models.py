@@ -36,4 +36,3 @@ class NotSupportedError(Exception):
     Exception raised when a feature is not supported.
     """
     pass
-

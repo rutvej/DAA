@@ -1,7 +1,7 @@
 import unittest
 import json
 from unittest.mock import patch, MagicMock
-from agent_src.tools.git_tool import clone_repo, create_branch, commit, push, create_pull_request
+from agent_src.tools.git_tool import get_project_connection, clone_repo, create_branch, commit, push, create_pull_request
 
 class TestGitTool(unittest.TestCase):
 
@@ -17,6 +17,16 @@ class TestGitTool(unittest.TestCase):
         import os
         os.environ.clear()
         os.environ.update(self.old_env)
+
+    def test_get_project_connection_stateless_fallback(self):
+        import os
+        os.environ['GIT_HOST'] = 'http://host.docker.internal:3000'
+        os.environ['GIT_ORG'] = 'daa-admin'
+
+        conn = get_project_connection('payment-api')
+
+        self.assertEqual(conn['repo_url'], 'http://host.docker.internal:3000/daa-admin/payment-api.git')
+        self.assertEqual(conn['repo_provider'], 'gitea')
 
     @patch('agent_src.tools.git_tool.os.path.exists', return_value=False)
     @patch('agent_src.tools.git_tool.git.Repo')
@@ -96,36 +106,30 @@ class TestGitTool(unittest.TestCase):
         mock_get_repo.assert_called_once_with(repo_path)
         mock_repo.git.push.assert_called_once_with('--set-upstream', '--force', 'origin', branch_name)
 
-    @patch('agent_src.tools.git_tool.gitlab.Gitlab')
-    @patch('agent_src.tools.git_tool._get_repo')
-    def test_create_pull_request(self, mock_get_repo, mock_gitlab):
+    @patch.dict('os.environ', {'DAA_GIT_MODE': 'api'}, clear=False)
+    @patch('agent_src.tools.clonefree_client.CloneFreeGitClient')
+    def test_create_pull_request(self, mock_client_cls):
         # Arrange
         repo_path = '/tmp/test-app'
         title = 'Fix bug'
         description = 'This PR fixes a bug'
-        mock_repo = MagicMock()
-        mock_repo.active_branch.name = 'fix-bug'
-        mock_repo.working_dir.split.return_value = ['/', 'tmp', 'test-app']
-        mock_get_repo.return_value = mock_repo
-        mock_gl = MagicMock()
-        mock_gitlab.return_value = mock_gl
-        mock_project = MagicMock()
-        mock_gl.projects.get.return_value = mock_project
-        mock_project.mergerequests.list.return_value = [] # Fix MagicMock truthiness
+        mock_client = MagicMock()
+        mock_client.default_branch = 'main'
+        mock_client.create_pull_request.return_value = 'http://example.com/pr/1'
+        mock_client_cls.return_value = mock_client
 
         # Act
-        create_pull_request.run(json.dumps({'repo_path': repo_path, 'title': title, 'description': description}))
+        result = create_pull_request.run(json.dumps({'repo_path': repo_path, 'title': title, 'description': description}))
 
         # Assert
-        mock_get_repo.assert_called_once_with(repo_path)
-        mock_gitlab.assert_called_once_with('http://gitlab', private_token=None)
-        mock_gl.projects.get.assert_called_once_with('root/test-app')
-        mock_project.mergerequests.create.assert_called_once_with({
-            'source_branch': 'fix-bug',
-            'target_branch': 'master',
-            'title': title,
-            'description': description
-        })
+        self.assertEqual(result, 'http://example.com/pr/1')
+        mock_client_cls.assert_called_once_with('test-app')
+        mock_client.create_pull_request.assert_called_once_with(
+            'main',
+            title,
+            description,
+            base_branch='main',
+        )
 
 if __name__ == '__main__':
     unittest.main()

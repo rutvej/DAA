@@ -1,8 +1,37 @@
 import os
 import json
-from langchain.tools import tool
 from typing import List
-from pydantic.v1 import BaseModel, Field
+
+try:
+    from langchain.tools import tool
+except Exception:
+    class _LocalToolWrapper:
+        def __init__(self, func):
+            self.func = func
+
+        def run(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+        def __call__(self, *args, **kwargs):
+            return self.func(*args, **kwargs)
+
+    def tool(*dargs, **dkwargs):
+        if dargs and callable(dargs[0]) and not dkwargs:
+            return _LocalToolWrapper(dargs[0])
+
+        def decorator(func):
+            return _LocalToolWrapper(func)
+
+        return decorator
+
+try:
+    from pydantic.v1 import BaseModel, Field
+except Exception:
+    class BaseModel:
+        pass
+
+    def Field(default=None, **kwargs):
+        return default
 
 ROOT_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
 
@@ -26,11 +55,15 @@ def parse_api_path(file_path: str) -> tuple[str, str]:
             app_name = parts[1]
             relative_path = "/".join(parts[2:])
             return app_name, relative_path
-    
+
+    target_app = os.environ.get("DAA_TARGET_APP")
+    if target_app:
+        return target_app, file_path.lstrip("/")
+
     parts = [p for p in file_path.split("/") if p]
-    if parts:
+    if len(parts) > 1:
         return parts[0], "/".join(parts[1:])
-    return "unknown", file_path
+    return os.environ.get("DAA_TARGET_APP", "unknown"), file_path.lstrip("/")
 
 @tool
 def read_file(file_path: str) -> str:
@@ -46,7 +79,8 @@ def read_file(file_path: str) -> str:
         app_name, relative_path = parse_api_path(file_path)
         from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
         client = CloneFreeGitClient(app_name)
-        content = client.get_file_content(relative_path, ref=ACTIVE_BRANCHES.get(app_name, "main"))
+        ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
+        content = client.get_file_content(relative_path, ref=ref)
         if content is not None:
             return content
         return f"File not found via API: {relative_path}"
@@ -80,7 +114,7 @@ def write_file(data: str) -> str:
             app_name, relative_path = parse_api_path(file_path)
             from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
             client = CloneFreeGitClient(app_name)
-            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
             success = client.write_file_content(relative_path, content, branch_name=ref, commit_message=f"Update {relative_path}")
             if success:
                 return "File written and committed successfully via API."
@@ -109,7 +143,7 @@ def list_files(path: str) -> List[str]:
         app_name, relative_path = parse_api_path(path)
         from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
         client = CloneFreeGitClient(app_name)
-        ref = ACTIVE_BRANCHES.get(app_name, "main")
+        ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
         return client.list_files(relative_path, ref=ref)
 
     full_path = get_full_path(path)

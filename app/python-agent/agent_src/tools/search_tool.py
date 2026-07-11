@@ -101,7 +101,7 @@ def search_repo(query: str, repo_path: str = ".") -> str:
         app_name, relative_path = parse_api_path(repo_path)
         from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
         client = CloneFreeGitClient(app_name)
-        ref = ACTIVE_BRANCHES.get(app_name, "main")
+        ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
         results = client.search_code(query, ref=ref)
         if not results:
             return "No matching code snippets found. Try different search terms."

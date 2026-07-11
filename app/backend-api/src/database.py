@@ -287,5 +287,23 @@ def run_db_migrations(engine):
         except Exception as e:
             print(f"Error checking/running database migrations: {e}")
 
+    # When auth is disabled, get_current_user() returns a synthetic user with
+    # id="admin-id".  The logs table has a FK → users.id, so any INSERT with
+    # userId="admin-id" fails with ForeignKeyViolation unless that row exists.
+    # Seed it here so the constraint is always satisfied regardless of auth mode.
+    if not DAA_AUTH_ENABLED:
+        try:
+            with engine.begin() as conn:
+                # Use INSERT … ON CONFLICT DO NOTHING (works for both Postgres and SQLite)
+                conn.execute(text(
+                    "INSERT INTO users (id, username, \"passwordHash\", role) "
+                    "VALUES ('admin-id', 'admin', 'disabled', 'admin') "
+                    "ON CONFLICT (id) DO NOTHING"
+                ))
+                print("Seeded synthetic admin-id user (auth disabled).")
+        except Exception as e:
+            print(f"Warning: could not seed admin-id user: {e}")
+
+
 
 

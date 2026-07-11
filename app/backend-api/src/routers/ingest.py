@@ -211,48 +211,6 @@ async def dispatch_investigation(
         job_data["error_file"] = error_file
         job_data["error_log"]["error_file"] = error_file
 
-    # Inject repo_url dynamically from deployment-level git config.
-    #
-    # Convention: {scheme}://{GIT_HOST}/{GIT_ORG}/{app_name}.git
-    #
-    # GIT_HOST and GIT_ORG are deployment-level env vars — the same for every
-    # app in your org.  You do NOT need a per-app DB record.  The alert payload
-    # already tells us app_name; convention gives us the full repo URL.
-    #
-    # Priority:
-    #   1. GIT_HOST + GIT_ORG  (explicit, recommended)
-    #   2. GIT_REPO_URL         (legacy / backward-compat: parse host+org from it)
-    #
-    # The agent's run_preflight still tries GET /apps/{app_name} first so
-    # stateful DB registrations always win over this dynamic fallback.
-    git_host = os.environ.get("GIT_HOST", "")
-    git_org  = os.environ.get("GIT_ORG", "")
-
-    if not (git_host and git_org):
-        # Backward compat: derive host and org from GIT_REPO_URL
-        git_repo_url_template = os.environ.get("GIT_REPO_URL", "")
-        if git_repo_url_template:
-            try:
-                _parsed = urlparse(git_repo_url_template)
-                _parts  = _parsed.path.strip("/").split("/")
-                if len(_parts) >= 2:
-                    git_host = git_host or f"{_parsed.scheme}://{_parsed.netloc}"
-                    git_org  = git_org  or _parts[0]
-            except Exception:
-                pass
-
-    if git_host and git_org:
-        # Normalise: strip trailing slash, ensure scheme present
-        if not git_host.startswith(("http://", "https://")):
-            git_host = f"https://{git_host}"
-        git_host = git_host.rstrip("/")
-        dynamic_repo_url = f"{git_host}/{git_org}/{app_name}.git"
-        job_data["repo_url"] = dynamic_repo_url
-        logger.info(
-            "Injected dynamic repo_url for app '%s': %s (GIT_HOST=%s GIT_ORG=%s)",
-            app_name, dynamic_repo_url, git_host, git_org
-        )
-        
     queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
     if queue_mode == "sync":
         agent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../python-agent"))

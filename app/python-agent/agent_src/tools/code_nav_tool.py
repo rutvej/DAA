@@ -35,7 +35,8 @@ def view_file_slice(data: str) -> str:
             app_name, relative_path = parse_api_path(file_path)
             from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
             client = CloneFreeGitClient(app_name)
-            content = client.get_file_content(relative_path, ref=ACTIVE_BRANCHES.get(app_name, "main"))
+            ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
+            content = client.get_file_content(relative_path, ref=ref)
             if content is None:
                 return f"Error: File not found via API at {file_path}"
             lines = content.splitlines(keepends=True)
@@ -81,7 +82,7 @@ def grep_search(data: str) -> str:
             app_name, relative_path = parse_api_path(search_path)
             from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
             client = CloneFreeGitClient(app_name)
-            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
             results = client.search_code(query, ref=ref)
             if not results:
                 return f"No matches found for query: '{query}'"
@@ -153,7 +154,7 @@ def find_symbol(data: str) -> str:
             app_name, relative_path = parse_api_path(search_path)
             from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
             client = CloneFreeGitClient(app_name)
-            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
             results = client.search_code(symbol, ref=ref)
             if not results:
                 return f"Symbol '{symbol}' not found via API."
@@ -220,7 +221,7 @@ def read_repomap(data: str) -> str:
             app_name, relative_path = parse_api_path(repo_path)
             from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
             client = CloneFreeGitClient(app_name)
-            ref = ACTIVE_BRANCHES.get(app_name, "main")
+            ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
             
             all_files = client.list_all_files(ref=ref)
             matching_files = [f for f in all_files if f.endswith((".py", ".go", ".js", ".ts", ".java", ".rb"))]

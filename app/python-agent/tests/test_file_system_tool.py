@@ -17,6 +17,19 @@ class TestFileSystemTool(unittest.TestCase):
         # Assert
         self.assertEqual(content, 'file content')
 
+    @patch.dict('os.environ', {'DAA_GIT_MODE': 'api', 'DAA_TARGET_APP': 'payment-api'}, clear=False)
+    @patch('agent_src.tools.clonefree_client.CloneFreeGitClient')
+    def test_read_file_api_mode_uses_target_app(self, mock_client_cls):
+        mock_client = mock_client_cls.return_value
+        mock_client.default_branch = 'main'
+        mock_client.get_file_content.return_value = 'api file content'
+
+        content = read_file.run('requirements.txt')
+
+        self.assertEqual(content, 'api file content')
+        mock_client_cls.assert_called_once_with('payment-api')
+        mock_client.get_file_content.assert_called_once_with('requirements.txt', ref='main')
+
     @patch('agent_src.tools.file_system_tool.os.path.exists', return_value=False)
     def test_read_file_not_found(self, mock_exists):
         # Arrange

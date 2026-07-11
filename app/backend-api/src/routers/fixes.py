@@ -213,8 +213,11 @@ async def post_analysis(
     logging.info(f"Received analysis report: {report}")
     log = db.query(DBLog).filter(DBLog.id == report.log_id).first()
     if log is None:
-        logging.error(f"Log with id {report.log_id} not found in the database.")
-        raise HTTPException(status_code=404, detail="Log not found")
+        if os.environ.get("DAA_DB_PROVIDER") == "none":
+            log = DBLog(id=report.log_id, app_name="unknown", status="Pending")
+        else:
+            logging.error(f"Log with id {report.log_id} not found in the database.")
+            raise HTTPException(status_code=404, detail="Log not found")
 
     status = report.status
     pr_url = report.pull_request_url

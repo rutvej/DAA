@@ -272,14 +272,45 @@ class MockChatModel(BaseChatModel):
         run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        self._call_count += 1
+        object.__setattr__(self, '_call_count', self._call_count + 1)
+        policy_on = os.environ.get("DAA_POLICY_ENABLED", "false").lower() == "true"
         if self._call_count == 1:
-            output = 'Action: create_pull_request\nAction Input: {"repo_path": "/tmp/daa", "title": "Mock Fix", "description": "Mock PR"}'
+            # Step 1: read a file so the orchestrator sees real investigation activity
+            output = (
+                "Thought: Let me look at the main application file to understand the error.\n"
+                "Action: read_file\n"
+                "Action Input: requirements.txt"
+            )
         else:
-            output = 'Final Answer:\nPOSTMORTEM: Mocked fix.\nPR_URL: http://localhost:3000/daa-admin/payment-api/pulls/1'
-        
+            # Step 2: output the structured DAA 3.0 terminal marker.
+            # The postflight orchestrator parses WRITE_DIFF to create a branch/commit/PR
+            # via CloneFreeGitClient without the agent calling any git tools directly.
+            if policy_on:
+                # WRITE_ESCALATION triggers the awaiting_approval policy flow.
+                output = (
+                    "Final Answer:\n"
+                    "WRITE_ESCALATION:\n"
+                    "REASON: Mock policy-gated escalation.\n"
+                    "PARTIAL_DIAGNOSIS: RedisConnectionError detected in payment-api; "
+                    "proposed fix requires approval before merging."
+                )
+            else:
+                output = (
+                    "Final Answer:\n"
+                    "WRITE_DIFF:\n"
+                    "--- a/requirements.txt\n"
+                    "+++ b/requirements.txt\n"
+                    "@@ -1,2 +1,3 @@\n"
+                    " redis==4.5.4\n"
+                    "+redis-retry==1.0.0\n"
+                    " fastapi==0.103.1\n"
+                    "EXPLANATION: Added redis-retry package to handle transient RedisConnectionError "
+                    "in payment-api checkout endpoint."
+                )
+
         ai_message = AIMessage(content=output)
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
+
 
 def get_llm():
     """
@@ -403,4 +434,3 @@ def get_llm():
                         time.sleep(delay)
 
         return RateLimitedGemini(model="gemini-2.5-flash", google_api_key=api_key)
-
