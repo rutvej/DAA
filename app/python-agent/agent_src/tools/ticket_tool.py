@@ -27,7 +27,12 @@ def _create_jira_ticket(title: str, description: str, severity: str) -> str | No
     if not all([jira_url, jira_token, jira_email, jira_project]):
         return None
 
-    priority_map = {"Critical": "Highest", "High": "High", "Medium": "Medium", "Low": "Low"}
+    priority_map = {
+        "Critical": "Highest",
+        "High": "High",
+        "Medium": "Medium",
+        "Low": "Low",
+    }
     payload = {
         "fields": {
             "project": {"key": jira_project},
@@ -35,7 +40,12 @@ def _create_jira_ticket(title: str, description: str, severity: str) -> str | No
             "description": {
                 "type": "doc",
                 "version": 1,
-                "content": [{"type": "paragraph", "content": [{"type": "text", "text": description[:5000]}]}],
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": description[:5000]}],
+                    }
+                ],
             },
             "issuetype": {"name": "Bug"},
             "priority": {"name": priority_map.get(severity, "High")},
@@ -68,7 +78,12 @@ def _create_github_issue(title: str, description: str, severity: str) -> str | N
     if not all([github_token, github_repo]):
         return None
 
-    label_map = {"Critical": "critical", "High": "bug", "Medium": "enhancement", "Low": "documentation"}
+    label_map = {
+        "Critical": "critical",
+        "High": "bug",
+        "Medium": "enhancement",
+        "Low": "documentation",
+    }
     payload = {
         "title": f"[DAA Incident] {title}",
         "body": description[:65536],

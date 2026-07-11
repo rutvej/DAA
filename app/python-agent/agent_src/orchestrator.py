@@ -54,7 +54,11 @@ def _apply_unified_diff_to_text(original: str, diff_text: str) -> str:
         i += 1
         while i < len(diff_lines):
             hline = diff_lines[i]
-            if hline.startswith("@@") or hline.startswith("--- ") or hline.startswith("+++ "):
+            if (
+                hline.startswith("@@")
+                or hline.startswith("--- ")
+                or hline.startswith("+++ ")
+            ):
                 break
             if hline.startswith(" "):
                 expected = hline[1:]
@@ -80,6 +84,7 @@ def _apply_unified_diff_to_text(original: str, diff_text: str) -> str:
 # ---------------------------------------------------------------------------
 # RepoCacheManager
 # ---------------------------------------------------------------------------
+
 
 class RepoCacheManager:
     """
@@ -121,7 +126,9 @@ class RepoCacheManager:
         with open(self._last_fetch_file(app_name), "w") as fh:
             fh.write(str(time.time()))
 
-    def _run(self, cmd: list, cwd: str = None, check: bool = True) -> subprocess.CompletedProcess:
+    def _run(
+        self, cmd: list, cwd: str = None, check: bool = True
+    ) -> subprocess.CompletedProcess:
         """Thin wrapper around subprocess.run with unified logging."""
         logger.debug("Running: %s (cwd=%s)", " ".join(cmd), cwd)
         return subprocess.run(
@@ -151,7 +158,11 @@ class RepoCacheManager:
 
         # ---- 1. Clone or refresh -------------------------------------------
         if os.path.isdir(git_dir):
-            self._run(["git", "remote", "set-url", "origin", repo_url], cwd=cache_dir, check=False)
+            self._run(
+                ["git", "remote", "set-url", "origin", repo_url],
+                cwd=cache_dir,
+                check=False,
+            )
             age = time.time() - self._read_last_fetch(app_name)
             if age >= self.FETCH_TTL_SECONDS:
                 logger.info("Cache stale (%.0fs old), refreshing %s", age, app_name)
@@ -159,7 +170,9 @@ class RepoCacheManager:
                 self._run(["git", "reset", "--hard", "origin/main"], cwd=cache_dir)
                 self._write_last_fetch(app_name)
             else:
-                logger.info("Cache fresh (%.0fs old), skipping fetch for %s", age, app_name)
+                logger.info(
+                    "Cache fresh (%.0fs old), skipping fetch for %s", age, app_name
+                )
         else:
             logger.info("No cache found, cloning %s -> %s", repo_url, cache_dir)
             self._run(["git", "clone", repo_url, cache_dir])
@@ -181,7 +194,9 @@ class RepoCacheManager:
                 cwd=cache_dir,
             )
         except subprocess.CalledProcessError:
-            logger.info("Failed to add worktree for branch 'main', trying 'master' fallback")
+            logger.info(
+                "Failed to add worktree for branch 'main', trying 'master' fallback"
+            )
             self._run(
                 ["git", "worktree", "add", "--force", worktree_path, "master"],
                 cwd=cache_dir,
@@ -189,6 +204,7 @@ class RepoCacheManager:
         # Index repo for codebase search tool (DAA 3.1)
         try:
             from .tools.search_tool import index_repo
+
             index_repo(worktree_path)
             logger.info("Indexed worktree for search: %s", worktree_path)
         except Exception as e:
@@ -220,6 +236,7 @@ class RepoCacheManager:
 # ---------------------------------------------------------------------------
 # FingerprintDedup
 # ---------------------------------------------------------------------------
+
 
 class FingerprintDedup:
     """
@@ -276,6 +293,7 @@ class FingerprintDedup:
 # LogHydrator
 # ---------------------------------------------------------------------------
 
+
 class LogHydrator:
     """
     Fetches the three observability dimensions (app logs, metrics, git history)
@@ -305,15 +323,24 @@ class LogHydrator:
         # Try cloud log ingestion connectors first
         try:
             from .log_connectors import get_configured_connector
+
             connector = get_configured_connector()
             if connector:
                 logs = connector.fetch_logs(app_name, timestamp, limit=500)
                 if logs is not None:
-                    logger.info("Successfully fetched real logs via cloud log connector %s", connector.__class__.__name__)
+                    logger.info(
+                        "Successfully fetched real logs via cloud log connector %s",
+                        connector.__class__.__name__,
+                    )
                     return logs
-                logger.warning("Cloud log connector %s returned None, falling back to local database logs", connector.__class__.__name__)
+                logger.warning(
+                    "Cloud log connector %s returned None, falling back to local database logs",
+                    connector.__class__.__name__,
+                )
         except Exception as exc:
-            logger.error("Error in cloud log connector execution: %s, falling back", exc)
+            logger.error(
+                "Error in cloud log connector execution: %s, falling back", exc
+            )
 
         # Fallback to local database logs
         url = f"{self.backend_url}/apps/{app_name}/logs"
@@ -351,7 +378,9 @@ class LogHydrator:
             resp.raise_for_status()
             data = resp.json()
             # Format every key=value pair into a compact string
-            parts = [f"{k}={v}" for k, v in data.items() if not isinstance(v, (dict, list))]
+            parts = [
+                f"{k}={v}" for k, v in data.items() if not isinstance(v, (dict, list))
+            ]
             return "  ".join(parts) if parts else None
         except requests.RequestException as exc:
             logger.warning("dim3 (metrics) fetch failed: %s", exc)
@@ -418,6 +447,7 @@ class LogHydrator:
 # ContextPackager
 # ---------------------------------------------------------------------------
 
+
 class ContextPackager:
     """
     Assembles the structured prompt string that is handed to the LLM agent.
@@ -435,16 +465,22 @@ class ContextPackager:
         if not raw:
             return "unavailable"
         lines = raw.splitlines()
-        return "\n".join(lines[-self.max_dim2_lines:])
+        return "\n".join(lines[-self.max_dim2_lines :])
 
     def _trim_commits(self, raw: Optional[str]) -> str:
         """Return the first *max_dim4_commits* commit lines, or the unavailable sentinel."""
         if not raw:
             return "no recent commits"
         lines = raw.splitlines()
-        return "\n".join(lines[:self.max_dim4_commits])
+        return "\n".join(lines[: self.max_dim4_commits])
 
-    def package(self, job: dict, worktree_path: str, hydrated: dict, repomap: str = "unavailable") -> str:
+    def package(
+        self,
+        job: dict,
+        worktree_path: str,
+        hydrated: dict,
+        repomap: str = "unavailable",
+    ) -> str:
         """
         Build the agent prompt string from *job* metadata, worktree path, and
         the hydrated observability dimensions.
@@ -469,17 +505,21 @@ class ContextPackager:
         dim2_raw = hydrated.get("dim2_app_logs")
         dim3_raw = hydrated.get("dim3_metrics")
         dim4_raw = hydrated.get("dim4_git_history")
-        
+
         dim2 = self._trim_logs(dim2_raw)
         dim3 = dim3_raw or "unavailable"
         dim4 = self._trim_commits(dim4_raw)
-        
+
         unavailable = []
-        if not dim2_raw: unavailable.append("Application Logs")
-        if not dim3_raw: unavailable.append("Metrics")
-        if not dim4_raw: unavailable.append("Git History")
-        if repomap == "unavailable": unavailable.append("Repomap")
-        
+        if not dim2_raw:
+            unavailable.append("Application Logs")
+        if not dim3_raw:
+            unavailable.append("Metrics")
+        if not dim4_raw:
+            unavailable.append("Git History")
+        if repomap == "unavailable":
+            unavailable.append("Repomap")
+
         warning_block = ""
         if unavailable:
             warning_block = (
@@ -519,6 +559,7 @@ class ContextPackager:
 # ---------------------------------------------------------------------------
 # PostflightOrchestrator
 # ---------------------------------------------------------------------------
+
 
 class PostflightOrchestrator:
     """
@@ -623,24 +664,25 @@ class PostflightOrchestrator:
         Falls back to escalation if any step fails.
         """
         start_time = time.time()
-        
+
         if os.environ.get("DAA_GIT_MODE") == "api":
             explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
 
         if os.environ.get("DAA_GIT_MODE") == "api":
             from .tools.clonefree_client import CloneFreeGitClient
+
             client = CloneFreeGitClient(app_name)
             branch_name = f"fix/{fingerprint[:12]}"
             if not worktree_path:
                 worktree_path = f"/tmp/{app_name}"
-            
+
             # 1. Parse modified files from diff
             modified_files = []
             for line in diff_text.splitlines():
                 if line.startswith("+++ b/"):
-                    file_path = line[6:].split('\t')[0].strip()
+                    file_path = line[6:].split("\t")[0].strip()
                     modified_files.append(file_path)
-            
+
             # 2. Setup local virtual worktree to run patch command
             os.makedirs(worktree_path, exist_ok=True)
             for file_path in modified_files:
@@ -649,7 +691,7 @@ class PostflightOrchestrator:
                 os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
                 with open(local_file_path, "w", encoding="utf-8") as f:
                     f.write(original_content)
-            
+
             # 3. Apply the patch locally
             try:
                 patch_bin = shutil.which("patch")
@@ -660,17 +702,21 @@ class PostflightOrchestrator:
                     input=diff_text,
                     capture_output=True,
                     text=True,
-                    check=True
+                    check=True,
                 )
             except FileNotFoundError:
-                logger.warning("System patch command unavailable; using Python fallback")
+                logger.warning(
+                    "System patch command unavailable; using Python fallback"
+                )
                 for file_path in modified_files:
                     local_file_path = os.path.join(worktree_path, file_path)
                     original_content = ""
                     if os.path.exists(local_file_path):
                         with open(local_file_path, "r", encoding="utf-8") as f:
                             original_content = f.read()
-                    patched_content = _apply_unified_diff_to_text(original_content, diff_text)
+                    patched_content = _apply_unified_diff_to_text(
+                        original_content, diff_text
+                    )
                     with open(local_file_path, "w", encoding="utf-8") as f:
                         f.write(patched_content)
             except subprocess.CalledProcessError as exc:
@@ -681,13 +727,13 @@ class PostflightOrchestrator:
                     elapsed_sec=time.time() - start_time,
                     explanation=f"ESCALATION: patch failed -- {exc.stderr[:200]}",
                     pr_url=None,
-                    files_changed=[]
+                    files_changed=[],
                 )
                 return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
-                
+
             # 4. Create remote branch
             client.create_branch(branch_name)
-            
+
             # 5. Read patched files and commit them via API
             for file_path in modified_files:
                 local_file_path = os.path.join(worktree_path, file_path)
@@ -697,9 +743,9 @@ class PostflightOrchestrator:
                     file_path=file_path,
                     content=patched_content,
                     branch_name=branch_name,
-                    commit_message=f"fix: {app_name} -- {explanation[:60]}"
+                    commit_message=f"fix: {app_name} -- {explanation[:60]}",
                 )
-                
+
             # 6. Create PR via API
             if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
                 pr_url = f"AWAITING_APPROVAL:{branch_name}"
@@ -711,7 +757,7 @@ class PostflightOrchestrator:
                     explanation=explanation,
                     base_branch=client.default_branch,
                 )
-            
+
             elapsed = time.time() - start_time
             postmortem = self._generate_postmortem(
                 app_name=app_name,
@@ -719,7 +765,7 @@ class PostflightOrchestrator:
                 elapsed_sec=elapsed,
                 explanation=explanation,
                 pr_url=pr_url,
-                files_changed=modified_files
+                files_changed=modified_files,
             )
             return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
 
@@ -781,8 +827,13 @@ class PostflightOrchestrator:
             self._run(["git", "-C", worktree_path, "commit", "-m", commit_msg])
             self._run(
                 [
-                    "git", "-C", worktree_path,
-                    "push", "--force-with-lease", "origin", branch_name,
+                    "git",
+                    "-C",
+                    worktree_path,
+                    "push",
+                    "--force-with-lease",
+                    "origin",
+                    branch_name,
                 ]
             )
         except subprocess.CalledProcessError as exc:
@@ -846,7 +897,9 @@ class PostflightOrchestrator:
             return ""
 
         # Derive the API base from the repo URL host
-        parsed = urlparse(repo_url if repo_url.startswith("http") else f"https://{repo_url}")
+        parsed = urlparse(
+            repo_url if repo_url.startswith("http") else f"https://{repo_url}"
+        )
         api_base = f"{parsed.scheme}://{parsed.netloc}/api/v1"
 
         # Build git-provider auth.
@@ -859,18 +912,38 @@ class PostflightOrchestrator:
             if candidate not in head_candidates:
                 head_candidates.append(candidate)
 
-        def _request_with_fallback(method: str, url: str, **kwargs) -> requests.Response:
+        def _request_with_fallback(
+            method: str, url: str, **kwargs
+        ) -> requests.Response:
             timeout = kwargs.pop("timeout", 10)
             request_headers = kwargs.pop("headers", git_headers)
-            resp = requests.request(method, url, headers=request_headers, auth=git_auth, timeout=timeout, **kwargs)
-            if resp.status_code != 404 or not git_auth or "Authorization" not in git_headers:
+            resp = requests.request(
+                method,
+                url,
+                headers=request_headers,
+                auth=git_auth,
+                timeout=timeout,
+                **kwargs,
+            )
+            if (
+                resp.status_code != 404
+                or not git_auth
+                or "Authorization" not in git_headers
+            ):
                 return resp
 
             # Some Gitea deployments return 404 for PAT-authenticated private repo
             # reads even when the same credentials succeed over basic auth.
             fallback_headers = dict(request_headers)
             fallback_headers.pop("Authorization", None)
-            return requests.request(method, url, headers=fallback_headers, auth=git_auth, timeout=timeout, **kwargs)
+            return requests.request(
+                method,
+                url,
+                headers=fallback_headers,
+                auth=git_auth,
+                timeout=timeout,
+                **kwargs,
+            )
 
         # ---- Check for existing open PR ----------------------------------
         list_url = f"{api_base}/repos/{owner}/{repo}/pulls"
@@ -897,7 +970,9 @@ class PostflightOrchestrator:
 
         if not listed:
             try:
-                repo_resp = _request_with_fallback("GET", f"{api_base}/repos/{owner}/{repo}", timeout=10)
+                repo_resp = _request_with_fallback(
+                    "GET", f"{api_base}/repos/{owner}/{repo}", timeout=10
+                )
                 repo_resp.raise_for_status()
             except requests.RequestException as exc:
                 logger.error("Repo lookup failed before PR creation: %s", exc)
@@ -976,6 +1051,7 @@ class PostflightOrchestrator:
 # Utility helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse_owner_repo(repo_url: str) -> tuple:
     """
     Extract ``(owner, repo)`` from an HTTP(S) or SSH remote URL.
@@ -1022,7 +1098,9 @@ def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, Optional[tuple[str, st
         or ""
     ).strip()
 
-    parsed = urlparse(repo_url if repo_url.startswith("http") else f"https://{repo_url}")
+    parsed = urlparse(
+        repo_url if repo_url.startswith("http") else f"https://{repo_url}"
+    )
     if not (username and password) and parsed.username:
         username = username or unquote(parsed.username)
         if parsed.password:
@@ -1058,6 +1136,7 @@ def _build_repo_url_from_env(app_name: str) -> str:
 # ---------------------------------------------------------------------------
 # Top-level pre-flight function
 # ---------------------------------------------------------------------------
+
 
 def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     """
@@ -1109,43 +1188,65 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
 
     # ---- 2. Dedup check -------------------------------------------------
     fix_status = dedup.check(fingerprint)
-    
+
     # If no fix found from DB, check Git remote branches in API mode (or as fallback)
     if fix_status["status"] == "no_fix":
         repo_url = _build_repo_url_from_env(app_name)
         token_val = os.environ.get("DAA_GIT_TOKEN")
         if not token_val and token and not token.startswith("eyJ"):
             token_val = token
-                
+
         if repo_url:
             branch_name = f"fix/{fingerprint[:12]}"
             try:
                 auth_url = repo_url
                 if token_val:
                     parsed = urlparse(repo_url)
-                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl() if '@' not in parsed.netloc else repo_url
-                
+                    auth_url = (
+                        parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl()
+                        if "@" not in parsed.netloc
+                        else repo_url
+                    )
+
                 git_res = subprocess.run(
-                    ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
-                    capture_output=True, text=True, timeout=15
+                    [
+                        "git",
+                        "ls-remote",
+                        "--heads",
+                        auth_url,
+                        f"refs/heads/{branch_name}",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
                 )
                 if git_res.stdout.strip():
-                    logger.info("Dedup hit via Git remote: branch %s exists", branch_name)
+                    logger.info(
+                        "Dedup hit via Git remote: branch %s exists", branch_name
+                    )
                     pr_url = None
                     try:
                         from .tools.clonefree_client import CloneFreeGitClient
+
                         client = CloneFreeGitClient(app_name)
                         if "github" in client.repo_url:
-                            pr_url = client.repo_url.replace(".git", "") + f"/pull/{branch_name}"
+                            pr_url = (
+                                client.repo_url.replace(".git", "")
+                                + f"/pull/{branch_name}"
+                            )
                         else:
-                            pr_url = client.repo_url.replace(".git", "") + f"/-/merge_requests"
+                            pr_url = (
+                                client.repo_url.replace(".git", "")
+                                + f"/-/merge_requests"
+                            )
                     except Exception:
                         pass
-                    
+
                     fix_status = {
                         "status": "fix_open",
-                        "pr_url": pr_url or f"https://github.com/check-branch-for-pr?branch={branch_name}",
-                        "fix_id": fingerprint
+                        "pr_url": pr_url
+                        or f"https://github.com/check-branch-for-pr?branch={branch_name}",
+                        "fix_id": fingerprint,
                     }
             except Exception as exc:
                 logger.warning("Git remote dedup check failed: %s", exc)
@@ -1179,6 +1280,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
             worktree_path = f"/tmp/{app_name}"
             try:
                 from .tools.clonefree_client import CloneFreeGitClient
+
                 client = CloneFreeGitClient(app_name)
                 if not client.create_branch_lock(branch_name):
                     logger.warning(
@@ -1195,7 +1297,11 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 auth_url = repo_url
                 if token_val:
                     parsed = urlparse(repo_url)
-                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl() if '@' not in parsed.netloc else repo_url
+                    auth_url = (
+                        parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl()
+                        if "@" not in parsed.netloc
+                        else repo_url
+                    )
                 worktree_path = cache_manager.get_worktree(
                     app_name=app_name,
                     repo_url=auth_url,
@@ -1229,6 +1335,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
         try:
             import json
             from .tools.code_nav_tool import read_repomap
+
             repomap = read_repomap(json.dumps({"repo_path": worktree_path}))
         except Exception as exc:
             logger.error("Failed to prefetch repomap: %s", exc)

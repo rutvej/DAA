@@ -32,13 +32,18 @@ class TestGitApiProviders(unittest.TestCase):
     )
     @patch("agent_src.tools.git_api_providers.requests.request")
     def test_create_provider_client_selects_bitbucket(self, mock_request):
-        mock_request.return_value = FakeResponse(payload={"mainbranch": {"name": "main"}})
+        mock_request.return_value = FakeResponse(
+            payload={"mainbranch": {"name": "main"}}
+        )
 
         client = create_provider_client("payment-api")
 
         self.assertIsInstance(client, BitbucketProvider)
         self.assertEqual(client.default_branch, "main")
-        self.assertEqual(client.api_base, "https://api.bitbucket.org/2.0/repositories/acme/payment-api")
+        self.assertEqual(
+            client.api_base,
+            "https://api.bitbucket.org/2.0/repositories/acme/payment-api",
+        )
 
     @patch.dict(
         "os.environ",
@@ -57,7 +62,9 @@ class TestGitApiProviders(unittest.TestCase):
 
         self.assertIsInstance(client, GitLabProvider)
         self.assertEqual(client.default_branch, "develop")
-        self.assertTrue(client.api_base.endswith("/api/v4/projects/group%2Fsubgroup%2Fpayment-api"))
+        self.assertTrue(
+            client.api_base.endswith("/api/v4/projects/group%2Fsubgroup%2Fpayment-api")
+        )
 
     def test_build_project_connection_uses_env_repo(self):
         with patch.dict(

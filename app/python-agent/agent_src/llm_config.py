@@ -9,6 +9,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage, AIMessage
 from langchain_core.outputs import ChatResult, ChatGeneration
 
+
 class CodexChatModel(BaseChatModel):
     model_name: str = "gpt-5.4-mini"
 
@@ -34,7 +35,9 @@ class CodexChatModel(BaseChatModel):
             auth_path = "/home/rutvej/snap/codex/34/auth.json"
 
         if not os.path.exists(auth_path):
-            raise Exception("Codex credentials file not found. Please set CODEX_AUTH_PATH or place it at ~/.codex/auth.json")
+            raise Exception(
+                "Codex credentials file not found. Please set CODEX_AUTH_PATH or place it at ~/.codex/auth.json"
+            )
 
         try:
             with open(auth_path, "r") as f:
@@ -52,22 +55,32 @@ class CodexChatModel(BaseChatModel):
             if m.type == "system":
                 system_content.append(m.content)
             elif m.type == "human":
-                input_messages.append({
-                    "role": "user",
-                    "content": [{"type": "input_text", "text": m.content}]
-                })
+                input_messages.append(
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": m.content}],
+                    }
+                )
             elif m.type == "ai":
-                input_messages.append({
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": m.content}]
-                })
+                input_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": m.content}],
+                    }
+                )
             else:
-                input_messages.append({
-                    "role": "user",
-                    "content": [{"type": "input_text", "text": str(m.content)}]
-                })
+                input_messages.append(
+                    {
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": str(m.content)}],
+                    }
+                )
 
-        system_prompt = "\n".join(system_content) if system_content else "You are a helpful assistant."
+        system_prompt = (
+            "\n".join(system_content)
+            if system_content
+            else "You are a helpful assistant."
+        )
 
         # Send request
         url = "https://chatgpt.com/backend-api/codex/responses"
@@ -86,14 +99,11 @@ class CodexChatModel(BaseChatModel):
             "stream": True,
             "instructions": system_prompt,
             "input": input_messages,
-            "text": { "verbosity": "low" },
+            "text": {"verbosity": "low"},
         }
 
         req = urllib.request.Request(
-            url,
-            data=json.dumps(data).encode("utf-8"),
-            headers=headers,
-            method="POST"
+            url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST"
         )
 
         full_text = []
@@ -121,32 +131,32 @@ class CodexChatModel(BaseChatModel):
             raise Exception(f"Codex API query failed: {e}")
 
         import re
+
         output = "".join(full_text)
-        print(f"--- [CodexChatModel Raw Output] ---\n{output}\n----------------------------------", flush=True)
+        print(
+            f"--- [CodexChatModel Raw Output] ---\n{output}\n----------------------------------",
+            flush=True,
+        )
 
         # Apply robust ReAct formatting cleanup for Codex models
         # 1. Normalize "Input:" to "Action Input:"
-        output = re.sub(r'\bInput:\s*(?=\s*\{)', 'Action Input: ', output)
+        output = re.sub(r"\bInput:\s*(?=\s*\{)", "Action Input: ", output)
 
         # 2. Normalize "Action Action Input:" to "Action Input:"
-        output = re.sub(r'\bAction\s+Action\s+Input:', 'Action Input:', output)
+        output = re.sub(r"\bAction\s+Action\s+Input:", "Action Input:", output)
 
         # 3. Fix missing "Action Input:" if the JSON is directly appended to "Action:"
         output = re.sub(
-            r'Action:\s*([a-zA-Z_0-9]+)\s*(\{)', 
-            r'Action: \1\nAction Input: \2', 
-            output
+            r"Action:\s*([a-zA-Z_0-9]+)\s*(\{)", r"Action: \1\nAction Input: \2", output
         )
 
         # 3.5. Fix completely missing "Action Input:" for any Action
-        action_match = re.search(r'Action:\s*([a-zA-Z_0-9_]+)', output)
+        action_match = re.search(r"Action:\s*([a-zA-Z_0-9_]+)", output)
         if action_match and "Action Input:" not in output:
             output = re.sub(
-                r'(Action:\s*[a-zA-Z_0-9_]+)',
-                r'\1\nAction Input: {}',
-                output
+                r"(Action:\s*[a-zA-Z_0-9_]+)", r"\1\nAction Input: {}", output
             )
-        
+
         # 4. Discard everything after the first Action Input to isolate a single tool execution
         has_tool_call = False
         action_input_idx = output.find("Action Input:")
@@ -154,14 +164,14 @@ class CodexChatModel(BaseChatModel):
             start_content_idx = action_input_idx + len("Action Input:")
             content_left = output[start_content_idx:].lstrip()
             actual_start_idx = len(output) - len(content_left)
-            
+
             if content_left.startswith("{"):
                 brace_count = 0
                 end_idx = -1
                 for idx in range(actual_start_idx, len(output)):
-                    if output[idx] == '{':
+                    if output[idx] == "{":
                         brace_count += 1
-                    elif output[idx] == '}':
+                    elif output[idx] == "}":
                         brace_count -= 1
                         if brace_count == 0:
                             end_idx = idx + 1
@@ -171,7 +181,13 @@ class CodexChatModel(BaseChatModel):
                     has_tool_call = True
             else:
                 marker_idx = len(output)
-                for marker in ["\n", "Observation:", "Thought:", "PR_URL:", "TICKET_URL:"]:
+                for marker in [
+                    "\n",
+                    "Observation:",
+                    "Thought:",
+                    "PR_URL:",
+                    "TICKET_URL:",
+                ]:
                     idx = output.find(marker, actual_start_idx)
                     if idx != -1 and idx < marker_idx:
                         marker_idx = idx
@@ -179,13 +195,21 @@ class CodexChatModel(BaseChatModel):
                 has_tool_call = True
 
         # 5. If the output contains the final answer format but missing the "Final Answer:" prefix, add it!
-        if not has_tool_call and ("POSTMORTEM:" in output or "PR_URL:" in output or "TICKET_URL:" in output) and "Final Answer:" not in output:
+        if (
+            not has_tool_call
+            and (
+                "POSTMORTEM:" in output
+                or "PR_URL:" in output
+                or "TICKET_URL:" in output
+            )
+            and "Final Answer:" not in output
+        ):
             earliest_idx = len(output)
             for marker in ["PR_URL:", "TICKET_URL:", "POSTMORTEM:"]:
                 idx = output.find(marker)
                 if idx != -1 and idx < earliest_idx:
                     earliest_idx = idx
-            
+
             output = output[:earliest_idx] + "Final Answer:\n" + output[earliest_idx:]
 
         if stop:
@@ -195,6 +219,7 @@ class CodexChatModel(BaseChatModel):
 
         ai_message = AIMessage(content=output)
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
+
 
 class AgyChatModel(BaseChatModel):
     model_name: str = "Gemini 3.5 Flash (Medium)"
@@ -212,7 +237,7 @@ class AgyChatModel(BaseChatModel):
     ) -> ChatResult:
         import hashlib
         import pathlib
-        
+
         prompt = ""
         for m in messages:
             prompt += f"{m.content}\n"
@@ -232,12 +257,25 @@ class AgyChatModel(BaseChatModel):
                 cache_hit = True
 
         if not cache_hit:
-            cmd = ["agy", "--dangerously-skip-permissions", "--model", self.model_name, "--print", prompt]
-            print(f"[AgyChatModel] Running agy CLI command: {' '.join(cmd)[:200]}...", flush=True)
+            cmd = [
+                "agy",
+                "--dangerously-skip-permissions",
+                "--model",
+                self.model_name,
+                "--print",
+                prompt,
+            ]
+            print(
+                f"[AgyChatModel] Running agy CLI command: {' '.join(cmd)[:200]}...",
+                flush=True,
+            )
             try:
                 res = subprocess.run(cmd, capture_output=True, text=True, check=True)
                 output = res.stdout
-                print(f"[AgyChatModel] Received output from agy: {output[:200]}...", flush=True)
+                print(
+                    f"[AgyChatModel] Received output from agy: {output[:200]}...",
+                    flush=True,
+                )
             except subprocess.CalledProcessError as e:
                 logging.error(f"agy execution failed: {e.stderr}")
                 raise Exception(f"agy CLI failed to execute: {e.stderr}")
@@ -257,6 +295,7 @@ class AgyChatModel(BaseChatModel):
         ai_message = AIMessage(content=output)
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
 
+
 class MockChatModel(BaseChatModel):
     model_name: str = "mock-model"
     _call_count: int = 0
@@ -272,7 +311,7 @@ class MockChatModel(BaseChatModel):
         run_manager: Optional[Any] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        object.__setattr__(self, '_call_count', self._call_count + 1)
+        object.__setattr__(self, "_call_count", self._call_count + 1)
         policy_on = os.environ.get("DAA_POLICY_ENABLED", "false").lower() == "true"
         if self._call_count == 1:
             # Step 1: read a file so the orchestrator sees real investigation activity
@@ -319,10 +358,16 @@ def get_llm():
     """
     provider = os.environ.get("LLM_PROVIDER", "google").lower()
     model_name = os.environ.get("LLM_MODEL")
-    api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+    api_key = (
+        os.environ.get("LLM_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    )
     base_url = os.environ.get("LLM_BASE_URL")
 
-    logging.info(f"Initializing LLM: provider={provider}, model={model_name}, base_url={base_url}")
+    logging.info(
+        f"Initializing LLM: provider={provider}, model={model_name}, base_url={base_url}"
+    )
 
     if provider == "mock":
         return MockChatModel()
@@ -343,60 +388,79 @@ def get_llm():
         from langchain_core.outputs import ChatResult
 
         class RateLimitedGemini(ChatGoogleGenerativeAI):
-            def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+            def _generate(
+                self, messages, stop=None, run_manager=None, **kwargs
+            ) -> ChatResult:
                 max_retries = 8
                 base_delay = 2.0
-                
+
                 for attempt in range(max_retries):
                     try:
                         timestamp = time.time()
-                        logging.info(f"[RateLimitedGemini] Sending request at {timestamp}")
+                        logging.info(
+                            f"[RateLimitedGemini] Sending request at {timestamp}"
+                        )
                         with open("/tmp/gemini_requests.log", "a") as f:
                             f.write(f"{timestamp}\n")
-                        return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                        return super()._generate(
+                            messages, stop=stop, run_manager=run_manager, **kwargs
+                        )
                     except ResourceExhausted as e:
                         if attempt == max_retries - 1:
                             raise
-                        
+
                         retry_after = None
-                        if hasattr(e, 'response') and e.response is not None:
+                        if hasattr(e, "response") and e.response is not None:
                             retry_after = e.response.headers.get("Retry-After")
-                        
+
                         if retry_after and str(retry_after).isdigit():
                             delay = float(retry_after)
                         else:
-                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                        
-                        logging.warning(f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt+1}/{max_retries}).")
+                            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+
+                        logging.warning(
+                            f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt + 1}/{max_retries})."
+                        )
                         time.sleep(delay)
 
         m = model_name or "gemini-2.5-flash"
         return RateLimitedGemini(model=m, google_api_key=api_key)
-    
+
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
+
         m = model_name or "gpt-4o"
         return ChatOpenAI(model=m, openai_api_key=api_key, base_url=base_url)
-    
+
     elif provider in ("anthropic", "claude"):
         from langchain_anthropic import ChatAnthropic
+
         m = model_name or "claude-3-5-sonnet-20241022"
         return ChatAnthropic(model=m, anthropic_api_key=api_key)
-    
+
     elif provider in ("openclaw", "litellm", "proxy", "custom"):
         # Universal OpenAI-compatible proxy support (OpenClaw, LiteLLM, Roo, Cursor, OAuth / sign-in code bearer tokens)
         from langchain_openai import ChatOpenAI
+
         m = model_name or "codex"
-        url = base_url or "http://localhost:4000"  # Default LiteLLM / OpenClaw proxy port
+        url = (
+            base_url or "http://localhost:4000"
+        )  # Default LiteLLM / OpenClaw proxy port
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        return ChatOpenAI(model=m, openai_api_key=api_key or "oauth-token", base_url=url, default_headers=headers)
-    
+        return ChatOpenAI(
+            model=m,
+            openai_api_key=api_key or "oauth-token",
+            base_url=url,
+            default_headers=headers,
+        )
+
     elif provider in ("ollama", "local"):
         from langchain_openai import ChatOpenAI
+
         m = model_name or "llama3"
         url = base_url or "http://localhost:11434/v1"
         return ChatOpenAI(model=m, openai_api_key=api_key or "ollama", base_url=url)
-    
+
     else:
         # Fallback to Google Gemini
         from langchain_google_genai import ChatGoogleGenerativeAI
@@ -406,31 +470,39 @@ def get_llm():
         from langchain_core.outputs import ChatResult
 
         class RateLimitedGemini(ChatGoogleGenerativeAI):
-            def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+            def _generate(
+                self, messages, stop=None, run_manager=None, **kwargs
+            ) -> ChatResult:
                 max_retries = 8
                 base_delay = 2.0
-                
+
                 for attempt in range(max_retries):
                     try:
                         timestamp = time.time()
-                        logging.info(f"[RateLimitedGemini] Sending request at {timestamp}")
+                        logging.info(
+                            f"[RateLimitedGemini] Sending request at {timestamp}"
+                        )
                         with open("/tmp/gemini_requests.log", "a") as f:
                             f.write(f"{timestamp}\n")
-                        return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                        return super()._generate(
+                            messages, stop=stop, run_manager=run_manager, **kwargs
+                        )
                     except ResourceExhausted as e:
                         if attempt == max_retries - 1:
                             raise
-                        
+
                         retry_after = None
-                        if hasattr(e, 'response') and e.response is not None:
+                        if hasattr(e, "response") and e.response is not None:
                             retry_after = e.response.headers.get("Retry-After")
-                        
+
                         if retry_after and str(retry_after).isdigit():
                             delay = float(retry_after)
                         else:
-                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                        
-                        logging.warning(f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt+1}/{max_retries}).")
+                            delay = base_delay * (2**attempt) + random.uniform(0, 1)
+
+                        logging.warning(
+                            f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt + 1}/{max_retries})."
+                        )
                         time.sleep(delay)
 
         return RateLimitedGemini(model="gemini-2.5-flash", google_api_key=api_key)

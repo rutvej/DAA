@@ -5,6 +5,7 @@ from .git_api_providers import build_project_connection
 try:
     from langchain.tools import tool
 except Exception:
+
     class _LocalToolWrapper:
         def __init__(self, func):
             self.func = func
@@ -24,24 +25,29 @@ except Exception:
 
         return decorator
 
+
 try:
     from pydantic.v1 import BaseModel, Field
 except Exception:
+
     class BaseModel:
         pass
 
     def Field(default=None, **kwargs):
         return default
 
+
 try:
     import git as _git
 except Exception:
+
     class _GitStub:
         Repo = None
 
     _git = _GitStub()
 
 git = _git
+
 
 def _infer_provider_from_repo_url(repo_url: str) -> str:
     """Infer a sensible provider from the repository URL host."""
@@ -57,6 +63,7 @@ def _resolve_provider(provider: str, repo_url: str = "") -> str:
     if provider in ("github", "gitea", "gitlab"):
         return provider
     return _infer_provider_from_repo_url(repo_url)
+
 
 def get_project_connection(app_name: str) -> dict:
     return build_project_connection(app_name)
@@ -81,15 +88,24 @@ def _build_repo_url(app_name: str) -> str:
         provider = proj.get("repo_provider", "gitlab")
         repo_url = proj.get("repo_url")
         token = proj.get("repo_token")
-        
+
         parsed = urlparse(repo_url)
         netloc = parsed.netloc
         if provider == "gitlab":
             netloc = f"root:{token}@{netloc}"
         else:
             netloc = f"{token}@{netloc}"
-        return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    
+        return urlunparse(
+            (
+                parsed.scheme,
+                netloc,
+                parsed.path,
+                parsed.params,
+                parsed.query,
+                parsed.fragment,
+            )
+        )
+
     # Fallback to local environment variables
     gitlab_user = os.getenv("GITLAB_USER", "root")
     gitlab_token = os.getenv("GITLAB_PRIVATE_TOKEN")
@@ -146,7 +162,9 @@ def clone_repo(app_name: str) -> str:
 
 
 class CreateBranchInput(BaseModel):
-    repo_path_and_branch_name: str = Field(description="The path to the repository and the name of the branch to create, separated by a comma.")
+    repo_path_and_branch_name: str = Field(
+        description="The path to the repository and the name of the branch to create, separated by a comma."
+    )
 
 
 @tool(args_schema=CreateBranchInput)
@@ -161,13 +179,14 @@ def create_branch(repo_path_and_branch_name: str) -> None:
     if os.environ.get("DAA_GIT_MODE") == "api":
         app_name = repo_path.split("/")[-1]
         from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+
         client = CloneFreeGitClient(app_name)
         client.create_branch(branch_name)
         ACTIVE_BRANCHES[app_name] = branch_name
         return
 
     repo = _get_repo(repo_path)
-    
+
     # Delete the branch if it exists locally
     if branch_name in repo.branches:
         repo.delete_head(branch_name, force=True)
@@ -180,7 +199,9 @@ def create_branch(repo_path_and_branch_name: str) -> None:
 
 
 class CommitInput(BaseModel):
-    repo_path_and_message: str = Field(description="The path to the repository and the commit message, separated by a comma.")
+    repo_path_and_message: str = Field(
+        description="The path to the repository and the commit message, separated by a comma."
+    )
 
 
 @tool(args_schema=CommitInput)
@@ -201,7 +222,9 @@ def commit(repo_path_and_message: str) -> None:
 
 
 class PushInput(BaseModel):
-    repo_path_and_branch_name: str = Field(description="The path to the repository and the name of the branch to push, separated by a comma.")
+    repo_path_and_branch_name: str = Field(
+        description="The path to the repository and the name of the branch to push, separated by a comma."
+    )
 
 
 @tool(args_schema=PushInput)
@@ -221,7 +244,9 @@ def push(repo_path_and_branch_name: str) -> None:
 
 
 class CreatePullRequestInput(BaseModel):
-    data: str = Field(description='A JSON string containing `repo_path`, `title`, and `description`.')
+    data: str = Field(
+        description="A JSON string containing `repo_path`, `title`, and `description`."
+    )
 
 
 @tool(args_schema=CreatePullRequestInput)
@@ -235,6 +260,7 @@ def create_pull_request(data: str) -> str:
         The URL of the pull request.
     """
     import json
+
     input_data = json.loads(data)
     repo_path = input_data.get("repo_path")
     title = input_data.get("title")
@@ -243,14 +269,17 @@ def create_pull_request(data: str) -> str:
     if not all([repo_path, title, description]):
         return "Error: 'repo_path', 'title', and 'description' are required."
 
-    project_name = repo_path.strip().split('/')[-1]
+    project_name = repo_path.strip().split("/")[-1]
     client = None
 
     # Handle API Mode or Local Mode for determining branch name
     if os.environ.get("DAA_GIT_MODE") == "api":
         from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
+
         client = CloneFreeGitClient(project_name)
-        branch_name = ACTIVE_BRANCHES.get(project_name) or client.default_branch or "fix-branch"
+        branch_name = (
+            ACTIVE_BRANCHES.get(project_name) or client.default_branch or "fix-branch"
+        )
     else:
         repo = _get_repo(repo_path.strip())
         branch_name = repo.active_branch.name
@@ -260,6 +289,7 @@ def create_pull_request(data: str) -> str:
         return f"AWAITING_APPROVAL:{branch_name}"
 
     from .clonefree_client import CloneFreeGitClient
+
     if client is None:
         client = CloneFreeGitClient(project_name)
     pr_url = client.create_pull_request(

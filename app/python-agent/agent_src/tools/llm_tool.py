@@ -9,7 +9,7 @@ from ..llm_config import get_llm
 class GetInstructionsInput(BaseModel):
     data: str = Field(
         description="A JSON string containing `error_log` and `codebase`. "
-        "Example: {\"error_log\": {...}, \"codebase\": {\"main.py\": \"...\"}}"
+        'Example: {"error_log": {...}, "codebase": {"main.py": "..."}}'
     )
 
 

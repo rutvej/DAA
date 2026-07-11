@@ -15,6 +15,7 @@ class RunTestsInput(BaseModel):
         )
     )
 
+
 def _get_app_language(app_name: str) -> str:
     if not app_name:
         return "python"
@@ -66,7 +67,7 @@ def run_tests(data: str) -> str:
             "go": "golang:1.20",
             "golang": "golang:1.20",
             "java": "maven:3.8-openjdk-17-slim",
-            "ruby": "ruby:3.1-slim"
+            "ruby": "ruby:3.1-slim",
         }
         runner_image = image_map.get(lang, "python:3.10-slim")
 

@@ -9,6 +9,7 @@ DATABASE_URL = "sqlite:///./test.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def override_get_db():
     try:
         db = TestingSessionLocal()
@@ -16,45 +17,68 @@ def override_get_db():
     finally:
         db.close()
 
+
 app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
+
 def setup():
     from src.database import Base
+
     Base.metadata.create_all(bind=engine)
+
 
 def teardown():
     from src.database import Base
+
     Base.metadata.drop_all(bind=engine)
+
 
 def test_register_user():
     setup()
-    response = client.post("/auth/register", json={"username": "testuser", "password": "testpassword"})
+    response = client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
     assert response.status_code == 200
     assert response.json() == {"message": "User registered successfully"}
     teardown()
 
+
 def test_register_existing_user():
     setup()
-    client.post("/auth/register", json={"username": "testuser", "password": "testpassword"})
-    response = client.post("/auth/register", json={"username": "testuser", "password": "testpassword"})
+    client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
+    response = client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
     assert response.status_code == 400
     assert response.json() == {"detail": "Username already registered"}
     teardown()
 
+
 def test_login_user():
     setup()
-    client.post("/auth/register", json={"username": "testuser", "password": "testpassword"})
-    response = client.post("/auth/login", json={"username": "testuser", "password": "testpassword"})
+    client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
+    response = client.post(
+        "/auth/login", json={"username": "testuser", "password": "testpassword"}
+    )
     assert response.status_code == 200
     assert "token" in response.json()
     teardown()
 
+
 def test_login_incorrect_password():
     setup()
-    client.post("/auth/register", json={"username": "testuser", "password": "testpassword"})
-    response = client.post("/auth/login", json={"username": "testuser", "password": "wrongpassword"})
+    client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
+    response = client.post(
+        "/auth/login", json={"username": "testuser", "password": "wrongpassword"}
+    )
     assert response.status_code == 401
     assert response.json() == {"detail": "Incorrect username or password"}
     teardown()

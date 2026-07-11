@@ -1,9 +1,10 @@
 import unittest
 
-class TestPythonAgent(unittest.TestCase):
 
+class TestPythonAgent(unittest.TestCase):
     def test_placeholder(self):
         self.assertTrue(True)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from uuid import UUID
 from typing import Optional
 
+
 class ErrorLog(BaseModel):
     id: UUID
     app_name: str
@@ -11,6 +12,7 @@ class ErrorLog(BaseModel):
     exception_type: Optional[str] = None
     trace_id: Optional[str] = None
     error_file: Optional[str] = None
+
 
 class Job(BaseModel):
     id: UUID
@@ -25,14 +27,18 @@ class Job(BaseModel):
     fingerprint: Optional[str] = None
     trace_id: Optional[str] = None
 
+
 class MissingModelError(Exception):
     """
     Exception raised when a required model is missing.
     """
+
     pass
+
 
 class NotSupportedError(Exception):
     """
     Exception raised when a feature is not supported.
     """
+
     pass

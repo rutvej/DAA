@@ -10,7 +10,14 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from ..database import Log as DBLog, Fix as DBFix, Incident, Application, EscalationPolicy, DAA_POLICY_ENABLED
+from ..database import (
+    Log as DBLog,
+    Fix as DBFix,
+    Incident,
+    Application,
+    EscalationPolicy,
+    DAA_POLICY_ENABLED,
+)
 from ..database import get_db
 from .auth import get_current_user
 
@@ -18,6 +25,7 @@ router = APIRouter()
 
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
 RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+
 
 class LogCreate(BaseModel):
     content: str
@@ -27,6 +35,7 @@ class LogCreate(BaseModel):
     correlation_id: Optional[str] = None
     metadata_json: Optional[str] = None
 
+
 class LogResponse(BaseModel):
     id: str
     status: str
@@ -34,24 +43,30 @@ class LogResponse(BaseModel):
     fixId: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class LogDetailsResponse(LogResponse):
     content: str
 
 
 @router.post("/", status_code=status.HTTP_202_ACCEPTED)
-def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def submit_log(
+    log: LogCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     if not log.content or not isinstance(log.content, str):
         raise HTTPException(status_code=400, detail="Invalid log content")
-    
+
     if current_user.get("role") == "application":
         if current_user["username"] != log.app_name:
             raise HTTPException(
                 status_code=403,
-                detail=f"This token is only authorized to submit logs for application '{current_user['username']}'"
+                detail=f"This token is only authorized to submit logs for application '{current_user['username']}'",
             )
-            
+
     user_id = None if current_user.get("role") == "application" else current_user["id"]
-    
+
     # 1. Save incoming log to DB
     db_log = DBLog(
         content=log.content,
@@ -60,7 +75,7 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
         exception_type=log.exception_type,
         trace_id=log.trace_id,
         correlation_id=log.correlation_id,
-        metadata_json=log.metadata_json
+        metadata_json=log.metadata_json,
     )
     db.add(db_log)
     db.commit()
@@ -73,10 +88,16 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
     fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:16]
 
     # 3. Check Deduplication: Is there already an active incident for this fingerprint?
-    active_incident = db.query(Incident).filter(
-        Incident.fingerprint == fingerprint,
-        Incident.status.in_(["investigating", "pr_open", "ticket_created", "cooldown"])
-    ).first()
+    active_incident = (
+        db.query(Incident)
+        .filter(
+            Incident.fingerprint == fingerprint,
+            Incident.status.in_(
+                ["investigating", "pr_open", "ticket_created", "cooldown"]
+            ),
+        )
+        .first()
+    )
 
     if active_incident:
         # Suppress agent launch! Increment counter on existing incident
@@ -84,17 +105,26 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
         active_incident.last_seen_at = datetime.utcnow()
         db_log.status = f"Suppressed (Dedup INC-{active_incident.id[:8]})"
         db.commit()
-        return {"logId": db_log.id, "status": "Suppressed (Deduplicated)", "incidentId": active_incident.id, "fingerprint": fingerprint}
+        return {
+            "logId": db_log.id,
+            "status": "Suppressed (Deduplicated)",
+            "incidentId": active_incident.id,
+            "fingerprint": fingerprint,
+        }
 
     error_count = 1
 
     # 4. Check Escalation Threshold Policy (Sliding Window)
     # [Item 1] Explicit note: SDK-sourced errors apply policy/sliding-window escalation before triage.
     if DAA_POLICY_ENABLED:
-        policy = db.query(EscalationPolicy).join(Application).filter(
-            Application.name == log.app_name,
-            EscalationPolicy.is_active.is_(True)
-        ).first()
+        policy = (
+            db.query(EscalationPolicy)
+            .join(Application)
+            .filter(
+                Application.name == log.app_name, EscalationPolicy.is_active.is_(True)
+            )
+            .first()
+        )
 
         threshold = policy.condition_value if policy and policy.condition_value else 15
         window_sec = policy.window_seconds if policy and policy.window_seconds else 120
@@ -106,14 +136,17 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
                 pass
 
         # Check if log contains immediate severity keywords
-        is_immediate = any(kw.lower() in log.content.lower() for kw in immediate_keywords)
-        
+        is_immediate = any(
+            kw.lower() in log.content.lower() for kw in immediate_keywords
+        )
+
         # Count errors in sliding window
         window_start = datetime.utcnow() - timedelta(seconds=window_sec)
-        error_count = db.query(DBLog).filter(
-            DBLog.app_name == log.app_name,
-            DBLog.timestamp >= window_start
-        ).count()
+        error_count = (
+            db.query(DBLog)
+            .filter(DBLog.app_name == log.app_name, DBLog.timestamp >= window_start)
+            .count()
+        )
 
         if not is_immediate and error_count < threshold:
             db_log.status = f"Logged ({error_count}/{threshold} in {window_sec}s)"
@@ -123,7 +156,7 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
                 "status": "Logged (Threshold not reached)",
                 "error_count": error_count,
                 "threshold": threshold,
-                "window_seconds": window_sec
+                "window_seconds": window_sec,
             }
 
     # 5. Threshold Breached, Immediate Severity, or Policy Disabled! Create Incident and Launch Agent
@@ -133,11 +166,11 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
         status="investigating",
         occurrence_count=error_count,
         first_seen_at=datetime.utcnow(),
-        last_seen_at=datetime.utcnow()
+        last_seen_at=datetime.utcnow(),
     )
     db.add(new_incident)
     db_log.status = "Escalated to Agent"
-    
+
     try:
         db.commit()
         db.refresh(new_incident)
@@ -145,17 +178,30 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
         # Atomic lock failed: Another concurrent request created an incident with this fingerprint.
         db.rollback()
         # Fetch the active incident that just won the race
-        active_incident = db.query(Incident).filter(
-            Incident.fingerprint == fingerprint,
-            Incident.status.in_(["investigating", "pr_open", "ticket_created", "cooldown"])
-        ).first()
-        
+        active_incident = (
+            db.query(Incident)
+            .filter(
+                Incident.fingerprint == fingerprint,
+                Incident.status.in_(
+                    ["investigating", "pr_open", "ticket_created", "cooldown"]
+                ),
+            )
+            .first()
+        )
+
         if active_incident:
-            active_incident.occurrence_count = (active_incident.occurrence_count or 1) + 1
+            active_incident.occurrence_count = (
+                active_incident.occurrence_count or 1
+            ) + 1
             active_incident.last_seen_at = datetime.utcnow()
             db_log.status = f"Suppressed (Race Dedup INC-{active_incident.id[:8]})"
             db.commit()
-            return {"logId": db_log.id, "status": "Suppressed (Deduplicated via DB lock)", "incidentId": active_incident.id, "fingerprint": fingerprint}
+            return {
+                "logId": db_log.id,
+                "status": "Suppressed (Deduplicated via DB lock)",
+                "incidentId": active_incident.id,
+                "fingerprint": fingerprint,
+            }
         else:
             # Fallback if somehow there's no active incident after a collision
             raise
@@ -177,58 +223,83 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
             "stack_trace": log.content,
             "exception_type": log.exception_type,
             "trace_id": log.trace_id,
-            "timestamp": db_log.timestamp.isoformat()
-        }
+            "timestamp": db_log.timestamp.isoformat(),
+        },
     }
 
     queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
     if queue_mode == "sync":
         import sys
-        agent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../python-agent"))
+
+        agent_dir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../../python-agent")
+        )
         if agent_dir not in sys.path:
             sys.path.insert(0, agent_dir)
-            
+
         from agent_src.main import process_job
         from agent_src.models import Job
-        
+
         job = Job(**job_data)
         background_tasks.add_task(process_job, job)
     else:
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(RABBITMQ_HOST)
+            )
             channel = connection.channel()
-            
+
             # Configure DLX and DLQ
-            channel.exchange_declare(exchange='fix_jobs_dlx', exchange_type='direct', durable=True)
-            channel.queue_declare(queue='fix_jobs_dlq', durable=True)
-            channel.queue_bind(queue='fix_jobs_dlq', exchange='fix_jobs_dlx', routing_key='failed_fixes')
+            channel.exchange_declare(
+                exchange="fix_jobs_dlx", exchange_type="direct", durable=True
+            )
+            channel.queue_declare(queue="fix_jobs_dlq", durable=True)
+            channel.queue_bind(
+                queue="fix_jobs_dlq",
+                exchange="fix_jobs_dlx",
+                routing_key="failed_fixes",
+            )
 
             arguments = {
-                'x-dead-letter-exchange': 'fix_jobs_dlx',
-                'x-dead-letter-routing-key': 'failed_fixes',
-                'x-message-ttl': 1800000  # 30 minutes in ms
+                "x-dead-letter-exchange": "fix_jobs_dlx",
+                "x-dead-letter-routing-key": "failed_fixes",
+                "x-message-ttl": 1800000,  # 30 minutes in ms
             }
-            
+
             try:
-                channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
+                channel.queue_declare(
+                    queue="fix_jobs", durable=True, arguments=arguments
+                )
             except Exception:
                 try:
-                    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                    connection = pika.BlockingConnection(
+                        pika.ConnectionParameters(RABBITMQ_HOST)
+                    )
                     channel = connection.channel()
-                    channel.queue_delete(queue='fix_jobs')
-                    channel.queue_declare(queue='fix_jobs', durable=True, arguments=arguments)
+                    channel.queue_delete(queue="fix_jobs")
+                    channel.queue_declare(
+                        queue="fix_jobs", durable=True, arguments=arguments
+                    )
                 except Exception:
-                    connection = pika.BlockingConnection(pika.ConnectionParameters(RABBITMQ_HOST))
+                    connection = pika.BlockingConnection(
+                        pika.ConnectionParameters(RABBITMQ_HOST)
+                    )
                     channel = connection.channel()
-                    channel.queue_declare(queue='fix_jobs', durable=True)
-            channel.basic_publish(exchange='',
-                                  routing_key='fix_jobs',
-                                  body=json.dumps(job_data))
+                    channel.queue_declare(queue="fix_jobs", durable=True)
+            channel.basic_publish(
+                exchange="", routing_key="fix_jobs", body=json.dumps(job_data)
+            )
             connection.close()
         except pika.exceptions.AMQPConnectionError:
             raise HTTPException(status_code=503, detail="Could not connect to RabbitMQ")
 
-    return {"logId": db_log.id, "status": "Escalated to Agent", "incidentId": new_incident.id, "fingerprint": fingerprint}
+    return {
+        "logId": db_log.id,
+        "status": "Escalated to Agent",
+        "incidentId": new_incident.id,
+        "fingerprint": fingerprint,
+    }
+
 
 @router.get("/", response_model=List[LogResponse])
 def get_logs(
@@ -236,34 +307,51 @@ def get_logs(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     status: str = Query(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") == "application":
-        raise HTTPException(status_code=403, detail="Applications are not authorized to view logs")
+        raise HTTPException(
+            status_code=403, detail="Applications are not authorized to view logs"
+        )
     query = db.query(DBLog)
     if status:
         query = query.filter(DBLog.status == status)
-    
+
     logs = query.offset((page - 1) * limit).limit(limit).all()
     response = []
     for log in logs:
         fix = db.query(DBFix).filter(DBFix.logId == log.id).first()
         fix_id = fix.id if fix else None
-        response.append(LogResponse(id=log.id, status=log.status, timestamp=log.timestamp.isoformat(), fixId=fix_id))
+        response.append(
+            LogResponse(
+                id=log.id,
+                status=log.status,
+                timestamp=log.timestamp.isoformat(),
+                fixId=fix_id,
+            )
+        )
     return response
+
 
 @router.get("/{id}", response_model=LogDetailsResponse)
 def get_log(
     id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") == "application":
-        raise HTTPException(status_code=403, detail="Applications are not authorized to view logs")
+        raise HTTPException(
+            status_code=403, detail="Applications are not authorized to view logs"
+        )
     log = db.query(DBLog).filter(DBLog.id == id).first()
     if log is None:
         raise HTTPException(status_code=404, detail="Log not found")
     fix = db.query(DBFix).filter(DBFix.logId == log.id).first()
     fix_id = fix.id if fix else None
-    return LogDetailsResponse(id=log.id, status=log.status, timestamp=log.timestamp.isoformat(), content=log.content, fixId=fix_id)
-
+    return LogDetailsResponse(
+        id=log.id,
+        status=log.status,
+        timestamp=log.timestamp.isoformat(),
+        content=log.content,
+        fixId=fix_id,
+    )

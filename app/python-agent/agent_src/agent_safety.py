@@ -17,14 +17,17 @@ logger = logging.getLogger(__name__)
 # Exception
 # ---------------------------------------------------------------------------
 
+
 class CapExceededException(Exception):
     """Raised by HardCapCallbackHandler when the tool-call budget is exhausted."""
+
     pass
 
 
 # ---------------------------------------------------------------------------
 # Layer 1 — Planning Validator
 # ---------------------------------------------------------------------------
+
 
 class PlanningValidator:
     """
@@ -114,6 +117,7 @@ class PlanningValidator:
 # Layer 2 — Hard Cap Callback Handler
 # ---------------------------------------------------------------------------
 
+
 class HardCapCallbackHandler(BaseCallbackHandler):
     """
     LangChain callback handler that enforces a hard ceiling on tool calls.
@@ -157,9 +161,7 @@ class HardCapCallbackHandler(BaseCallbackHandler):
         """
         self.call_count += 1
         tool_name = (serialized or {}).get("name", "<unknown>")
-        logger.debug(
-            "Tool call #%d/%d: %s", self.call_count, self.max_calls, tool_name
-        )
+        logger.debug("Tool call #%d/%d: %s", self.call_count, self.max_calls, tool_name)
 
         if self.call_count == self.warning_at:
             self._warning_triggered = True
@@ -218,6 +220,7 @@ class HardCapCallbackHandler(BaseCallbackHandler):
 # ---------------------------------------------------------------------------
 # AgentSafetyWrapper
 # ---------------------------------------------------------------------------
+
 
 class AgentSafetyWrapper:
     """

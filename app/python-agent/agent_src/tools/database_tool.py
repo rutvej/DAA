@@ -4,6 +4,7 @@ import os
 
 from .auth_helper import handle_request_with_retry
 
+
 def _send_request(data: dict) -> None:
     """Sends a POST request to the backend API to update the analysis status."""
     logging.info(f"Sending request to backend-api with data: {data}")
@@ -11,6 +12,7 @@ def _send_request(data: dict) -> None:
     url = f"{backend_url}/fixes"
     response = handle_request_with_retry("POST", url, json=data)
     response.raise_for_status()
+
 
 class AnalysisUpdater:
     def __init__(self, log_id: str):
@@ -24,7 +26,9 @@ class AnalysisUpdater:
             data = {"log_id": self.log_id, "status": "processing"}
             _send_request(data)
         except Exception as e:
-            logging.warning(f"Non-critical: could not set processing status for log {self.log_id}: {e}")
+            logging.warning(
+                f"Non-critical: could not set processing status for log {self.log_id}: {e}"
+            )
 
     def set_pull_request_url(self, url: str) -> None:
         """Sets the pull request URL."""
@@ -37,11 +41,9 @@ class AnalysisUpdater:
     def update_analysis_completed(self) -> None:
         """Updates the analysis status to 'completed' and includes the pull request URL and postmortem."""
         data = {
-            "log_id": self.log_id, 
-            "status": "completed", 
+            "log_id": self.log_id,
+            "status": "completed",
             "pull_request_url": self.pull_request_url or "",
-            "postmortem": self.postmortem or ""
+            "postmortem": self.postmortem or "",
         }
         _send_request(data)
-
-

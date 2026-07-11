@@ -5,7 +5,19 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import Base, engine, SessionLocal, Application, run_db_migrations
-from .routers import auth, fixes, logs, status, alerts, projects, applications, incidents, dashboard, ingest, telemetry
+from .routers import (
+    auth,
+    fixes,
+    logs,
+    status,
+    alerts,
+    projects,
+    applications,
+    incidents,
+    dashboard,
+    ingest,
+    telemetry,
+)
 
 if engine is not None:
     Base.metadata.create_all(bind=engine)
@@ -18,22 +30,29 @@ app = FastAPI(
 )
 
 # Startup validation for Cloud Run constraints
-if os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq" and "K_SERVICE" in os.environ:
+if (
+    os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
+    and "K_SERVICE" in os.environ
+):
     raise RuntimeError(
         "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run. "
         "Cloud Run request-scoped containers suspend CPU, which breaks long-running RabbitMQ consumers. "
         "Please use DAA_QUEUE_MODE=sync or deploy to a standard container environment."
     )
 
-cors_origins = [origin.strip() for origin in os.environ.get(
-    "CORS_ALLOW_ORIGINS",
-    "http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003"
-).split(",") if origin.strip()]
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOW_ORIGINS",
+        "http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003",
+    ).split(",")
+    if origin.strip()
+]
 
 # Allow LAN access from devices on private 192.168.x.x addresses when the UI is opened remotely.
 cors_origin_regex = os.environ.get(
     "CORS_ALLOW_ORIGIN_REGEX",
-    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$"
+    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$",
 )
 
 app.add_middleware(
@@ -45,6 +64,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.middleware("http")
 async def dynamic_cors_middleware(request: Request, call_next):
     origin = request.headers.get("origin")
@@ -55,17 +75,24 @@ async def dynamic_cors_middleware(request: Request, call_next):
             if origin_host:
                 db = SessionLocal()
                 try:
-                    matched = db.query(Application).filter(Application.allowed_ip == origin_host).first()
+                    matched = (
+                        db.query(Application)
+                        .filter(Application.allowed_ip == origin_host)
+                        .first()
+                    )
                     if matched:
                         if request.method == "OPTIONS":
                             from fastapi.responses import Response
+
                             response = Response()
                             response.headers["Access-Control-Allow-Origin"] = origin
-                            response.headers["Access-Control-Allow-Credentials"] = "true"
+                            response.headers["Access-Control-Allow-Credentials"] = (
+                                "true"
+                            )
                             response.headers["Access-Control-Allow-Methods"] = "*"
                             response.headers["Access-Control-Allow-Headers"] = "*"
                             return response
-                        
+
                         response = await call_next(request)
                         response.headers["Access-Control-Allow-Origin"] = origin
                         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -77,6 +104,7 @@ async def dynamic_cors_middleware(request: Request, call_next):
         except Exception:
             pass
     return await call_next(request)
+
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])
@@ -96,6 +124,7 @@ app.include_router(telemetry.router, tags=["telemetry"])
 def read_root():
     return {"Hello": "World"}
 
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -111,5 +140,8 @@ def mock_create_jira_issue(payload: dict):
 
 @app.get("/mock-jira/browse/{issue_key}")
 def mock_browse_jira_issue(issue_key: str):
-    return {"status": "ok", "issue_key": issue_key, "message": "This is a mock Jira ticket page."}
-
+    return {
+        "status": "ok",
+        "issue_key": issue_key,
+        "message": "This is a mock Jira ticket page.",
+    }

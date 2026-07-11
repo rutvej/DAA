@@ -7,6 +7,7 @@ from .auth import get_current_user
 
 router = APIRouter()
 
+
 class IncidentResponse(BaseModel):
     id: str
     fingerprint: str
@@ -24,6 +25,7 @@ class IncidentResponse(BaseModel):
     fix_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
+
 class IncidentUpdate(BaseModel):
     status: Optional[str] = None
     root_cause_summary: Optional[str] = None
@@ -31,6 +33,7 @@ class IncidentUpdate(BaseModel):
     pr_url: Optional[str] = None
     ticket_url: Optional[str] = None
     postmortem_md: Optional[str] = None
+
 
 def _to_incident_response(inc: DBIncident, db: Session) -> IncidentResponse:
     fix = db.query(DBFix).filter(DBFix.logId == inc.id).first()
@@ -50,18 +53,22 @@ def _to_incident_response(inc: DBIncident, db: Session) -> IncidentResponse:
         pr_url=inc.pr_url,
         ticket_url=inc.ticket_url,
         postmortem_md=inc.postmortem_md,
-        fix_id=fix.id if fix else None
+        fix_id=fix.id if fix else None,
     )
+
 
 @router.get("/", response_model=List[IncidentResponse])
 def list_incidents(
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None),
     app_name: Optional[str] = Query(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") == "application":
-        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
+        raise HTTPException(
+            status_code=403,
+            detail="Applications are not authorized to access this resource",
+        )
     query = db.query(DBIncident)
     if status:
         query = query.filter(DBIncident.status == status)
@@ -70,19 +77,36 @@ def list_incidents(
     incidents = query.order_by(DBIncident.last_seen_at.desc()).all()
     return [_to_incident_response(inc, db) for inc in incidents]
 
+
 @router.get("/{id}", response_model=IncidentResponse)
-def get_incident(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def get_incident(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     if current_user.get("role") == "application":
-        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
+        raise HTTPException(
+            status_code=403,
+            detail="Applications are not authorized to access this resource",
+        )
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
     return _to_incident_response(inc, db)
 
+
 @router.patch("/{id}", response_model=IncidentResponse)
-def update_incident(id: str, update: IncidentUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+def update_incident(
+    id: str,
+    update: IncidentUpdate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
     if current_user.get("role") == "application":
-        raise HTTPException(status_code=403, detail="Applications are not authorized to access this resource")
+        raise HTTPException(
+            status_code=403,
+            detail="Applications are not authorized to access this resource",
+        )
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")

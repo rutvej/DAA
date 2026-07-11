@@ -24,7 +24,10 @@ if db_provider == "none":
     Base = None
 else:
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./test.db")
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base = declarative_base()
 
@@ -39,8 +42,12 @@ else:
         trace_id = Column(String, nullable=True)
         correlation_id = Column(String, nullable=True)
 
+
 class QueryCorrelatedLogsInput(BaseModel):
-    data: str = Field(description="A JSON string containing optional 'trace_id', optional 'timestamp' (ISO format string), optional 'window_seconds' (default 300), and optional 'app_name'. Example: {\"trace_id\": \"trace-abc-123\", \"window_seconds\": 300}")
+    data: str = Field(
+        description="A JSON string containing optional 'trace_id', optional 'timestamp' (ISO format string), optional 'window_seconds' (default 300), and optional 'app_name'. Example: {\"trace_id\": \"trace-abc-123\", \"window_seconds\": 300}"
+    )
+
 
 @tool(args_schema=QueryCorrelatedLogsInput)
 def query_correlated_logs(data: str) -> str:
@@ -57,7 +64,12 @@ def query_correlated_logs(data: str) -> str:
             db = SessionLocal()
             try:
                 if trace_id:
-                    logs = db.query(LogModel).filter(LogModel.trace_id == trace_id).order_by(LogModel.timestamp.asc()).all()
+                    logs = (
+                        db.query(LogModel)
+                        .filter(LogModel.trace_id == trace_id)
+                        .order_by(LogModel.timestamp.asc())
+                        .all()
+                    )
 
                 if not logs and timestamp_str:
                     try:
@@ -66,8 +78,11 @@ def query_correlated_logs(data: str) -> str:
                         target_time = datetime.fromisoformat(timestamp_str)
                         start_time = target_time - timedelta(seconds=window_sec)
                         end_time = target_time + timedelta(seconds=window_sec)
-                        
-                        query = db.query(LogModel).filter(LogModel.timestamp >= start_time, LogModel.timestamp <= end_time)
+
+                        query = db.query(LogModel).filter(
+                            LogModel.timestamp >= start_time,
+                            LogModel.timestamp <= end_time,
+                        )
                         if app_name:
                             query = query.filter(LogModel.app_name == app_name)
                         logs = query.order_by(LogModel.timestamp.asc()).limit(100).all()
@@ -75,13 +90,20 @@ def query_correlated_logs(data: str) -> str:
                         return f"Error parsing timestamp '{timestamp_str}': {parse_err}"
 
                 if not logs and app_name:
-                    logs = db.query(LogModel).filter(LogModel.app_name == app_name).order_by(LogModel.timestamp.desc()).limit(20).all()
+                    logs = (
+                        db.query(LogModel)
+                        .filter(LogModel.app_name == app_name)
+                        .order_by(LogModel.timestamp.desc())
+                        .limit(20)
+                        .all()
+                    )
                     logs.reverse()
             finally:
                 db.close()
 
         # If no database logs found (or if database provider is none), try cloud log connector
         from ..log_connectors import get_configured_connector
+
         connector = get_configured_connector()
         if not logs and connector:
             query_app = app_name or "unknown"

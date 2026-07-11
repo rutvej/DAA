@@ -25,7 +25,6 @@ from .tools.change_tracker_tool import check_recent_changes
 from .tools.ticket_tool import create_incident_ticket
 from .tools.search_tool import search_repo
 
-
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
 RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
@@ -39,8 +38,10 @@ MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
 DAA_SELF_REPORT = os.environ.get("DAA_SELF_REPORT", "false").lower() == "true"
 DAA_VERSION = "3.0.1"
 
+
 def _get_anonymous_instance_id() -> str:
     import uuid
+
     stable_file = "/tmp/.daa_instance_id"
     if os.path.exists(stable_file):
         try:
@@ -55,6 +56,7 @@ def _get_anonymous_instance_id() -> str:
     except Exception:
         pass
     return uid
+
 
 def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
     if not DAA_SELF_REPORT:
@@ -88,10 +90,15 @@ def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
     except Exception:
         pass
 
+
 def _sanitize_traceback(tb: str) -> str:
     safe_lines = []
     for line in tb.split("\n"):
-        if "daa_minimal/" in line or "python-agent/src/" in line or "backend-api/src/" in line:
+        if (
+            "daa_minimal/" in line
+            or "python-agent/src/" in line
+            or "backend-api/src/" in line
+        ):
             safe_lines.append(line)
         elif line.strip().startswith("File "):
             safe_lines.append("  File <redacted>")
@@ -99,14 +106,20 @@ def _sanitize_traceback(tb: str) -> str:
             safe_lines.append(line)
     return "\n".join(safe_lines)
 
+
 def _extract_daa_frame(exc: Exception) -> tuple[str, int, str]:
     import traceback as tb_module
+
     if exc.__traceback__:
         for frame in reversed(tb_module.extract_tb(exc.__traceback__)):
-            if "daa_minimal/" in frame.filename or "python-agent/src/" in frame.filename or "backend-api/src/" in frame.filename:
+            if (
+                "daa_minimal/" in frame.filename
+                or "python-agent/src/" in frame.filename
+                or "backend-api/src/" in frame.filename
+            ):
                 for prefix in ["daa_minimal/", "python-agent/src/", "backend-api/src/"]:
                     if prefix in frame.filename:
-                        rel_path = frame.filename[frame.filename.index(prefix):]
+                        rel_path = frame.filename[frame.filename.index(prefix) :]
                         return rel_path, frame.lineno, frame.name
     return "unknown", 0, "unknown"
 
@@ -116,9 +129,19 @@ def scrub_secrets(text: str) -> str:
     if not isinstance(text, str):
         return str(text)
     # Mask API keys and passwords in key-value or JSON formats
-    text = re.sub(r'("?(?:api_key|apikey|password|secret|token|jwt|private_key)"?\s*[:=]\s*["\'"]?)([^"\'"\s]+)(["\'"]?)', r'\1***SCRUBBED***\3', text, flags=re.IGNORECASE)
+    text = re.sub(
+        r'("?(?:api_key|apikey|password|secret|token|jwt|private_key)"?\s*[:=]\s*["\'"]?)([^"\'"\s]+)(["\'"]?)',
+        r"\1***SCRUBBED***\3",
+        text,
+        flags=re.IGNORECASE,
+    )
     # Mask Bearer tokens
-    text = re.sub(r'(Bearer\s+)[A-Za-z0-9\-\._~\+\/]+=*', r'\1***SCRUBBED***', text, flags=re.IGNORECASE)
+    text = re.sub(
+        r"(Bearer\s+)[A-Za-z0-9\-\._~\+\/]+=*",
+        r"\1***SCRUBBED***",
+        text,
+        flags=re.IGNORECASE,
+    )
     return text
 
 
@@ -137,18 +160,13 @@ class SimpleMcpClient:
             stderr=subprocess.DEVNULL,
             env=self.env,
             text=True,
-            bufsize=1
+            bufsize=1,
         )
 
     def send_request(self, method, params=None, id=1):
         if not self.proc:
             self.start()
-        req = {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": params or {},
-            "id": id
-        }
+        req = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": id}
         self.proc.stdin.write(json.dumps(req) + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
@@ -208,21 +226,28 @@ def load_mcp_tools() -> list:
 
                         wrapper_client = SimpleMcpClient(cmd, arguments, env_cfg)
                         try:
-                            call_res = wrapper_client.send_request("tools/call", {"name": t_name, "arguments": args_dict}, id=2)
+                            call_res = wrapper_client.send_request(
+                                "tools/call",
+                                {"name": t_name, "arguments": args_dict},
+                                id=2,
+                            )
                             if call_res and "result" in call_res:
                                 content_list = call_res["result"].get("content", [])
-                                return "\n".join([c.get("text", "") for c in content_list])
+                                return "\n".join(
+                                    [c.get("text", "") for c in content_list]
+                                )
                             return f"Error calling tool {t_name}: {call_res}"
                         except Exception as wrapper_ex:
                             return f"Error executing tool {t_name}: {wrapper_ex}"
                         finally:
                             wrapper_client.close()
+
                     return wrapper
 
                 wrapped_tool = Tool(
                     name=f"mcp_{server_name}_{name}",
                     description=f"[MCP Tool from {server_name}] {desc}",
-                    func=make_wrapper(server_name, command, args, name, env)
+                    func=make_wrapper(server_name, command, args, name, env),
                 )
                 mcp_tools.append(wrapped_tool)
         except Exception as e:
@@ -239,6 +264,7 @@ class ExecutionLogCallbackHandler(BaseCallbackHandler):
 
     def _send_log_line(self, line: str):
         import requests
+
         backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
         url = f"{backend_url}/fixes/{self.log_id}/append-log"
         headers = {}
@@ -406,6 +432,7 @@ fast_prompt_template = """
 # DAA 3.0 — Output Parsers
 # =========================================================================
 
+
 def _parse_agent_output_30(output_text: str) -> dict:
     """
     Parse DAA 3.0 agent output into a structured dict.
@@ -419,14 +446,22 @@ def _parse_agent_output_30(output_text: str) -> dict:
     """
     if "WRITE_DIFF:" in output_text:
         # Extract the unified diff body (everything between WRITE_DIFF: and EXPLANATION:)
-        diff_match = re.search(r"WRITE_DIFF:\s*(.*?)(?:EXPLANATION:|$)", output_text, re.DOTALL)
-        explanation_match = re.search(r"EXPLANATION:\s*(.*?)(?:WRITE_ESCALATION:|$)", output_text, re.DOTALL)
+        diff_match = re.search(
+            r"WRITE_DIFF:\s*(.*?)(?:EXPLANATION:|$)", output_text, re.DOTALL
+        )
+        explanation_match = re.search(
+            r"EXPLANATION:\s*(.*?)(?:WRITE_ESCALATION:|$)", output_text, re.DOTALL
+        )
         diff_text = diff_match.group(1).strip() if diff_match else ""
-        explanation = explanation_match.group(1).strip() if explanation_match else "Fix applied."
+        explanation = (
+            explanation_match.group(1).strip() if explanation_match else "Fix applied."
+        )
         return {"type": "diff", "diff": diff_text, "explanation": explanation}
     elif "WRITE_ESCALATION:" in output_text:
         # Extract reason and partial diagnosis from the escalation block
-        reason_match = re.search(r"REASON:\s*(.*?)(?:PARTIAL_DIAGNOSIS:|$)", output_text, re.DOTALL)
+        reason_match = re.search(
+            r"REASON:\s*(.*?)(?:PARTIAL_DIAGNOSIS:|$)", output_text, re.DOTALL
+        )
         diag_match = re.search(r"PARTIAL_DIAGNOSIS:\s*(.*?)$", output_text, re.DOTALL)
         reason = reason_match.group(1).strip() if reason_match else "Unknown"
         diag = diag_match.group(1).strip() if diag_match else ""
@@ -434,7 +469,11 @@ def _parse_agent_output_30(output_text: str) -> dict:
     else:
         # Fallback: try to extract a URL from output (e.g. older prompt style)
         urls = re.findall(r"https?://\S+", output_text)
-        return {"type": "legacy", "output": output_text, "url": urls[0] if urls else None}
+        return {
+            "type": "legacy",
+            "output": output_text,
+            "url": urls[0] if urls else None,
+        }
 
 
 def _parse_agent_output_20(output_text: str) -> tuple:
@@ -452,7 +491,9 @@ def _parse_agent_output_20(output_text: str) -> tuple:
     if pr_match:
         pull_request_url = pr_match.group(1).strip()
     else:
-        ticket_match = re.search(r"TICKET_URL:\s*(https?://\S+)", output_text, re.IGNORECASE)
+        ticket_match = re.search(
+            r"TICKET_URL:\s*(https?://\S+)", output_text, re.IGNORECASE
+        )
         if ticket_match:
             pull_request_url = ticket_match.group(1).strip()
         else:
@@ -461,7 +502,9 @@ def _parse_agent_output_20(output_text: str) -> tuple:
                 pull_request_url = urls[0]
 
     # Extract optional POSTMORTEM section
-    postmortem_match = re.search(r"POSTMORTEM:\s*(.*)", output_text, re.DOTALL | re.IGNORECASE)
+    postmortem_match = re.search(
+        r"POSTMORTEM:\s*(.*)", output_text, re.DOTALL | re.IGNORECASE
+    )
     if postmortem_match:
         postmortem_text = postmortem_match.group(1).strip()
 
@@ -475,31 +518,41 @@ def main():
     """
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
     channel = connection.channel()
-    
+
     # Configure DLX and DLQ
-    channel.exchange_declare(exchange='fix_jobs_dlx', exchange_type='direct', durable=True)
-    channel.queue_declare(queue='fix_jobs_dlq', durable=True)
-    channel.queue_bind(queue='fix_jobs_dlq', exchange='fix_jobs_dlx', routing_key='failed_fixes')
+    channel.exchange_declare(
+        exchange="fix_jobs_dlx", exchange_type="direct", durable=True
+    )
+    channel.queue_declare(queue="fix_jobs_dlq", durable=True)
+    channel.queue_bind(
+        queue="fix_jobs_dlq", exchange="fix_jobs_dlx", routing_key="failed_fixes"
+    )
 
     arguments = {
-        'x-dead-letter-exchange': 'fix_jobs_dlx',
-        'x-dead-letter-routing-key': 'failed_fixes',
-        'x-message-ttl': 1800000  # 30 minutes in ms
+        "x-dead-letter-exchange": "fix_jobs_dlx",
+        "x-dead-letter-routing-key": "failed_fixes",
+        "x-message-ttl": 1800000,  # 30 minutes in ms
     }
-    
+
     try:
         channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True, arguments=arguments)
     except Exception:
         # If queue exists with different parameters, recreate it
         try:
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=RABBITMQ_HOST)
+            )
             channel = connection.channel()
             channel.queue_delete(queue=RABBITMQ_QUEUE)
-            channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True, arguments=arguments)
+            channel.queue_declare(
+                queue=RABBITMQ_QUEUE, durable=True, arguments=arguments
+            )
         except Exception as inner_e:
             logging.error(f"Failed to declare queue with DLX: {inner_e}")
             # Fallback to simple declare
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
+            connection = pika.BlockingConnection(
+                pika.ConnectionParameters(host=RABBITMQ_HOST)
+            )
             channel = connection.channel()
             channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
 
@@ -538,12 +591,15 @@ def process_job(job: Job):
     by an incomplete rollout of the orchestrator package.
     """
     import time
+
     start_time = time.time()
-    
+
     # [Item 5] Enforce Multi-Repo Access Boundary
     os.environ["DAA_TARGET_APP"] = job.app_name
 
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     logging.info(f"Processing job {job.id} for app {job.app_name}")
 
     analysis_updater = AnalysisUpdater(job.log_id)
@@ -557,8 +613,16 @@ def process_job(job: Job):
     # - Fingerprint dedup, repo cache, log hydration, context packaging
     # =====================================================================
     try:
-        from .orchestrator import run_preflight, PostflightOrchestrator, RepoCacheManager
-        from .agent_safety import PlanningValidator, HardCapCallbackHandler, AgentSafetyWrapper
+        from .orchestrator import (
+            run_preflight,
+            PostflightOrchestrator,
+            RepoCacheManager,
+        )
+        from .agent_safety import (
+            PlanningValidator,
+            HardCapCallbackHandler,
+            AgentSafetyWrapper,
+        )
 
         preflight = run_preflight(job.__dict__, backend_url, daa_token)
 
@@ -566,7 +630,9 @@ def process_job(job: Job):
             # Dedup hit -- return the cached result immediately without re-running the agent
             logging.info(f"[DAA 3.0] Skipping job {job.id}: {preflight['skip_reason']}")
             analysis_updater.set_pull_request_url(preflight.get("pr_url"))
-            analysis_updater.set_postmortem(f"Duplicate incident. Existing fix: {preflight.get('pr_url')}")
+            analysis_updater.set_postmortem(
+                f"Duplicate incident. Existing fix: {preflight.get('pr_url')}"
+            )
             analysis_updater.update_analysis_completed()
             return
 
@@ -575,7 +641,9 @@ def process_job(job: Job):
         fingerprint = preflight["fingerprint"]
         daa30_available = True
     except Exception as e:
-        logging.warning(f"[DAA 3.0] Pre-flight failed ({e}), falling back to DAA 2.0 mode")
+        logging.warning(
+            f"[DAA 3.0] Pre-flight failed ({e}), falling back to DAA 2.0 mode"
+        )
         report_daa_internal_error(e, "preflight")
         worktree_path = None
         structured_context = None
@@ -598,22 +666,48 @@ def process_job(job: Job):
     # ------------------------------------------------------------------
     if daa30_available:
         tools = [
-            read_file, write_file, list_files,
-            view_file_slice, grep_search, find_symbol, read_repomap,
-            query_correlated_logs, check_recent_changes, search_repo,
+            read_file,
+            write_file,
+            list_files,
+            view_file_slice,
+            grep_search,
+            find_symbol,
+            read_repomap,
+            query_correlated_logs,
+            check_recent_changes,
+            search_repo,
         ]
     elif agent_mode == "fast":
         tools = [
-            clone_repo, create_branch, commit, push, create_pull_request,
-            read_file, write_file, grep_search
+            clone_repo,
+            create_branch,
+            commit,
+            push,
+            create_pull_request,
+            read_file,
+            write_file,
+            grep_search,
         ]
     else:
         tools = [
-            clone_repo, create_branch, commit, push, create_pull_request,
-            read_file, write_file, list_files, get_instructions,
-            run_tests, check_alerts,
-            view_file_slice, grep_search, find_symbol, read_repomap,
-            query_correlated_logs, check_recent_changes, create_incident_ticket,
+            clone_repo,
+            create_branch,
+            commit,
+            push,
+            create_pull_request,
+            read_file,
+            write_file,
+            list_files,
+            get_instructions,
+            run_tests,
+            check_alerts,
+            view_file_slice,
+            grep_search,
+            find_symbol,
+            read_repomap,
+            query_correlated_logs,
+            check_recent_changes,
+            create_incident_ticket,
             search_repo,
         ]
 
@@ -630,6 +724,7 @@ def process_job(job: Job):
     if daa30_available:
         # DAA 3.0 uses a structured planning preamble generated by PlanningValidator
         from .agent_safety import PlanningValidator
+
         planning_validator = PlanningValidator()
         planning_instruction = planning_validator.format_plan_prompt()
 
@@ -681,7 +776,9 @@ def process_job(job: Job):
         # DAA 2.0 fallback -- scrub secrets and build the standard question string
         scrubbed_log = scrub_secrets(str(job.error_log))
         question = f"Investigate across all 4 dimensions and remediate the outage in {job.app_name}. Error: {scrubbed_log}"
-        selected_template = full_prompt_template if agent_mode == "full" else fast_prompt_template
+        selected_template = (
+            full_prompt_template if agent_mode == "full" else fast_prompt_template
+        )
 
     max_iterations = int(os.environ.get("DAA_MAX_ITERATIONS", "10"))
     prompt = ChatPromptTemplate.from_template(selected_template)
@@ -691,7 +788,7 @@ def process_job(job: Job):
         tools=tools,
         verbose=True,
         max_iterations=max_iterations,
-        handle_parsing_errors=True
+        handle_parsing_errors=True,
     )
 
     callback_handler = ExecutionLogCallbackHandler(job.log_id)
@@ -699,18 +796,21 @@ def process_job(job: Job):
     try:
         if daa30_available:
             from .agent_safety import AgentSafetyWrapper, HardCapCallbackHandler
+
             max_tool_calls = int(os.environ.get("DAA_MAX_TOOL_CALLS", "8"))
             warning_at = int(os.environ.get("DAA_TOOL_CALL_WARNING_AT", "5"))
-            cap_handler = HardCapCallbackHandler(max_calls=max_tool_calls, warning_at=warning_at)
-            safety_wrapper = AgentSafetyWrapper(agent_executor, max_calls=max_tool_calls, warning_at=warning_at)
+            cap_handler = HardCapCallbackHandler(
+                max_calls=max_tool_calls, warning_at=warning_at
+            )
+            safety_wrapper = AgentSafetyWrapper(
+                agent_executor, max_calls=max_tool_calls, warning_at=warning_at
+            )
             result = safety_wrapper.invoke(
-                {"input": question},
-                callbacks=[callback_handler, cap_handler]
+                {"input": question}, callbacks=[callback_handler, cap_handler]
             )
         else:
             result = agent_executor.invoke(
-                {"input": question},
-                config={"callbacks": [callback_handler]}
+                {"input": question}, config={"callbacks": [callback_handler]}
             )
     except Exception as e:
         logging.error(f"Agent core failed: {e}", exc_info=True)
@@ -732,9 +832,7 @@ def process_job(job: Job):
 
         repo_cache_mgr = RepoCacheManager()
         postflight = PostflightOrchestrator(
-            backend_url=backend_url,
-            token=daa_token,
-            repo_cache_manager=repo_cache_mgr
+            backend_url=backend_url, token=daa_token, repo_cache_manager=repo_cache_mgr
         )
 
         try:
@@ -743,7 +841,7 @@ def process_job(job: Job):
                 fingerprint=fingerprint,
                 app_name=job.app_name,
                 worktree_path=worktree_path,
-                agent_output=agent_parsed
+                agent_output=agent_parsed,
             )
             pull_request_url = pf_result.get("pr_url")
             postmortem_text = pf_result.get("postmortem", output_text)
@@ -773,7 +871,9 @@ def process_job(job: Job):
     analysis_updater.update_analysis_completed()
 
     elapsed = time.time() - start_time
-    logging.info(f"[DAA 3.0] Job {job.id} completed in {elapsed:.1f}s (mode: {'3.0' if daa30_available else '2.0-fallback'})")
+    logging.info(
+        f"[DAA 3.0] Job {job.id} completed in {elapsed:.1f}s (mode: {'3.0' if daa30_available else '2.0-fallback'})"
+    )
 
 
 if __name__ == "__main__":

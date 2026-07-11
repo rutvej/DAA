@@ -1744,25 +1744,45 @@ gcloud run deploy daa-minimal \
         <h2>Outage Simulation &amp; Live SRE Run</h2>
       </div>
       <p>
-        Trigger real outage scenarios in the DAA sandbox environment to watch the SRE agent run in real time.
+        Witness DAA SRE agent's 4-dimension investigation loops by triggering real outage scenarios in our sandbox, or run the interactive simulation below to preview the agent logs.
       </p>
 
-      <h3>Scenario A: Redis Cache Timeout (Infrastructure Cascade)</h3>
-      <p>Simulates a Redis connection pool exhaustion on the checkout service:</p>
-      <div class="code-block-wrapper" style="margin-bottom: 1.5rem;">
+      <div class="simulation-launcher">
+        <button class="sim-selector-btn active" onclick="selectSimulation('redis')" id="btn-sim-redis">
+          <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Scenario A</h5>
+          <p>Redis Cache AttributeError (Misspelled Method connec)</p>
+        </button>
+        <button class="sim-selector-btn" onclick="selectSimulation('payment')" id="btn-sim-payment">
+          <h5><i class="fa-solid fa-credit-card" style="color:var(--error);"></i> Scenario B</h5>
+          <p>Payment Gateway Failure (Client/External Decline)</p>
+        </button>
+      </div>
+
+      <div class="code-block-wrapper" id="sim-command-container" style="margin-bottom: 1.5rem;">
         <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>curl -X POST 'http://localhost:8001/checkout' \
+        <pre><code id="sim-command-code">curl -X POST 'http://localhost:8001/checkout' \
   -H 'Content-Type: application/json' \
   -d '{"user_id": "fail_redis", "cart_total": 150.0}'</code></pre>
       </div>
 
-      <h3>Scenario B: Payment Gateway Failures (Client/External Decline)</h3>
-      <p>Simulates a transaction failure due to declined cards or gateway error:</p>
-      <div class="code-block-wrapper" style="margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>curl -X POST 'http://localhost:8001/checkout' \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id": "user-123", "cart_total": 6000.0}'</code></pre>
+      <h3>Agent Diagnostic Console (Interactive Demo)</h3>
+      <div class="console-simulation">
+        <div class="console-header">
+          <div class="console-controls">
+            <span class="console-dot red"></span>
+            <span class="console-dot yellow"></span>
+            <span class="console-dot green"></span>
+          </div>
+          <div class="console-title">daa-agent-diagnostics.sh</div>
+          <div class="console-actions-top">
+            <button class="console-btn-run" onclick="runConsoleDemo()">
+              <i class="fa-solid fa-play"></i> Run Simulation
+            </button>
+          </div>
+        </div>
+        <div class="console-body" id="consoleBody">
+          <div class="console-line"><span class="console-prompt">SRE-AGENT$</span> Click the "Run Simulation" button to watch the SRE Agent execute its 4-dimension diagnostic loop!</div>
+        </div>
       </div>
     </section>
 
@@ -1797,13 +1817,13 @@ gcloud run deploy daa-minimal \
           <i class="fa-solid fa-clock"></i>
           <span><strong>ChromaDB Repo Vector Search (RAG Indexing)</strong> (Semantic search over repo codebase to reduce file read token usage for DAA 3.1).</span>
         </li>
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Real Cloud Log Connectors</strong> (Connectors for AWS CloudWatch, GCP Cloud Logging, and Datadog completed).</span>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>Real Cloud Log Connectors</strong> (Connectors for AWS CloudWatch, GCP Cloud Logging, and Datadog for DAA 3.1).</span>
         </li>
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>RabbitMQ Dead-Letter Queue (DLQ)</strong> (DLQ/DLX support for failed/crashed SRE agent jobs completed).</span>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>RabbitMQ Dead-Letter Queue (DLQ)</strong> (DLQ/DLX support for failed/crashed SRE agent jobs for DAA 3.1).</span>
         </li>
       </ul>
     </section>
@@ -1913,6 +1933,31 @@ gcloud run deploy daa-minimal \
       });
     }
 
+    // Outage Simulation Selector
+    const redisCurl = `curl -X POST 'http://localhost:8001/checkout' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"user_id": "fail_redis", "cart_total": 150.0}'`;
+
+    const paymentCurl = `curl -X POST 'http://localhost:8001/checkout' \\
+  -H 'Content-Type: application/json' \\
+  -d '{"user_id": "user-123", "cart_total": 6000.0}'`;
+
+    function selectSimulation(type) {
+      const btnRedis = document.getElementById('btn-sim-redis');
+      const btnPayment = document.getElementById('btn-sim-payment');
+      const codeContainer = document.getElementById('sim-command-code');
+
+      if (type === 'redis') {
+        btnRedis.classList.add('active');
+        btnPayment.classList.remove('active');
+        codeContainer.textContent = redisCurl;
+      } else {
+        btnPayment.classList.add('active');
+        btnRedis.classList.remove('active');
+        codeContainer.textContent = paymentCurl;
+      }
+    }
+
     // Search Filtering
     const docSearchInput = document.getElementById('docSearch');
     docSearchInput.addEventListener('input', (e) => {
@@ -1928,6 +1973,86 @@ gcloud run deploy daa-minimal \
         }
       });
     });
+
+    // Console Demo Simulation Logs
+    const redisSimLogs = [
+      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4091", style: "console-prompt" },
+      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
+      { text: "[*] Dimension 1: Analyzing correlated database log trace IDs...", style: "console-info" },
+      { text: "    Found failure in checkout-service: 'ConnectionRefusedError: [Errno 111] Connection refused'", style: "console-error" },
+      { text: "    Trace ID: 7b8a3e9c102f, Client app user_id: fail_redis", style: "console-muted" },
+      { text: "[*] Dimension 2: Checking Git commit activity over last 24 hours...", style: "console-info" },
+      { text: "    Recent commits found: 1", style: "console-muted" },
+      { text: "    Commit: 9ea12b 'Refactor connection pool configurations' by rutvej", style: "console-highlight" },
+      { text: "[*] Dimension 3: Querying environment health indicators...", style: "console-info" },
+      { text: "    Checking Redis connection to host:localhost, port:6379...", style: "console-muted" },
+      { text: "    [WARNING] Redis check failed: connection timeout. Server status is DOWN.", style: "console-warning" },
+      { text: "[*] Dimension 4: Commencing surgical code AST mapping...", style: "console-info" },
+      { text: "    Running 'read_repomap' on app/checkout-service...", style: "console-muted" },
+      { text: "    Found database instantiation symbol in 'app.py' line 42.", style: "console-highlight" },
+      { text: "    Fix suggestion: fallback to environment override 'REDIS_HOST' instead of hardcoded defaults.", style: "console-success" },
+      { text: "[*] Generating patch code for local validation tests...", style: "console-info" },
+      { text: "    Running tests: PYTHONPATH=app/checkout-service pytest tests/ ... [SUCCESS]", style: "console-success" },
+      { text: "[*] Branch created: fix/redis-connection-fallback", style: "console-success" },
+      { text: "[*] Pushed changes to Gitea, opened Pull Request #12 (status: MERGEABLE)", style: "console-success" },
+      { text: "[*] Incident resolved. Ticket postmortem logged in Mock Jira database as DAA-4091.", style: "console-success" }
+    ];
+
+    const paymentSimLogs = [
+      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4092", style: "console-prompt" },
+      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
+      { text: "[*] Dimension 1: Querying correlated logs matching trace ID...", style: "console-info" },
+      { text: "    Found exception in checkout-service -> payment-service API communication.", style: "console-muted" },
+      { text: "    Exception details: 'HTTP Exception 400 - Insufficient Funds / Card Declined'", style: "console-error" },
+      { text: "    Client transaction amount: $6000.00", style: "console-muted" },
+      { text: "[*] Dimension 2: Verifying change records for deployment updates...", style: "console-info" },
+      { text: "    No commits detected in python-agent or payment-service directories in 24h.", style: "console-muted" },
+      { text: "[*] Dimension 3: Querying cloud gateway health and DB nodes...", style: "console-info" },
+      { text: "    PostgreSQL service is UP, active connections pool: 4/100.", style: "console-muted" },
+      { text: "    Payment API responds: status code 200 OK (Heartbeat).", style: "console-muted" },
+      { text: "[*] Dimension 4: Checking code-level circuit guardrails...", style: "console-info" },
+      { text: "    Fault location: 'examples/payment-service/app.py' line 18.", style: "console-highlight" },
+      { text: "    Identified client-side request validation issue (cart value above single transaction limit).", style: "console-warning" },
+      { text: "    [Circuit Breaker Triggered] Safe code remediation bounds exceeded.", style: "console-error" },
+      { text: "[*] Action: Skip Pull Request (verification requires external billing provider action).", style: "console-warning" },
+      { text: "[*] Generating SRE Incident Postmortem report...", style: "console-info" },
+      { text: "[*] Jira incident ticket created under project DAA as DAA-4092.", style: "console-success" },
+      { text: "    Postmortem summary: Transaction failed on client checkout limit. Recommended admin review.", style: "console-success" }
+    ];
+
+    let consoleInterval = null;
+
+    function runConsoleDemo() {
+      const consoleBody = document.getElementById('consoleBody');
+      const isRedis = document.getElementById('btn-sim-redis').classList.contains('active');
+      const logs = isRedis ? redisSimLogs : paymentSimLogs;
+      
+      // Reset console
+      consoleBody.innerHTML = '';
+      clearInterval(consoleInterval);
+      
+      let lineIndex = 0;
+      
+      consoleInterval = setInterval(() => {
+        if (lineIndex < logs.length) {
+          const log = logs[lineIndex];
+          const div = document.createElement('div');
+          div.className = `console-line ${log.style}`;
+          
+          if (log.style === 'console-prompt') {
+            div.innerHTML = `<span class="console-prompt">${log.text.substring(0, 10)}</span>${log.text.substring(10)}`;
+          } else {
+            div.textContent = log.text;
+          }
+          
+          consoleBody.appendChild(div);
+          consoleBody.scrollTop = consoleBody.scrollHeight;
+          lineIndex++;
+        } else {
+          clearInterval(consoleInterval);
+        }
+      }, 500);
+    }
   </script>
 </body>
 </html>

@@ -55,11 +55,25 @@ class CloneFreeGitClient:
     def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
         return self._client.create_branch(new_branch, base_branch=base_branch)
 
-    def create_branch_lock(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch_lock(
+        self, new_branch: str, base_branch: Optional[str] = None
+    ) -> bool:
         return self._client.create_branch_lock(new_branch, base_branch=base_branch)
 
-    def write_file_content(self, file_path: str, content: str, branch_name: str, commit_message: str) -> bool:
-        return self._client.write_file_content(file_path, content, branch_name, commit_message)
+    def write_file_content(
+        self, file_path: str, content: str, branch_name: str, commit_message: str
+    ) -> bool:
+        return self._client.write_file_content(
+            file_path, content, branch_name, commit_message
+        )
 
-    def create_pull_request(self, branch_name: str, title: str, description: str, base_branch: Optional[str] = None) -> str:
-        return self._client.create_pull_request(branch_name, title, description, base_branch=base_branch)
+    def create_pull_request(
+        self,
+        branch_name: str,
+        title: str,
+        description: str,
+        base_branch: Optional[str] = None,
+    ) -> str:
+        return self._client.create_pull_request(
+            branch_name, title, description, base_branch=base_branch
+        )
