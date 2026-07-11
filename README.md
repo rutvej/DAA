@@ -1,76 +1,144 @@
 # DAA — Deduplicated Autonomous SRE Platform
 
-DAA is a pluggable, open-source **Autonomous SRE Platform** designed to automate the first 30–60 minutes of manual triage toil when production microservices break. 
+DAA is a pluggable, open-source **Autonomous SRE Platform** that automates
+the first 30–60 minutes of manual triage toil when production microservices
+break.
 
-The platform ingests exception logs (via client SDKs or Sentry/Prometheus webhooks), groups them using SHA256 fingerprints to deduplicate runs, matches them against sliding-window escalation policies, and deploys a LangChain SRE Agent. The agent performs a 4-dimension diagnostic investigation (logs, metrics, commits, and codebase navigation), applies dynamic hotfixes, runs verification tests, and opens Merge/Pull Requests with generated postmortem reports.
+It ingests exception logs (via client SDKs or Sentry/Prometheus webhooks),
+deduplicates them with SHA256 fingerprints, matches them against
+sliding-window escalation policies, and dispatches a LangChain SRE Agent that
+runs a 4-dimension diagnostic investigation (logs, metrics, commits, and
+codebase navigation), applies fixes, runs verification tests, and opens a
+Pull/Merge Request with a generated postmortem report.
+
+Full environment-variable reference, the tested deployment matrix, and git
+provider token permissions live in **[`DEPLOYMENT.md`](./DEPLOYMENT.md)** —
+this README covers just enough to get running in under a minute.
 
 ---
 
-## 🚀 Pluggable Deployment Combinations
+## 🚀 Quick Start — Prebuilt Image
 
-DAA is built as a **single-image pluggable architecture** that can scale from a stateless, zero-disk serverless container up to a distributed multi-container cluster.
+```bash
+docker pull rutvej1/daa-standalone:latest
+
+docker run -d --name daa \
+  -p 8000:8080 \
+  -e LLM_PROVIDER=google \
+  -e GEMINI_API_KEY=your-gemini-key \
+  -e DAA_DB_PROVIDER=none \
+  -e DAA_GIT_MODE=api \
+  -e DAA_QUEUE_MODE=sync \
+  -e DAA_AUTH_ENABLED=false \
+  -e DAA_POLICY_ENABLED=false \
+  -e GIT_HOST=https://github.com \
+  -e GIT_ORG=your-github-org \
+  -e GITHUB_TOKEN=ghp_xxxxxxxxxxxx \
+  rutvej1/daa-standalone:latest
+
+curl http://localhost:8000/health
+```
+
+That's the fully stateless profile: zero databases, zero queues, scales to
+zero on Cloud Run / Fargate. Point your Sentry/Prometheus webhooks at
+`http://<host>:8000/ingest/...` and DAA starts triaging immediately.
+
+For every other supported profile (with Postgres, with RabbitMQ, Compose vs.
+single image, auth on/off) see the **[Deployment Matrix in `DEPLOYMENT.md`](./DEPLOYMENT.md#5-full-combination-matrix)**.
+
+---
+
+## 🧩 Pluggable Deployment Combinations
+
+DAA is a **single-image pluggable architecture** — the same container image
+runs everything from a stateless, zero-disk serverless container up to a
+distributed multi-container cluster, controlled entirely by three env vars.
 
 | Deployment Mode | `DAA_DB_PROVIDER` | `DAA_GIT_MODE` | `DAA_QUEUE_MODE` | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Stateless Serverless** | `none` | `api` (Git REST calls) | `sync` (Inline background) | **Zero-disk, scales-to-zero.** Queries and commits files directly via GitHub/GitLab REST APIs. Bypasses local DB and enqueues inline in FastAPI background tasks. Best for Google Cloud Run / AWS Fargate. |
-| **2. Self-Contained Edge** | `sqlite` | `api` or `local` | `sync` | **Single VM.** Uses SQLite with WAL mode for local policy tracking and JWT session storage. |
-| **3. Distributed Scale-Out** | `postgres` | `local` (Worktree clones) | `rabbitmq` (Distributed) | **Datacenter.** Separates FastAPI API container, RabbitMQ broker, PostgreSQL database, and dedicated agent worker pools. |
+| **1. Stateless Serverless** | `none` | `api` (Git REST calls) | `sync` (inline background) | Zero-disk, scales-to-zero. Reads/writes files directly via GitHub/GitLab/Gitea/Bitbucket REST APIs. Best for Cloud Run / Fargate. |
+| **2. Self-Contained Edge** | `sqlite` | `api` or `local` | `sync` | Single VM. SQLite in WAL mode handles policy tracking and sessions. |
+| **3. Distributed Scale-Out** | `postgres` | `local` (worktree clones) | `rabbitmq` (distributed) | Datacenter. Separate API, broker, database, and dedicated agent worker pool. |
+
+This is a simplified view — the full tested matrix (6 combinations,
+including which pair with Image vs. Compose staging) is in
+[`DEPLOYMENT.md` §5](./DEPLOYMENT.md#5-full-combination-matrix).
 
 ---
 
-## 🛡️ Secure Multi-Repository Context Access
+## 🔑 Git Provider Access
 
-To allow DAA to safely diagnose issues stemming from shared libraries or upstream microservices without introducing security vulnerabilities or workspace bloat:
+DAA needs a token with permission to read files, create a branch, commit, and
+open a PR. Minimum scopes:
 
-1. **Authorization via Registration:** The SRE Agent can only pull code from repositories explicitly pre-registered in the DAA database (preventing SSRF and exfiltration attacks via dynamically injected URLs).
-2. **Work Isolation:** The agent only clones, checks out, and executes code modifications/tests on the primary target repository (e.g., `/tmp/daa/<incident_id>`).
-3. **Read-Only API Queries:** Any auxiliary repositories registered as dependencies are accessed in a read-only manner. Instead of cloning them to disk, the agent dynamically queries specific files via the GitLab/GitHub Git Data REST APIs.
+| Provider | Required Scopes |
+| :--- | :--- |
+| **GitHub** | Classic PAT: `repo`. Fine-grained: `Contents: Read/Write`, `Pull requests: Read/Write` |
+| **GitLab** | `api` (or `read_repository` + `write_repository`, though MR creation generally needs `api`) |
+| **Gitea** | `write:repository`, `write:issue`, `read:user` |
+| **Bitbucket** | App Password with `Repositories: Write`, `Pull requests: Write` |
+
+Full detail, including Gitea's non-GitHub-compatible branch-creation endpoint,
+is in [`DEPLOYMENT.md` §4](./DEPLOYMENT.md#4-git-provider-token-permissions).
 
 ---
 
-## 🛠️ Unified Installation & Quickstart
+## 🛠️ Unified Installation & Local Quickstart
 
 ### 1. Run the Installer
-Set up Python virtual environments, pip dependencies, and link the DAA CLI tool:
+Sets up the Python virtualenv, installs dependencies, and links the `daa` CLI:
 ```bash
 ./install.sh
 ```
 
 ### 2. Run the Configuration Wizard
-Initialize Git tokens, LLM providers (Gemini, OpenAI, or Claude), and select your deployment profile:
+Configures Git tokens, LLM provider keys (Gemini/OpenAI/Claude/Ollama), and
+your deployment profile:
 ```bash
 daa init
 ```
+This populates `.env` and `.env.daa`.
 
 ### 3. Deploy DAA Services
-* **For Distributed Stateful Mode (Docker Compose):**
+- **Distributed / Stateful (Docker Compose):**
   ```bash
   docker compose up -d --build
   ```
-* **For Stateless Serverless Mode:**
+- **Stateless Serverless (single image, built locally):**
   ```bash
   docker build -t daa-stateless:latest .
   docker run -d --name daa-stateless -p 8080:8080 --env-file .env daa-stateless:latest
   ```
+- **Prebuilt image from Docker Hub:** see [Quick Start](#-quick-start--prebuilt-image) above.
+
+Full step-by-step for both staging modes is in
+[`DEPLOYMENT.md` §6–7](./DEPLOYMENT.md#6-setup-steps--image-mode).
 
 ---
 
 ## 📂 Codebase Layout
 
 ```
-/home/rutvej/Desktop/DAA/
+/DAA/
 ├── daa                          # main python CLI helper
-├── entrypoint.sh                # entrypoint shell script for single-container
-├── install.sh                   # shell script installer
+├── entrypoint.sh                # single-container entrypoint
+├── install.sh                   # unified installer
 ├── requirements.txt             # platform dependencies
+├── DEPLOYMENT.md                # full env var / matrix / token reference
 ├── app/
-│   ├── backend-api/             # FastAPI REST backend & JIRA mock
-│   │   ├── src/                 # REST endpoints & Database session local
-│   │   └── tests/               # 17 pytest suites (SQLite based)
+│   ├── backend-api/             # FastAPI REST backend & mock Jira
+│   │   ├── src/                 # REST endpoints, DB session, mocks
+│   │   └── tests/
 │   ├── python-agent/            # LangChain SRE Agent
-│   │   ├── agent_src/           # Worker main, LLM models & ReAct tools
-│   │   └── tests/               # 27 unittest suites (Mocks based)
+│   │   ├── agent_src/           # Worker main, LLM models, ReAct tools
+│   │   └── tests/
 │   ├── admin-panel/             # React dashboard frontend
-│   └── daa-sdk/                 # Multi-language telemetry SDKs (Node, Go, Python...)
-└── specs/                       # Platform specifications
+│   └── daa-sdk/                 # Multi-language telemetry SDKs
+└── specs/                       # Per-module architecture specs
 ```
+
+---
+
+## 📄 License
+
+MIT. See `LICENSE`.
