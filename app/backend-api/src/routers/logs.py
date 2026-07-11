@@ -8,8 +8,9 @@ import pika
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-from ..database import Log as DBLog, Fix as DBFix, Incident, Application, EscalationPolicy
+from ..database import Log as DBLog, Fix as DBFix, Incident, Application, EscalationPolicy, DAA_POLICY_ENABLED
 from ..database import get_db
 from .auth import get_current_user
 
@@ -85,43 +86,47 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
         db.commit()
         return {"logId": db_log.id, "status": "Suppressed (Deduplicated)", "incidentId": active_incident.id, "fingerprint": fingerprint}
 
+    error_count = 1
+
     # 4. Check Escalation Threshold Policy (Sliding Window)
-    policy = db.query(EscalationPolicy).join(Application).filter(
-        Application.name == log.app_name,
-        EscalationPolicy.is_active.is_(True)
-    ).first()
+    # [Item 1] Explicit note: SDK-sourced errors apply policy/sliding-window escalation before triage.
+    if DAA_POLICY_ENABLED:
+        policy = db.query(EscalationPolicy).join(Application).filter(
+            Application.name == log.app_name,
+            EscalationPolicy.is_active.is_(True)
+        ).first()
 
-    threshold = policy.condition_value if policy and policy.condition_value else 15
-    window_sec = policy.window_seconds if policy and policy.window_seconds else 120
-    immediate_keywords = ["FATAL", "OOMKill", "PANIC", "DatabaseDeadlock"]
-    if policy and policy.severity_keywords:
-        try:
-            immediate_keywords = json.loads(policy.severity_keywords)
-        except Exception:
-            pass
+        threshold = policy.condition_value if policy and policy.condition_value else 15
+        window_sec = policy.window_seconds if policy and policy.window_seconds else 120
+        immediate_keywords = ["FATAL", "OOMKill", "PANIC", "DatabaseDeadlock"]
+        if policy and policy.severity_keywords:
+            try:
+                immediate_keywords = json.loads(policy.severity_keywords)
+            except Exception:
+                pass
 
-    # Check if log contains immediate severity keywords
-    is_immediate = any(kw.lower() in log.content.lower() for kw in immediate_keywords)
-    
-    # Count errors in sliding window
-    window_start = datetime.utcnow() - timedelta(seconds=window_sec)
-    error_count = db.query(DBLog).filter(
-        DBLog.app_name == log.app_name,
-        DBLog.timestamp >= window_start
-    ).count()
+        # Check if log contains immediate severity keywords
+        is_immediate = any(kw.lower() in log.content.lower() for kw in immediate_keywords)
+        
+        # Count errors in sliding window
+        window_start = datetime.utcnow() - timedelta(seconds=window_sec)
+        error_count = db.query(DBLog).filter(
+            DBLog.app_name == log.app_name,
+            DBLog.timestamp >= window_start
+        ).count()
 
-    if not is_immediate and error_count < threshold:
-        db_log.status = f"Logged ({error_count}/{threshold} in {window_sec}s)"
-        db.commit()
-        return {
-            "logId": db_log.id,
-            "status": "Logged (Threshold not reached)",
-            "error_count": error_count,
-            "threshold": threshold,
-            "window_seconds": window_sec
-        }
+        if not is_immediate and error_count < threshold:
+            db_log.status = f"Logged ({error_count}/{threshold} in {window_sec}s)"
+            db.commit()
+            return {
+                "logId": db_log.id,
+                "status": "Logged (Threshold not reached)",
+                "error_count": error_count,
+                "threshold": threshold,
+                "window_seconds": window_sec
+            }
 
-    # 5. Threshold Breached or Immediate Severity! Create Incident and Launch Agent
+    # 5. Threshold Breached, Immediate Severity, or Policy Disabled! Create Incident and Launch Agent
     new_incident = Incident(
         fingerprint=fingerprint,
         app_name=log.app_name,
@@ -132,8 +137,28 @@ def submit_log(log: LogCreate, background_tasks: BackgroundTasks, db: Session = 
     )
     db.add(new_incident)
     db_log.status = "Escalated to Agent"
-    db.commit()
-    db.refresh(new_incident)
+    
+    try:
+        db.commit()
+        db.refresh(new_incident)
+    except IntegrityError:
+        # Atomic lock failed: Another concurrent request created an incident with this fingerprint.
+        db.rollback()
+        # Fetch the active incident that just won the race
+        active_incident = db.query(Incident).filter(
+            Incident.fingerprint == fingerprint,
+            Incident.status.in_(["investigating", "pr_open", "ticket_created", "cooldown"])
+        ).first()
+        
+        if active_incident:
+            active_incident.occurrence_count = (active_incident.occurrence_count or 1) + 1
+            active_incident.last_seen_at = datetime.utcnow()
+            db_log.status = f"Suppressed (Race Dedup INC-{active_incident.id[:8]})"
+            db.commit()
+            return {"logId": db_log.id, "status": "Suppressed (Deduplicated via DB lock)", "incidentId": active_incident.id, "fingerprint": fingerprint}
+        else:
+            # Fallback if somehow there's no active incident after a collision
+            raise
 
     job_data = {
         "id": str(db_log.id),

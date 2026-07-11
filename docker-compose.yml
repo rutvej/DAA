@@ -63,6 +63,7 @@ services:
     environment:
       - RABBITMQ_HOST=rabbitmq
       - DAA_BACKEND_API_URL=http://backend-api:80
+      - DAA_GIT_TOKEN=${DAA_GIT_TOKEN}
       - GITLAB_PRIVATE_TOKEN=${GITLAB_PRIVATE_TOKEN}
       - GIT_REPO_URL=${GIT_REPO_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -79,6 +80,7 @@ services:
       - /home/rutvej/.local/bin/agy:/usr/local/bin/agy:ro
       - /home/rutvej/.gemini:/root/.gemini:ro
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/daa:/tmp/daa
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "gitlab:host-gateway"

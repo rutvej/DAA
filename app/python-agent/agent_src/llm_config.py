@@ -257,6 +257,30 @@ class AgyChatModel(BaseChatModel):
         ai_message = AIMessage(content=output)
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
 
+class MockChatModel(BaseChatModel):
+    model_name: str = "mock-model"
+    _call_count: int = 0
+
+    @property
+    def _llm_type(self) -> str:
+        return "mock-chat"
+
+    def _generate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        self._call_count += 1
+        if self._call_count == 1:
+            output = 'Action: create_pull_request\nAction Input: {"repo_path": "/tmp/daa", "title": "Mock Fix", "description": "Mock PR"}'
+        else:
+            output = 'Final Answer:\nPOSTMORTEM: Mocked fix.\nPR_URL: http://localhost:3000/daa-admin/payment-api/pulls/1'
+        
+        ai_message = AIMessage(content=output)
+        return ChatResult(generations=[ChatGeneration(message=ai_message)])
+
 def get_llm():
     """
     Returns a LangChain chat model based on environment configuration.
@@ -269,7 +293,10 @@ def get_llm():
 
     logging.info(f"Initializing LLM: provider={provider}, model={model_name}, base_url={base_url}")
 
-    if provider == "codex":
+    if provider == "mock":
+        return MockChatModel()
+
+    elif provider == "codex":
         m = model_name or "gpt-5.4-mini"
         return CodexChatModel(model_name=m)
 
@@ -279,8 +306,41 @@ def get_llm():
 
     elif provider == "google":
         from langchain_google_genai import ChatGoogleGenerativeAI
+        from google.api_core.exceptions import ResourceExhausted
+        import time
+        import random
+        from langchain_core.outputs import ChatResult
+
+        class RateLimitedGemini(ChatGoogleGenerativeAI):
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+                max_retries = 8
+                base_delay = 2.0
+                
+                for attempt in range(max_retries):
+                    try:
+                        timestamp = time.time()
+                        logging.info(f"[RateLimitedGemini] Sending request at {timestamp}")
+                        with open("/tmp/gemini_requests.log", "a") as f:
+                            f.write(f"{timestamp}\n")
+                        return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                    except ResourceExhausted as e:
+                        if attempt == max_retries - 1:
+                            raise
+                        
+                        retry_after = None
+                        if hasattr(e, 'response') and e.response is not None:
+                            retry_after = e.response.headers.get("Retry-After")
+                        
+                        if retry_after and str(retry_after).isdigit():
+                            delay = float(retry_after)
+                        else:
+                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        
+                        logging.warning(f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt+1}/{max_retries}).")
+                        time.sleep(delay)
+
         m = model_name or "gemini-2.5-flash"
-        return ChatGoogleGenerativeAI(model=m, google_api_key=api_key)
+        return RateLimitedGemini(model=m, google_api_key=api_key)
     
     elif provider == "openai":
         from langchain_openai import ChatOpenAI
@@ -309,5 +369,38 @@ def get_llm():
     else:
         # Fallback to Google Gemini
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key)
+        from google.api_core.exceptions import ResourceExhausted
+        import time
+        import random
+        from langchain_core.outputs import ChatResult
+
+        class RateLimitedGemini(ChatGoogleGenerativeAI):
+            def _generate(self, messages, stop=None, run_manager=None, **kwargs) -> ChatResult:
+                max_retries = 8
+                base_delay = 2.0
+                
+                for attempt in range(max_retries):
+                    try:
+                        timestamp = time.time()
+                        logging.info(f"[RateLimitedGemini] Sending request at {timestamp}")
+                        with open("/tmp/gemini_requests.log", "a") as f:
+                            f.write(f"{timestamp}\n")
+                        return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                    except ResourceExhausted as e:
+                        if attempt == max_retries - 1:
+                            raise
+                        
+                        retry_after = None
+                        if hasattr(e, 'response') and e.response is not None:
+                            retry_after = e.response.headers.get("Retry-After")
+                        
+                        if retry_after and str(retry_after).isdigit():
+                            delay = float(retry_after)
+                        else:
+                            delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                        
+                        logging.warning(f"[RateLimitedGemini] 429 Rate Limit Hit. Sleeping for {delay:.2f} seconds (attempt {attempt+1}/{max_retries}).")
+                        time.sleep(delay)
+
+        return RateLimitedGemini(model="gemini-2.5-flash", google_api_key=api_key)
 

@@ -10,8 +10,9 @@ from datetime import datetime
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 
-from ..database import get_db, Log as DBLog, Incident, ProjectConnection, DAA_DB_PROVIDER
+from ..database import get_db, Log as DBLog, Incident, ProjectConnection, DAA_DB_PROVIDER, DAA_AUTH_ENABLED
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest")
@@ -43,6 +44,8 @@ def resolve_jsonpath(data: dict, path: str):
 
 async def verify_webhook_auth(request: Request):
     """Verifies DAA_API_KEY if configured in environment."""
+    if not DAA_AUTH_ENABLED:
+        return
     daa_api_key = os.environ.get("DAA_API_KEY")
     if daa_api_key:
         api_key_header = request.headers.get("X-API-Key")
@@ -64,6 +67,8 @@ async def verify_webhook_auth(request: Request):
 
 async def verify_sentry_signature(request: Request):
     """Verifies X-Sentry-Signature if SENTRY_WEBHOOK_SECRET is configured."""
+    if not DAA_AUTH_ENABLED:
+        return
     sentry_secret = os.environ.get("SENTRY_WEBHOOK_SECRET")
     if sentry_secret:
         signature = request.headers.get("X-Sentry-Signature")
@@ -93,6 +98,9 @@ async def dispatch_investigation(
     error_file: str = None
 ):
     """Computes fingerprint, runs deduplication check, records database state, and dispatches the job."""
+    # [Item 1] Explicit note: Webhook/log-app-sourced errors (Sentry, Prometheus, generic log ingestion)
+    # have no policy check; they escalate immediately on ingestion (upstream system already thresholded it).
+    
     # 1. Compute fingerprint
     top_frame = stack_trace[:200]
     raw_fp = f"{app_name}:{exception_type}:{top_frame}"
@@ -161,7 +169,23 @@ async def dispatch_investigation(
         last_seen_at=datetime.utcnow()
     )
     db.add(new_incident)
-    db.commit()
+    
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        active_incident = db.query(Incident).filter(
+            Incident.fingerprint == fingerprint,
+            Incident.status.in_(["investigating", "pr_open", "ticket_created", "cooldown"])
+        ).first()
+        if active_incident:
+            active_incident.occurrence_count = (active_incident.occurrence_count or 1) + 1
+            active_incident.last_seen_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"Deduplication hit via DB lock race: suppressing investigation for fingerprint {fingerprint}")
+            return
+        else:
+            raise
     
     # 4. Enqueue Job
     job_id = db_log.id
@@ -186,6 +210,48 @@ async def dispatch_investigation(
     if error_file:
         job_data["error_file"] = error_file
         job_data["error_log"]["error_file"] = error_file
+
+    # Inject repo_url dynamically from deployment-level git config.
+    #
+    # Convention: {scheme}://{GIT_HOST}/{GIT_ORG}/{app_name}.git
+    #
+    # GIT_HOST and GIT_ORG are deployment-level env vars — the same for every
+    # app in your org.  You do NOT need a per-app DB record.  The alert payload
+    # already tells us app_name; convention gives us the full repo URL.
+    #
+    # Priority:
+    #   1. GIT_HOST + GIT_ORG  (explicit, recommended)
+    #   2. GIT_REPO_URL         (legacy / backward-compat: parse host+org from it)
+    #
+    # The agent's run_preflight still tries GET /apps/{app_name} first so
+    # stateful DB registrations always win over this dynamic fallback.
+    git_host = os.environ.get("GIT_HOST", "")
+    git_org  = os.environ.get("GIT_ORG", "")
+
+    if not (git_host and git_org):
+        # Backward compat: derive host and org from GIT_REPO_URL
+        git_repo_url_template = os.environ.get("GIT_REPO_URL", "")
+        if git_repo_url_template:
+            try:
+                _parsed = urlparse(git_repo_url_template)
+                _parts  = _parsed.path.strip("/").split("/")
+                if len(_parts) >= 2:
+                    git_host = git_host or f"{_parsed.scheme}://{_parsed.netloc}"
+                    git_org  = git_org  or _parts[0]
+            except Exception:
+                pass
+
+    if git_host and git_org:
+        # Normalise: strip trailing slash, ensure scheme present
+        if not git_host.startswith(("http://", "https://")):
+            git_host = f"https://{git_host}"
+        git_host = git_host.rstrip("/")
+        dynamic_repo_url = f"{git_host}/{git_org}/{app_name}.git"
+        job_data["repo_url"] = dynamic_repo_url
+        logger.info(
+            "Injected dynamic repo_url for app '%s': %s (GIT_HOST=%s GIT_ORG=%s)",
+            app_name, dynamic_repo_url, git_host, git_org
+        )
         
     queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
     if queue_mode == "sync":
@@ -212,6 +278,18 @@ async def dispatch_investigation(
         )
         connection.close()
         logger.info(f"Published investigation job {job_id} to RabbitMQ queue 'fix_jobs'")
+
+def execute_agent_sync(job_data: dict) -> None:
+    """Executes the agent synchronously inline."""
+    agent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../python-agent"))
+    if agent_dir not in sys.path:
+        sys.path.insert(0, agent_dir)
+        
+    from agent_src.main import process_job
+    from agent_src.models import Job
+    
+    job = Job(**job_data)
+    process_job(job)
 
 # ---------------------------------------------------------------------------
 # API Routes

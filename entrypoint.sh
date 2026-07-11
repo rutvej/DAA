@@ -4,7 +4,7 @@ set -e
 echo "=== DAA Pluggable Single-Image Supervisor ==="
 
 # Set PYTHONPATH to include both backend-api and python-agent
-export PYTHONPATH="/app/app/backend-api:/app/app/python-agent:$PYTHONPATH"
+export PYTHONPATH="/app/app/backend-api/src:/app/app/backend-api:/app/app/python-agent:$PYTHONPATH"
 
 # ── 1. Handle Internal Postgres ──
 if [ "$DAA_DB_PROVIDER" = "internal-postgres" ]; then
@@ -48,10 +48,10 @@ echo "Starting DAA API on port $PORT..."
 
 if [ "$DAA_QUEUE_MODE" = "sync" ]; then
     # In serverless/sync mode, running the API server is enough (worker runs inline via BackgroundTasks)
-    exec uvicorn app.backend-api.src.main:app --host 0.0.0.0 --port "$PORT"
+    exec uvicorn src.main:app --host 0.0.0.0 --port "$PORT" --app-dir /app/app/backend-api
 else
     # In distributed mode, run API and Agent worker as concurrent background processes
     echo "Starting DAA Agent Worker..."
     python -m agent_src.main &
-    exec uvicorn app.backend-api.src.main:app --host 0.0.0.0 --port "$PORT"
+    exec uvicorn src.main:app --host 0.0.0.0 --port "$PORT" --app-dir /app/app/backend-api
 fi

@@ -93,6 +93,7 @@ class RepoCacheManager:
 
         # ---- 1. Clone or refresh -------------------------------------------
         if os.path.isdir(git_dir):
+            self._run(["git", "remote", "set-url", "origin", repo_url], cwd=cache_dir, check=False)
             age = time.time() - self._read_last_fetch(app_name)
             if age >= self.FETCH_TTL_SECONDS:
                 logger.info("Cache stale (%.0fs old), refreshing %s", age, app_name)
@@ -385,7 +386,7 @@ class ContextPackager:
         lines = raw.splitlines()
         return "\n".join(lines[:self.max_dim4_commits])
 
-    def package(self, job: dict, worktree_path: str, hydrated: dict) -> str:
+    def package(self, job: dict, worktree_path: str, hydrated: dict, repomap: str = "unavailable") -> str:
         """
         Build the agent prompt string from *job* metadata, worktree path, and
         the hydrated observability dimensions.
@@ -395,6 +396,7 @@ class ContextPackager:
                            listed in the template below).
             worktree_path: Absolute path to the isolated git worktree.
             hydrated:      Output of ``LogHydrator.hydrate_all()``.
+            repomap:       Prefetched repomap (if available).
 
         Returns:
             A multi-section prompt string ready for the LLM agent.
@@ -406,11 +408,30 @@ class ContextPackager:
         exception_type = job.get("exception_type", "")
         timestamp = job.get("timestamp", "")
 
-        dim2 = self._trim_logs(hydrated.get("dim2_app_logs"))
-        dim3 = hydrated.get("dim3_metrics") or "unavailable"
-        dim4 = self._trim_commits(hydrated.get("dim4_git_history"))
+        dim2_raw = hydrated.get("dim2_app_logs")
+        dim3_raw = hydrated.get("dim3_metrics")
+        dim4_raw = hydrated.get("dim4_git_history")
+        
+        dim2 = self._trim_logs(dim2_raw)
+        dim3 = dim3_raw or "unavailable"
+        dim4 = self._trim_commits(dim4_raw)
+        
+        unavailable = []
+        if not dim2_raw: unavailable.append("Application Logs")
+        if not dim3_raw: unavailable.append("Metrics")
+        if not dim4_raw: unavailable.append("Git History")
+        if repomap == "unavailable": unavailable.append("Repomap")
+        
+        warning_block = ""
+        if unavailable:
+            warning_block = (
+                f"[UNAVAILABLE INFORMATION]\n"
+                f"The following context dimensions could not be fetched: {', '.join(unavailable)}.\n"
+                f"Do NOT attempt to use tools to fetch them as they will fail. Proceed with diagnosis.\n\n"
+            )
 
         return (
+            f"{warning_block}"
             f"[INCIDENT]\n"
             f"app: {app_name}\n"
             f"fingerprint: {fingerprint}\n"
@@ -422,6 +443,9 @@ class ContextPackager:
             f"[REPO]\n"
             f"Available at: {worktree_path}\n"
             f"Use read_file, grep_search, view_file_slice to investigate.\n"
+            f"\n"
+            f"[REPOMAP / SKELETON]\n"
+            f"{repomap}\n"
             f"\n"
             f"[METRICS]\n"
             f"{dim3}\n"
@@ -541,6 +565,9 @@ class PostflightOrchestrator:
         Falls back to escalation if any step fails.
         """
         start_time = time.time()
+        
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
 
         if os.environ.get("DAA_GIT_MODE") == "api":
             from .tools.clonefree_client import CloneFreeGitClient
@@ -600,12 +627,15 @@ class PostflightOrchestrator:
                 )
                 
             # 6. Create PR via API
-            pr_url = self._create_pr_idempotent(
-                repo_url=client.repo_url,
-                branch_name=branch_name,
-                app_name=app_name,
-                explanation=explanation
-            )
+            if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
+                pr_url = f"AWAITING_APPROVAL:{branch_name}"
+            else:
+                pr_url = self._create_pr_idempotent(
+                    repo_url=client.repo_url,
+                    branch_name=branch_name,
+                    app_name=app_name,
+                    explanation=explanation
+                )
             
             elapsed = time.time() - start_time
             postmortem = self._generate_postmortem(
@@ -693,12 +723,15 @@ class PostflightOrchestrator:
             return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
 
         # ---- 6. Create or retrieve PR ------------------------------------
-        pr_url = self._create_pr_idempotent(
-            repo_url=repo_url,
-            branch_name=branch_name,
-            app_name=app_name,
-            explanation=explanation,
-        )
+        if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
+            pr_url = f"AWAITING_APPROVAL:{branch_name}"
+        else:
+            pr_url = self._create_pr_idempotent(
+                repo_url=repo_url,
+                branch_name=branch_name,
+                app_name=app_name,
+                explanation=explanation,
+            )
 
         elapsed = time.time() - start_time
         postmortem = self._generate_postmortem(
@@ -906,7 +939,9 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     # If no fix found from DB, check Git remote branches in API mode (or as fallback)
     if fix_status["status"] == "no_fix":
         repo_url = job.get("repo_url")
-        token_val = token or os.environ.get("GITHUB_TOKEN") or os.environ.get("GITLAB_PRIVATE_TOKEN")
+        token_val = os.environ.get("DAA_GIT_TOKEN")
+        if not token_val and token and not token.startswith("eyJ"):
+            token_val = token
         if not repo_url:
             try:
                 resp = requests.get(
@@ -925,7 +960,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 auth_url = repo_url
                 if token_val:
                     parsed = urlparse(repo_url)
-                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.hostname}").geturl()
+                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl() if '@' not in parsed.netloc else repo_url
                 
                 git_res = subprocess.run(
                     ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
@@ -983,24 +1018,72 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
             logger.warning("Could not resolve repo_url from backend: %s", exc)
             repo_url = ""
 
-    # ---- 4. Get worktree ------------------------------------------------
+    # ---- 4. Get worktree & Acquire Deduplication Lock -------------------
     cache_manager = RepoCacheManager()
     worktree_path = None
     if repo_url:
+        branch_name = f"fix/{fingerprint[:12]}"
         if os.environ.get("DAA_GIT_MODE") == "api":
             worktree_path = f"/tmp/{app_name}"
+            try:
+                from .tools.clonefree_client import CloneFreeGitClient
+                client = CloneFreeGitClient(app_name)
+                if not client.create_branch_lock(branch_name):
+                    return {
+                        "worktree_path": None,
+                        "context": None,
+                        "fingerprint": fingerprint,
+                        "skip": True,
+                        "skip_reason": "Deduplicated via API branch lock",
+                        "pr_url": None,
+                    }
+            except Exception as exc:
+                logger.error("Failed to acquire API branch lock: %s", exc)
         else:
             try:
+                token_val = os.environ.get("DAA_GIT_TOKEN")
+                if not token_val and token and not token.startswith("eyJ"):
+                    token_val = token
+                auth_url = repo_url
+                if token_val:
+                    parsed = urlparse(repo_url)
+                    auth_url = parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl() if '@' not in parsed.netloc else repo_url
                 worktree_path = cache_manager.get_worktree(
                     app_name=app_name,
-                    repo_url=repo_url,
+                    repo_url=auth_url,
                     incident_id=incident_id,
                 )
+                try:
+                    subprocess.run(
+                        ["git", "push", "origin", f"HEAD:refs/heads/{branch_name}"],
+                        cwd=worktree_path,
+                        check=True,
+                        capture_output=True,
+                    )
+                except subprocess.CalledProcessError:
+                    return {
+                        "worktree_path": None,
+                        "context": None,
+                        "fingerprint": fingerprint,
+                        "skip": True,
+                        "skip_reason": "Deduplicated via Git push lock",
+                        "pr_url": None,
+                    }
             except Exception as exc:
-                logger.error("Failed to obtain worktree: %s", exc)
+                logger.error("Failed to obtain worktree or lock: %s", exc)
                 worktree_path = None
     else:
         logger.warning("No repo_url available; worktree will be unavailable")
+
+    # ---- 4.5 Prefetch Repomap --------------------------------------------
+    repomap = "unavailable"
+    if worktree_path and os.environ.get("DAA_GIT_MODE") != "api":
+        try:
+            import json
+            from .tools.code_nav_tool import read_repomap
+            repomap = read_repomap(json.dumps({"repo_path": worktree_path}))
+        except Exception as exc:
+            logger.error("Failed to prefetch repomap: %s", exc)
 
     # ---- 5. Hydrate dimensions -------------------------------------------
     hydrator = LogHydrator(backend_url=backend_url, token=token)
@@ -1016,6 +1099,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
         job=job,
         worktree_path=worktree_path or "<no worktree>",
         hydrated=hydrated,
+        repomap=repomap,
     )
 
     return {

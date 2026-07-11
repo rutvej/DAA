@@ -191,7 +191,7 @@ def approve_fix(id: str, db: Session = Depends(get_db), current_user: dict = Dep
     # Try finding an active incident
     incident = db.query(DBIncident).filter(
         DBIncident.app_name == app_name,
-        DBIncident.status == "investigating"
+        DBIncident.status.in_(["investigating", "fix_proposed", "awaiting_approval"])
     ).first()
     if incident:
         incident.status = "pr_open"
@@ -249,7 +249,7 @@ async def post_analysis(
     # Propagate findings to the active Incident record if it exists
     incident = db.query(DBIncident).filter(
         DBIncident.app_name == log.app_name,
-        DBIncident.status == "investigating"
+        DBIncident.status.in_(["investigating", "processing", "awaiting_approval", "fix_proposed"])
     ).first()
     if incident:
         if status == "awaiting_approval":

@@ -54,7 +54,6 @@ When `DAA_QUEUE_MODE=sync` is enabled:
     3. Imports the agent runner `from src.main import process_job`.
     4. Restores the original backend modules back to `sys.modules`.
   - In `logs.py`:
-    1. Duplicates `/app/app/python-agent/src` to `/app/app/agent_src` at runtime via `shutil.copytree`.
-    2. Adds `/app/app` to `sys.path`.
-    3. Imports the agent runner `from agent_src.main import process_job`.
+    1. Adds `/app/app/python-agent` to `sys.path` and handles module isolation dynamically.
+    2. Imports the agent runner `process_job`.
 - **Background Dispatch**: Enqueues `process_job(job)` inside a FastAPI `BackgroundTasks` thread pool.

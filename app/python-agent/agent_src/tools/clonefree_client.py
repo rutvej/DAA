@@ -16,6 +16,13 @@ def get_project_connection(app_name: str) -> dict:
     app_name = app_name.strip()
     if ":" in app_name:
         app_name = app_name.split(":")[1].strip()
+        
+    target_app = os.environ.get("DAA_TARGET_APP")
+    if target_app and app_name != target_app:
+        allowed = [a.strip() for a in os.environ.get("DAA_ALLOWED_REPOS", "").split(",") if a.strip()]
+        if app_name not in allowed:
+            logger.warning(f"Access to repo {app_name} blocked. Not in DAA_ALLOWED_REPOS.")
+            return {}
     try:
         response = requests.get(f"{backend_url}/projects/{app_name}", timeout=10)
         if response.status_code == 200:
@@ -254,6 +261,37 @@ class CloneFreeGitClient:
                 return resp.status_code == 201
         except Exception as e:
             logger.error(f"Error creating branch via API: {e}")
+        return False
+
+    def create_branch_lock(self, new_branch: str, base_branch: str = "main") -> bool:
+        """Attempts to create a branch atomically without deleting it first (distributed lock)."""
+        base_sha = self.get_branch_sha(base_branch)
+        if not base_sha and base_branch == "main":
+            base_sha = self.get_branch_sha("master")
+            
+        if not base_sha:
+            logger.error(f"Could not find base branch {base_branch}")
+            return False
+            
+        try:
+            if self.provider == "github":
+                url = f"{self.api_base}/git/refs"
+                payload = {
+                    "ref": f"refs/heads/{new_branch}",
+                    "sha": base_sha
+                }
+                resp = requests.post(url, headers=self.headers, json=payload, timeout=10)
+                return resp.status_code == 201
+            else:
+                url = f"{self.api_base}/repository/branches"
+                payload = {
+                    "branch": new_branch,
+                    "ref": base_sha
+                }
+                resp = requests.post(url, headers=self.headers, json=payload, timeout=10)
+                return resp.status_code == 201
+        except Exception as e:
+            logger.error(f"Error creating branch lock via API: {e}")
         return False
 
     def write_file_content(self, file_path: str, content: str, branch_name: str, commit_message: str) -> bool:

@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from ..database import get_db, Incident as DBIncident
+from ..database import get_db, Incident as DBIncident, Fix as DBFix
 from .auth import get_current_user
 
 router = APIRouter()
@@ -21,6 +21,7 @@ class IncidentResponse(BaseModel):
     pr_url: Optional[str] = None
     ticket_url: Optional[str] = None
     postmortem_md: Optional[str] = None
+    fix_id: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class IncidentUpdate(BaseModel):
@@ -30,6 +31,27 @@ class IncidentUpdate(BaseModel):
     pr_url: Optional[str] = None
     ticket_url: Optional[str] = None
     postmortem_md: Optional[str] = None
+
+def _to_incident_response(inc: DBIncident, db: Session) -> IncidentResponse:
+    fix = db.query(DBFix).filter(DBFix.logId == inc.id).first()
+    if not fix and inc.fingerprint:
+        fix = db.query(DBFix).filter(DBFix.logId == inc.fingerprint).first()
+    return IncidentResponse(
+        id=inc.id,
+        fingerprint=inc.fingerprint,
+        app_name=inc.app_name,
+        status=inc.status,
+        occurrence_count=inc.occurrence_count or 1,
+        first_seen_at=inc.first_seen_at.isoformat() if inc.first_seen_at else "",
+        last_seen_at=inc.last_seen_at.isoformat() if inc.last_seen_at else "",
+        agent_attempts=inc.agent_attempts or 0,
+        root_cause_summary=inc.root_cause_summary,
+        confidence_score=inc.confidence_score,
+        pr_url=inc.pr_url,
+        ticket_url=inc.ticket_url,
+        postmortem_md=inc.postmortem_md,
+        fix_id=fix.id if fix else None
+    )
 
 @router.get("/", response_model=List[IncidentResponse])
 def list_incidents(
@@ -46,24 +68,7 @@ def list_incidents(
     if app_name:
         query = query.filter(DBIncident.app_name == app_name)
     incidents = query.order_by(DBIncident.last_seen_at.desc()).all()
-    res = []
-    for inc in incidents:
-        res.append(IncidentResponse(
-            id=inc.id,
-            fingerprint=inc.fingerprint,
-            app_name=inc.app_name,
-            status=inc.status,
-            occurrence_count=inc.occurrence_count or 1,
-            first_seen_at=inc.first_seen_at.isoformat() if inc.first_seen_at else "",
-            last_seen_at=inc.last_seen_at.isoformat() if inc.last_seen_at else "",
-            agent_attempts=inc.agent_attempts or 0,
-            root_cause_summary=inc.root_cause_summary,
-            confidence_score=inc.confidence_score,
-            pr_url=inc.pr_url,
-            ticket_url=inc.ticket_url,
-            postmortem_md=inc.postmortem_md
-        ))
-    return res
+    return [_to_incident_response(inc, db) for inc in incidents]
 
 @router.get("/{id}", response_model=IncidentResponse)
 def get_incident(id: str, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
@@ -72,21 +77,7 @@ def get_incident(id: str, db: Session = Depends(get_db), current_user: dict = De
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
-    return IncidentResponse(
-        id=inc.id,
-        fingerprint=inc.fingerprint,
-        app_name=inc.app_name,
-        status=inc.status,
-        occurrence_count=inc.occurrence_count or 1,
-        first_seen_at=inc.first_seen_at.isoformat() if inc.first_seen_at else "",
-        last_seen_at=inc.last_seen_at.isoformat() if inc.last_seen_at else "",
-        agent_attempts=inc.agent_attempts or 0,
-        root_cause_summary=inc.root_cause_summary,
-        confidence_score=inc.confidence_score,
-        pr_url=inc.pr_url,
-        ticket_url=inc.ticket_url,
-        postmortem_md=inc.postmortem_md
-    )
+    return _to_incident_response(inc, db)
 
 @router.patch("/{id}", response_model=IncidentResponse)
 def update_incident(id: str, update: IncidentUpdate, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
@@ -109,18 +100,4 @@ def update_incident(id: str, update: IncidentUpdate, db: Session = Depends(get_d
         inc.postmortem_md = update.postmortem_md
     db.commit()
     db.refresh(inc)
-    return IncidentResponse(
-        id=inc.id,
-        fingerprint=inc.fingerprint,
-        app_name=inc.app_name,
-        status=inc.status,
-        occurrence_count=inc.occurrence_count or 1,
-        first_seen_at=inc.first_seen_at.isoformat() if inc.first_seen_at else "",
-        last_seen_at=inc.last_seen_at.isoformat() if inc.last_seen_at else "",
-        agent_attempts=inc.agent_attempts or 0,
-        root_cause_summary=inc.root_cause_summary,
-        confidence_score=inc.confidence_score,
-        pr_url=inc.pr_url,
-        ticket_url=inc.ticket_url,
-        postmortem_md=inc.postmortem_md
-    )
+    return _to_incident_response(inc, db)

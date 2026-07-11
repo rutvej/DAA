@@ -402,6 +402,7 @@ def cmd_init(_args):
         env_map["LLM_BASE_URL"] = llm_base_url
 
     # Git Credentials
+    env_map["DAA_GIT_TOKEN"] = git_token
     if git_provider == "github":
         env_map["GITHUB_TOKEN"] = git_token
     elif git_provider == "gitlab":
@@ -714,6 +715,30 @@ def cmd_config_set_model(args):
     print()
 
 
+def cmd_config_set_git(args):
+    if not args.provider or not args.token:
+        err("set-git requires --provider and --token flags.")
+        sys.exit(1)
+        
+    header("━━━ Update Git Configuration ━━━")
+    cfg = load_config()
+    cfg["GIT_PROVIDER"] = args.provider
+    cfg["GIT_TOKEN"] = args.token
+    save_config(cfg)
+    
+    env_map = {
+        "DAA_GIT_TOKEN": args.token,
+    }
+    if args.provider == "github":
+        env_map["GITHUB_TOKEN"] = args.token
+    elif args.provider in ("gitlab", "gitea"):
+        env_map["GITLAB_PRIVATE_TOKEN"] = args.token
+        
+    write_env_vars(env_map)
+    ok(f"Updated Git configuration to: provider={args.provider}")
+    info("To redeploy services with the new token, run: daa redeploy")
+    print()
+
 def cmd_redeploy(_args):
     cfg = load_config()
     header("━━━ Redeploy DAA Services ━━━")
@@ -930,6 +955,10 @@ def main():
     set_model_parser.add_argument("--model", required=True, help="Model name")
     set_model_parser.add_argument("--api-key", help="API key")
 
+    set_git_parser = cfg_sub.add_parser("set-git", help="Set git provider and token")
+    set_git_parser.add_argument("--provider", required=True, help="Git provider (github, gitlab, gitea)")
+    set_git_parser.add_argument("--token", required=True, help="Git personal access token")
+
     # redeploy
     subparsers.add_parser("redeploy", help="Redeploy DAA Services")
 
@@ -950,7 +979,7 @@ def main():
         "register": cmd_register,
         "policy": cmd_policy,
         "mcp": cmd_mcp,
-        "config": lambda a: cmd_config_set_model(a) if a.config_command == "set-model" else cfg_parser.print_help(),
+        "config": lambda a: cmd_config_set_model(a) if a.config_command == "set-model" else (cmd_config_set_git(a) if a.config_command == "set-git" else cfg_parser.print_help()),
         "redeploy": cmd_redeploy,
         "status": cmd_status,
         "test": cmd_test,

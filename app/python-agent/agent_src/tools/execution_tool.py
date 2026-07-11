@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import requests
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
 
@@ -13,6 +14,18 @@ class RunTestsInput(BaseModel):
             'Example: {"repo_path": "/tmp/checkout-service", "test_command": "pytest -v"}'
         )
     )
+
+def _get_app_language(app_name: str) -> str:
+    if not app_name:
+        return "python"
+    backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
+    try:
+        resp = requests.get(f"{backend_url}/apps/{app_name}", timeout=5)
+        if resp.status_code == 200:
+            return resp.json().get("language", "python").lower()
+    except Exception:
+        pass
+    return "python"
 
 
 @tool(args_schema=RunTestsInput)
@@ -43,50 +56,31 @@ def run_tests(data: str) -> str:
         if not os.path.exists(repo_path):
             return f"Error: Repository path '{repo_path}' does not exist."
 
-        # 2. Match container for Full-Stack Outsourced Testing
-        container_name = None
-        try:
-            docker_ps = subprocess.run(
-                "docker ps --format '{{.Names}}'",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False
-            )
-            names = [n.strip() for n in docker_ps.stdout.split("\n") if n.strip()]
-            repo_dir_name = os.path.basename(repo_path.rstrip("/"))
-            for name in names:
-                if repo_dir_name in name:
-                    container_name = name
-                    break
-        except Exception:
-            pass
+        # 2. Deterministic Image Selection based on Application.language
+        lang = _get_app_language(os.environ.get("DAA_TARGET_APP", ""))
+        image_map = {
+            "python": "python:3.10-slim",
+            "node": "node:18-slim",
+            "javascript": "node:18-slim",
+            "typescript": "node:18-slim",
+            "go": "golang:1.20",
+            "golang": "golang:1.20",
+            "java": "maven:3.8-openjdk-17-slim",
+            "ruby": "ruby:3.1-slim"
+        }
+        runner_image = image_map.get(lang, "python:3.10-slim")
 
-        if container_name:
-            # Run the test inside the running container sandbox
-            cmd = f"docker exec -w /app {container_name} {test_command}"
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=120,
-            )
-            command_run = cmd
-        else:
-            # Fallback to local subprocess execution
-            result = subprocess.run(
-                test_command,
-                shell=True,
-                cwd=repo_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=120,
-            )
-            command_run = test_command
+        # 3. Execute via docker run
+        cmd = f"docker run --rm -v {repo_path}:/workspace -w /workspace {runner_image} {test_command}"
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=120,
+        )
+        command_run = cmd
 
         return (
             f"Test execution completed with return code {result.returncode}.\n"

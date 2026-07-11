@@ -539,6 +539,9 @@ def process_job(job: Job):
     """
     import time
     start_time = time.time()
+    
+    # [Item 5] Enforce Multi-Repo Access Boundary
+    os.environ["DAA_TARGET_APP"] = job.app_name
 
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     logging.info(f"Processing job {job.id} for app {job.app_name}")

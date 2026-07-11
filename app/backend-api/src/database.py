@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Text, Boolean, ForeignKey, Integer
+from sqlalchemy import create_engine, Column, String, DateTime, Text, Boolean, ForeignKey, Integer, UniqueConstraint, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -104,6 +104,15 @@ if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
     engine = None
     SessionLocal = MockSession
 elif DAA_DB_PROVIDER == "sqlite":
+    if "K_SERVICE" in os.environ:
+        import logging
+        logging.warning(
+            "SQLite is fundamentally incompatible with bucket-mounted storage (GCS FUSE) "
+            "due to lack of advisory POSIX locking and mmap support. This will cause "
+            "database corruption or lock errors on Cloud Run. "
+            "Please migrate to an external Postgres database, or libSQL/Turso."
+        )
+
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
     engine = create_engine(
         DATABASE_URL,
@@ -111,16 +120,16 @@ elif DAA_DB_PROVIDER == "sqlite":
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     
-    # Configure SQLite WAL mode
-    from sqlalchemy import event
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.close()
+    # Configure SQLite WAL mode (disabled on Cloud Run to prevent mmap crashes)
+    if "K_SERVICE" not in os.environ:
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.close()
 else:
     DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db")
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=40, pool_timeout=60)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -233,6 +242,19 @@ class Incident(Base):
     pr_url = Column(String, nullable=True)
     ticket_url = Column(String, nullable=True)
     postmortem_md = Column(Text, nullable=True)
+    active_lock = Column(String, default="active")
+
+    __table_args__ = (
+        UniqueConstraint('fingerprint', 'active_lock', name='uq_incident_fingerprint_active_lock'),
+    )
+
+@event.listens_for(Incident.status, 'set')
+def on_incident_status_change(target, value, oldvalue, initiator):
+    active_statuses = ["investigating", "pr_open", "ticket_created", "cooldown", "fix_proposed", "processing", "awaiting_approval", "fix_open"]
+    if value not in active_statuses:
+        target.active_lock = target.id or str(uuid.uuid4())
+    else:
+        target.active_lock = "active"
 
 def get_db():
     db = SessionLocal()
@@ -255,7 +277,15 @@ def run_db_migrations(engine):
                 if 'token' not in columns:
                     print("Adding column 'token' to applications table...")
                     conn.execute(text("ALTER TABLE applications ADD COLUMN token TEXT NULL"))
+            
+            if 'incidents' in inspector.get_table_names():
+                columns = [col['name'] for col in inspector.get_columns('incidents')]
+                if 'active_lock' not in columns:
+                    print("Adding column 'active_lock' to incidents table...")
+                    conn.execute(text("ALTER TABLE incidents ADD COLUMN active_lock VARCHAR(255) DEFAULT 'active'"))
+                    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_incident_fingerprint_active_lock ON incidents(fingerprint, active_lock)"))
         except Exception as e:
             print(f"Error checking/running database migrations: {e}")
+
 
 
