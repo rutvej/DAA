@@ -44,6 +44,8 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - CORS_ALLOW_ORIGINS=http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003,http://${LAN_HOST_IP:-192.168.1.41}:3000,http://${LAN_HOST_IP:-192.168.1.41}:5003
       - CORS_ALLOW_ORIGIN_REGEX=^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$
+      # Disable the baked-in /admin panel — the dedicated admin-panel container runs on :5003
+      - DAA_SERVE_PANEL=false
     volumes:
       - secrets:/var/run/secrets
     extra_hosts:

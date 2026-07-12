@@ -5,7 +5,6 @@ import sys
 import re
 import subprocess
 
-import pika
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import BaseCallbackHandler
@@ -516,6 +515,8 @@ def main():
     """
     Main function to consume jobs from RabbitMQ and process them.
     """
+    import pika  # Lazy import: only needed in RabbitMQ consumer mode
+
     connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
     channel = connection.channel()
 

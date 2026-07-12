@@ -1,26 +1,39 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
-from ..database import get_db, Log, Fix, Incident, Alert
+from ..database import get_db, Log, Fix, Incident, Alert, DAA_DB_PROVIDER
 from .auth import get_current_user
+from .git_provider import fetch_dashboard_stats
 
 router = APIRouter()
+
+_NO_DB = DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis")
 
 
 @router.get("/dashboard")
 def get_dashboard(
-    db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
+    refresh: bool = Query(False, description="Force-bypass the git PR cache"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
-    """Returns real-time aggregate stats for the DAA Admin Panel dashboard."""
+    """Returns real-time aggregate stats for the DAA Admin Panel dashboard.
+
+    When DAA_DB_PROVIDER=none the response is assembled from live Git PR data
+    so the admin panel works identically regardless of deployment mode.
+    """
     if current_user.get("role") == "application":
         raise HTTPException(
             status_code=403,
             detail="Applications are not authorized to perform this action",
         )
 
-    # Active incidents (investigating or pr_open)
+    # ── Git-only mode ──────────────────────────────────────────────────────────
+    if _NO_DB:
+        return fetch_dashboard_stats(force_refresh=refresh)
+
+    # ── DB mode (original logic) ───────────────────────────────────────────────
     active_incidents = (
         db.query(func.count(Incident.id))
         .filter(Incident.status.in_(["investigating", "pr_open"]))
@@ -28,32 +41,26 @@ def get_dashboard(
         or 0
     )
 
-    # Total incidents ever
     total_incidents = db.query(func.count(Incident.id)).scalar() or 0
 
-    # Resolved incidents
     resolved_incidents = (
         db.query(func.count(Incident.id)).filter(Incident.status == "resolved").scalar()
         or 0
     )
 
-    # Fix rate (resolved / total * 100)
     fix_rate = (
         round((resolved_incidents / total_incidents * 100), 1)
         if total_incidents > 0
         else 0.0
     )
 
-    # Logs in last 24h
     since = datetime.utcnow() - timedelta(hours=24)
     recent_log_count = (
         db.query(func.count(Log.id)).filter(Log.timestamp >= since).scalar() or 0
     )
 
-    # Total logs ever
     total_logs = db.query(func.count(Log.id)).scalar() or 0
 
-    # Open PRs (fixes with a pull_request_url and status pending/approved)
     open_prs = (
         db.query(func.count(Fix.id))
         .filter(
@@ -64,12 +71,10 @@ def get_dashboard(
         or 0
     )
 
-    # Active alerts (firing)
     active_alerts = (
         db.query(func.count(Alert.id)).filter(Alert.status == "firing").scalar() or 0
     )
 
-    # Recent incidents (last 5) for timeline widget
     recent_incidents = (
         db.query(Incident).order_by(Incident.last_seen_at.desc()).limit(5).all()
     )
@@ -95,4 +100,5 @@ def get_dashboard(
         "open_prs": open_prs,
         "active_alerts": active_alerts,
         "recent_incidents": recent_incidents_list,
+        "_source": "db",
     }

@@ -3,9 +3,42 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAA v3.0 — Debugging Autonomous Agent Portal</title>
-  <meta name="description" content="Official documentation, quickstart guides, architecture, and interactive simulation console for DAA v3.0 — Debugging Autonomous Agent.">
-  
+  <title>DAA v3.0 — Deduplicated Autonomous SRE Platform</title>
+  <meta name="description" content="DAA is an open-source autonomous SRE platform that automatically triages, diagnoses, and fixes production microservice incidents. It ingests Sentry/Prometheus alerts, runs a LangChain ReAct agent across 4 diagnostic dimensions, and opens a Pull Request with a postmortem — no human required for the first 30-60 minutes of incident response.">
+  <meta name="keywords" content="autonomous SRE, AI incident response, LangChain agent, production debugging, automatic bug fix, Sentry webhook, Prometheus alert, postmortem automation, DevOps AI, open source SRE, DAA">
+  <meta name="author" content="DAA Open Source Project">
+  <meta name="robots" content="index, follow">
+
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://rutvej.github.io/DAA/">
+  <meta property="og:title" content="DAA v3.0 — Deduplicated Autonomous SRE Platform">
+  <meta property="og:description" content="Open-source autonomous SRE platform. Ingests production exceptions, deduplicates with SHA-256 fingerprints, dispatches a LangChain agent across 4 diagnostic dimensions, and opens a PR with a postmortem — automatically.">
+  <meta property="og:image" content="https://rutvej.github.io/DAA/docs/daa_hero.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DAA v3.0 — Autonomous SRE Platform">
+  <meta name="twitter:description" content="AI that fixes your production bugs. Ingests Sentry/Prometheus, runs 4-dimension diagnosis, opens PRs automatically.">
+
+  <!-- JSON-LD Structured Data for LLM Web Search -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "DAA — Deduplicated Autonomous SRE Platform",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, macOS, Windows",
+    "description": "DAA is an open-source autonomous Site Reliability Engineering (SRE) platform that automates incident triage. It ingests exception logs via Sentry or Prometheus webhooks, deduplicates them using SHA-256 fingerprints, applies sliding-window escalation policies, and dispatches a LangChain ReAct agent that investigates across 4 dimensions: recent git changes, infrastructure alerts, correlated distributed traces, and surgical code navigation. The agent applies a fix, runs tests, opens a Pull Request, and generates a postmortem report.",
+    "version": "3.0.1",
+    "url": "https://rutvej.github.io/DAA/",
+    "downloadUrl": "https://hub.docker.com/r/rutvej1/daa-standalone",
+    "codeRepository": "https://github.com/rutvej/DAA",
+    "license": "https://opensource.org/licenses/MIT",
+    "programmingLanguage": ["Python", "TypeScript", "Go"],
+    "keywords": "autonomous SRE, AI incident response, LangChain, production debugging, automatic bug fix, DevOps automation",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+  }
+  </script>
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1070,9 +1103,9 @@
         <span class="badge green">Self-Hosted</span>
         <span class="badge cyan">Open Source SRE</span>
       </div>
-      <h1>Debugging Autonomous Agent</h1>
+      <h1>Deduplicated Autonomous SRE Platform</h1>
       <p>
-        DAA replaces the first 30–60 minutes of manual triage toil when production microservices fail. It aggregates alerts, traces cascades, queries logs, finds code flaws, and automatically proposes pull requests.
+        DAA replaces the first 30–60 minutes of manual triage toil when production microservices fail. It ingests Sentry/Prometheus alerts, deduplicates with SHA-256 fingerprints, runs a 4-dimension LangChain agent investigation, and automatically proposes pull requests with a postmortem report.
       </p>
       <div class="hero-actions">
         <a href="#setup-guide" class="btn btn-primary"><i class="fa-solid fa-circle-play"></i> Get Started</a>
@@ -1371,9 +1404,9 @@
         <div id="gemini" class="tab-pane active">
           <div class="code-block-wrapper">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Google Gemini Configuration
+            <pre><code># Google Gemini Configuration (Recommended)
 LLM_PROVIDER=google
-LLM_MODEL=gemini-1.5-flash  # or gemini-2.5-flash
+LLM_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere</code></pre>
           </div>
         </div>
@@ -1383,7 +1416,7 @@ GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere</code></pre>
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
             <pre><code># Google Cloud Vertex AI Setup
 LLM_PROVIDER=vertex
-LLM_MODEL=gemini-1.5-flash
+LLM_MODEL=gemini-2.5-flash
 # Note: Authenticate your environment before running DAA SRE agent using:
 # gcloud auth application-default login</code></pre>
           </div>
@@ -1439,7 +1472,7 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
       
       <h3>1-Line Unified Installer (Linux/WSL/macOS)</h3>
       <p>
-        The absolute fastest way to install DAA, configure environment variables, and build core libraries is using our unified automated curl installer script:
+        The fastest way to install DAA, configure environment variables, and build core libraries:
       </p>
       <div class="code-block-wrapper" style="margin-bottom: 1.5rem;">
         <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
@@ -1447,14 +1480,14 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
       </div>
 
       <h3>Running the E2E Walkthrough Demo</h3>
-      <p>DAA has an independent end-to-end sandbox walkthrough repository. Follow these steps to execute the automated resolution loop:</p>
+      <p>DAA has an independent end-to-end sandbox walkthrough. Follow these steps to execute the automated resolution loop:</p>
       
       <ol>
         <li>
           <strong>Navigate to the Demo Walkthrough folder:</strong>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /home/rutvej/Desktop/daa-e2e-demo</code></pre>
+            <pre><code>cd /path/to/daa-e2e-demo</code></pre>
           </div>
         </li>
         <li>
@@ -1473,10 +1506,10 @@ LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
       <ol>
         <li style="margin-bottom: 1rem;">
           <strong>Initialize Demo Infrastructure &amp; Repositories:</strong>
-          <p>Spin up Gitea, Redis, Postgres, and RabbitMQ, and push the local payment repositories to Gitea:</p>
+          <p>Spin up Gitea, Postgres, and RabbitMQ, and push the local payment repositories to Gitea:</p>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /home/rutvej/Desktop/daa-e2e-demo
+            <pre><code>cd /path/to/daa-e2e-demo
 python3 run_demo.py --skip-registration --skip-load-test</code></pre>
           </div>
           <p style="font-size: 0.9rem; color: var(--text-muted);">Take note of the Git Token generated and printed by the script (or retrieve it from <code>.gitea_token</code>).</p>
@@ -1486,7 +1519,7 @@ python3 run_demo.py --skip-registration --skip-load-test</code></pre>
           <p>Navigate to the DAA directory, run the unified installation script, link it globally, and run the configuration wizard:</p>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /home/rutvej/Desktop/DAA
+            <pre><code>cd /path/to/DAA
 ./install.sh
 sudo ln -sf $(pwd)/daa /usr/local/bin/daa
 daa init</code></pre>
@@ -1530,8 +1563,8 @@ daa policy --app payment-worker --threshold 3 --window 60</code></pre>
           <p>Save the returned <code>DAA_TOKEN</code> values inside the demo's <code>.env</code> file (e.g. <code>DAA_TOKEN_PAYMENT_API=&lt;token&gt;</code>) and start the containers:</p>
           <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># In /home/rutvej/Desktop/daa-e2e-demo/.env
-cd /home/rutvej/Desktop/daa-e2e-demo
+            <pre><code># In /path/to/daa-e2e-demo/.env
+cd /path/to/daa-e2e-demo
 docker-compose up -d --build payment-api payment-worker</code></pre>
           </div>
         </li>
@@ -1641,7 +1674,7 @@ gcloud run deploy daa-minimal \
         <h2>Model Context Protocol (MCP) Integration</h2>
       </div>
       <p>
-        DAA v3.0 natively integrates with the **Model Context Protocol (MCP)** to support tool extensibility, cloud data integrations, and cross-agent collaboration.
+        DAA v3.0 natively integrates with the <strong>Model Context Protocol (MCP)</strong> to support tool extensibility, cloud data integrations, and cross-agent collaboration.
       </p>
 
       <h3>A. Exposing DAA Tools to Other AI Agents (Server)</h3>
@@ -1812,6 +1845,10 @@ gcloud run deploy daa-minimal \
         <li class="roadmap-item completed">
           <i class="fa-solid fa-circle-check"></i>
           <span><strong>Persistent Repo Cache</strong> (Cloning once, git-caching, and git worktrees per incident completed).</span>
+        </li>
+        <li class="roadmap-item pending">
+          <i class="fa-solid fa-clock"></i>
+          <span><strong>Redis Cache Layer (DAA 3.1)</strong> (Pluggable Redis support for session caching and stateless deduplication without a SQL database).</span>
         </li>
         <li class="roadmap-item pending">
           <i class="fa-solid fa-clock"></i>

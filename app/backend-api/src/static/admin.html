@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DAA — Admin Panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --accent:    #58a6ff;
+      --green:     #3fb950;
+      --yellow:    #d29922;
+      --red:       #f85149;
+      --purple:    #bc8cff;
+      --cyan:      #39d353;
+      --radius:    10px;
+      --font:      -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-mark {
+      background: var(--accent);
+      color: #0d1117;
+      font-weight: 800;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      letter-spacing: .5px;
+    }
+    .logo-text { font-weight: 700; font-size: 15px; }
+    .logo-sub  { font-size: 11px; color: var(--muted); }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .mode-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 20px;
+      border: 1px solid;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .badge-git    { color: var(--purple); border-color: var(--purple); background: rgba(188,140,255,.1); }
+    .badge-db     { color: var(--green);  border-color: var(--green);  background: rgba(63,185,80,.1); }
+    .badge-hybrid { color: var(--cyan);   border-color: var(--cyan);   background: rgba(57,211,83,.1); }
+    .badge-none   { color: var(--yellow); border-color: var(--yellow); background: rgba(210,153,34,.1); }
+
+    .refresh-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Layout ── */
+    .shell { display: flex; min-height: calc(100vh - 56px); }
+
+    nav {
+      width: 200px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .nav-section { margin-bottom: 24px; }
+    .nav-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      padding: 0 16px;
+      margin-bottom: 6px;
+    }
+    nav a {
+      display: block;
+      padding: 7px 16px;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+      cursor: pointer;
+    }
+    nav a:hover, nav a.active {
+      color: var(--text);
+      background: rgba(88,166,255,.06);
+      border-left-color: var(--accent);
+    }
+
+    main { flex: 1; padding: 28px 32px; overflow: auto; }
+
+    /* ── Pages ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .page-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .page-sub { color: var(--muted); margin-bottom: 24px; font-size: 13px; }
+
+    /* ── Stat cards ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .stat-label { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+    .stat-value { font-size: 30px; font-weight: 800; line-height: 1; }
+    .stat-meta  { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    .c-red    { color: var(--red); }
+    .c-blue   { color: var(--accent); }
+    .c-green  { color: var(--green); }
+    .c-yellow { color: var(--yellow); }
+
+    /* ── Panel cards ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .panel-title { font-size: 15px; font-weight: 700; }
+    .panel-meta  { font-size: 12px; color: var(--muted); }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    td { padding: 10px 12px; border-bottom: 1px solid rgba(48,54,61,.5); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(88,166,255,.04); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Status badges ── */
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+    .s-investigating { background: rgba(210,153,34,.2); color: var(--yellow); }
+    .s-pr_open       { background: rgba(88,166,255,.2); color: var(--accent); }
+    .s-resolved      { background: rgba(63,185,80,.2);  color: var(--green); }
+    .s-cooldown      { background: rgba(188,140,255,.2);color: var(--purple); }
+    .s-human_required,
+    .s-escalated     { background: rgba(248,81,73,.2);  color: var(--red); }
+    .s-ticket_created{ background: rgba(57,211,83,.2);  color: var(--cyan); }
+    .s-default       { background: rgba(139,148,158,.2);color: var(--muted); }
+
+    /* ── Capabilities row ── */
+    .caps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+    }
+    .cap-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .cap-key   { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .cap-value { font-size: 13px; font-weight: 600; }
+    .cap-on    { color: var(--green); }
+    .cap-off   { color: var(--muted); }
+
+    /* ── Empty / loading / error states ── */
+    .state-box {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .state-icon { font-size: 36px; margin-bottom: 10px; }
+    .state-msg  { font-size: 14px; font-weight: 600; }
+    .state-sub  { font-size: 12px; margin-top: 6px; }
+
+    .err { color: var(--red); font-size: 13px; margin-bottom: 12px; }
+
+    /* ── No-db notice ── */
+    .source-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(88,166,255,.06);
+      border: 1px solid rgba(88,166,255,.15);
+      border-radius: 8px;
+      padding: 8px 14px;
+      margin-bottom: 20px;
+    }
+    .source-notice span { font-weight: 600; color: var(--accent); }
+
+    /* ── Refresh button ── */
+    .btn {
+      background: rgba(88,166,255,.1);
+      color: var(--accent);
+      border: 1px solid rgba(88,166,255,.3);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn:hover { background: rgba(88,166,255,.2); }
+
+    /* ── Postmortem expand ── */
+    .pm-row td { background: rgba(22,27,34,.6); }
+    pre {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      color: var(--muted);
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    @media (max-width: 680px) {
+      nav { display: none; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">DAA</div>
+    <div>
+      <div class="logo-text">Admin Panel</div>
+      <div class="logo-sub">Operations Console</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <span id="mode-badge" class="mode-badge badge-none">Loading…</span>
+    <div class="refresh-dot" id="pulse" style="display:none"></div>
+    <span id="auth-label" style="font-size:12px;color:var(--muted)"></span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav>
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <a class="active" onclick="show('dashboard')">Dashboard</a>
+      <a onclick="show('health')">System Health</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Incidents</div>
+      <a onclick="show('incidents')">Active Incidents</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-label">Deployment</div>
+      <a onclick="show('capabilities')">Capabilities</a>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- Dashboard -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-title">DAA Control Center</div>
+      <div class="page-sub" id="dash-sub">Loading…</div>
+      <div id="source-notice" class="source-notice" style="display:none">
+        <span>🔀 Git-only mode</span> — data assembled from open PRs · no database connected
+      </div>
+      <div id="dash-err" class="err"></div>
+      <div class="stats-grid" id="dash-stats">
+        <div class="stat-card"><div class="stat-label c-red">Active Incidents</div><div class="stat-value" id="s-active">—</div><div class="stat-meta">Under investigation</div></div>
+        <div class="stat-card"><div class="stat-label c-blue">Open PRs</div><div class="stat-value" id="s-prs">—</div><div class="stat-meta">Fixes proposed to Git</div></div>
+        <div class="stat-card"><div class="stat-label c-green">Fix Rate</div><div class="stat-value" id="s-rate">—</div><div class="stat-meta">Auto-remediation rate</div></div>
+        <div class="stat-card"><div class="stat-label c-yellow">Firing Alerts</div><div class="stat-value" id="s-alerts">—</div><div class="stat-meta">Active alert count</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Recent Incidents</span>
+          <button class="btn" onclick="loadDashboard(true)">↻ Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>App</th><th>Status</th><th>Occurrences</th><th>Last seen</th></tr></thead>
+          <tbody id="dash-incidents"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Health -->
+    <div id="page-health" class="page">
+      <div class="page-title">System Health</div>
+      <div class="page-sub">Backend API liveness and deployment mode.</div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Backend Status</span>
+          <button class="btn" onclick="loadHealth()">↻ Refresh</button>
+        </div>
+        <div id="health-body">
+          <div class="state-box"><div class="state-icon">⏳</div><div class="state-msg">Checking…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incidents -->
+    <div id="page-incidents" class="page">
+      <div class="page-title">Incidents</div>
+      <div class="page-sub">All incidents — live SHA-deduplication tracker.</div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Incident List</span>
+          <button class="btn" onclick="loadIncidents(true)">↻ Refresh</button>
+        </div>
+        <div id="inc-err" class="err"></div>
+        <table>
+          <thead><tr><th>App</th><th>Status</th><th>Source</th><th>Occurrences</th><th>PR / Ticket</th><th>Last seen</th></tr></thead>
+          <tbody id="inc-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Capabilities -->
+    <div id="page-capabilities" class="page">
+      <div class="page-title">Deployment Capabilities</div>
+      <div class="page-sub">Current environment configuration — no secrets exposed.</div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Feature Flags</span>
+        </div>
+        <div class="caps-grid" id="caps-grid">
+          <div class="state-box"><div class="state-icon">⏳</div><div class="state-msg">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const API = (
+  window.location.port === '8080' ||
+  window.location.port === '8000' ||
+  window.location.port === ''
+)
+  ? (window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : ''))
+  : (window.location.protocol + '//' + window.location.hostname + ':8080');
+
+let _token = localStorage.getItem('daa_token') || '';
+let _caps  = null;
+
+// ── Fetch helper ─────────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (_token) headers['Authorization'] = 'Bearer ' + _token;
+  const res = await fetch(API + path, { ...opts, headers });
+  if (!res.ok) throw new Error(res.status + ' ' + res.statusText);
+  return res.json();
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function show(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  event && event.currentTarget && event.currentTarget.classList.add('active');
+
+  if (page === 'dashboard')    loadDashboard();
+  if (page === 'health')       loadHealth();
+  if (page === 'incidents')    loadIncidents();
+  if (page === 'capabilities') renderCaps();
+}
+
+// ── Startup ───────────────────────────────────────────────────────────────────
+async function boot() {
+  // 1. Load capabilities
+  try {
+    _caps = await api('/status/capabilities');
+  } catch (e) {
+    // Fallback: assume minimal mode
+    _caps = { db_enabled: false, auth_enabled: true, git_configured: false,
+              deployment_mode: 'minimal', data_sources: [], git_provider: 'none' };
+  }
+
+  // 2. Update mode badge
+  const badge = document.getElementById('mode-badge');
+  const modeMap = {
+    'full-stack': ['🔀+🗄️ Full Stack', 'badge-hybrid'],
+    'db-only':    ['🗄️ DB Mode',       'badge-db'],
+    'git-only':   ['🔀 Git Mode',      'badge-git'],
+    'minimal':    ['⚠ Minimal',        'badge-none'],
+  };
+  const [label, cls] = modeMap[_caps.deployment_mode] || ['Unknown', 'badge-none'];
+  badge.textContent = label;
+  badge.className = 'mode-badge ' + cls;
+
+  // 3. Auth
+  const authLabel = document.getElementById('auth-label');
+  if (!_caps.auth_enabled) {
+    authLabel.textContent = 'Internal mode · no auth';
+    // Auto-acquire token
+    if (!_token) {
+      try {
+        const r = await fetch(API + '/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'admin', password: 'admin' }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          _token = d.token || '';
+          localStorage.setItem('daa_token', _token);
+        }
+      } catch (_) {}
+    }
+  }
+
+  // 4. Start live pulse & auto-refresh
+  document.getElementById('pulse').style.display = 'block';
+  setInterval(() => loadDashboard(), 30000);
+
+  // 5. Load dashboard
+  loadDashboard();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+async function loadDashboard(forceRefresh = false) {
+  const q = forceRefresh ? '?refresh=true' : '';
+  try {
+    const d = await api('/dashboard' + q);
+    document.getElementById('s-active').textContent  = d.active_incidents ?? '—';
+    document.getElementById('s-prs').textContent     = d.open_prs ?? '—';
+    document.getElementById('s-rate').textContent    = d.fix_rate_percent != null ? d.fix_rate_percent + '%' : '—';
+    document.getElementById('s-alerts').textContent  = d.active_alerts ?? '—';
+    document.getElementById('dash-err').textContent  = '';
+
+    const gitOnly = d._source === 'git';
+    document.getElementById('source-notice').style.display = gitOnly ? 'flex' : 'none';
+    document.getElementById('dash-sub').textContent = gitOnly
+      ? 'Live data from Git PRs · auto-refreshes every 30s'
+      : 'Real-time telemetry · auto-refreshes every 30s';
+
+    const tbody = document.getElementById('dash-incidents');
+    tbody.innerHTML = '';
+    if (!d.recent_incidents || d.recent_incidents.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">No incidents yet — all clear ✅</td></tr>';
+    } else {
+      d.recent_incidents.forEach(inc => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${esc(inc.app_name)}</strong></td>
+          <td>${statusBadge(inc.status)}</td>
+          <td>${inc.occurrence_count ?? 1}</td>
+          <td>${fmtDate(inc.last_seen_at)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  } catch (e) {
+    document.getElementById('dash-err').textContent = 'Failed to load dashboard: ' + e.message;
+  }
+}
+
+// ── Incidents ─────────────────────────────────────────────────────────────────
+async function loadIncidents(forceRefresh = false) {
+  const q = forceRefresh ? '?refresh=true' : '';
+  const tbody = document.getElementById('inc-body');
+  tbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:20px">Loading…</td></tr>';
+  document.getElementById('inc-err').textContent = '';
+  try {
+    const data = await api('/incidents/' + q);
+    tbody.innerHTML = '';
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No incidents found ✅</td></tr>';
+      return;
+    }
+    data.forEach(inc => {
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      const prLink = inc.pr_url
+        ? `<a href="${esc(inc.pr_url)}" target="_blank" rel="noreferrer">PR ↗</a>`
+        : (inc.ticket_url ? `<a href="${esc(inc.ticket_url)}" target="_blank" rel="noreferrer">Ticket ↗</a>` : '—');
+      const sourceIcon = (inc.source === 'git') ? '🔀' : '🗄️';
+      tr.innerHTML = `
+        <td><strong>${esc(inc.app_name)}</strong></td>
+        <td>${statusBadge(inc.status)}</td>
+        <td title="${inc.source === 'git' ? 'From Git PRs' : 'From Database'}">${sourceIcon}</td>
+        <td>${inc.occurrence_count ?? 1}</td>
+        <td>${prLink}</td>
+        <td>${fmtDate(inc.last_seen_at)}</td>`;
+
+      // Expand postmortem on click
+      tr.onclick = () => {
+        const existing = document.getElementById('pm-' + inc.id);
+        if (existing) { existing.remove(); return; }
+        if (!inc.postmortem_md && !inc.root_cause_summary) return;
+        const pm = document.createElement('tr');
+        pm.id = 'pm-' + inc.id;
+        pm.className = 'pm-row';
+        pm.innerHTML = `<td colspan="6"><pre>${esc(inc.postmortem_md || inc.root_cause_summary || '')}</pre></td>`;
+        tr.insertAdjacentElement('afterend', pm);
+      };
+
+      tbody.appendChild(tr);
+    });
+  } catch (e) {
+    document.getElementById('inc-err').textContent = 'Failed to load incidents: ' + e.message;
+  }
+}
+
+// ── Health ────────────────────────────────────────────────────────────────────
+async function loadHealth() {
+  const el = document.getElementById('health-body');
+  el.innerHTML = '<div class="state-box"><div class="state-icon">⏳</div><div class="state-msg">Checking…</div></div>';
+  try {
+    const h = await api('/health');
+    const status = h.status === 'ok' ? '✅ Online' : '⚠ ' + h.status;
+    el.innerHTML = `
+      <table>
+        <tr><th>Backend API</th><td style="color:var(--green);font-weight:700">${status}</td></tr>
+        <tr><th>Endpoint</th><td style="font-family:monospace;font-size:12px">${esc(API)}</td></tr>
+        ${ _caps ? `
+        <tr><th>DB Provider</th><td>${esc(_caps.db_provider || '—')}</td></tr>
+        <tr><th>Git Provider</th><td>${esc(_caps.git_provider || '—')}</td></tr>
+        <tr><th>Queue Mode</th><td>${esc(_caps.queue_mode || '—')}</td></tr>
+        <tr><th>Agent Mode</th><td>${esc(_caps.agent_mode || '—')}</td></tr>
+        ` : '' }
+      </table>`;
+  } catch (e) {
+    el.innerHTML = `<div class="state-box">
+      <div class="state-icon">❌</div>
+      <div class="state-msg">Backend unreachable</div>
+      <div class="state-sub">${esc(e.message)}</div>
+    </div>`;
+  }
+}
+
+// ── Capabilities ──────────────────────────────────────────────────────────────
+function renderCaps() {
+  const el = document.getElementById('caps-grid');
+  if (!_caps) {
+    el.innerHTML = '<div class="state-box"><div class="state-icon">⏳</div><div class="state-msg">Loading…</div></div>';
+    return;
+  }
+  const items = [
+    ['DB Provider',    _caps.db_provider],
+    ['DB Enabled',     _caps.db_enabled],
+    ['Auth Enabled',   _caps.auth_enabled],
+    ['Git Configured', _caps.git_configured],
+    ['Git Provider',   _caps.git_provider],
+    ['Git Mode',       _caps.git_mode],
+    ['HITL Mode',      _caps.hitl_mode],
+    ['Queue Mode',     _caps.queue_mode],
+    ['Agent Mode',     _caps.agent_mode],
+    ['Policy Enabled', _caps.policy_enabled],
+    ['Data Sources',   (_caps.data_sources || []).join(', ') || 'none'],
+    ['Deploy Mode',    _caps.deployment_mode],
+  ];
+  el.innerHTML = items.map(([k, v]) => {
+    const bool = typeof v === 'boolean';
+    const cls  = bool ? (v ? 'cap-on' : 'cap-off') : '';
+    const disp = bool ? (v ? '✓ On' : '✗ Off') : esc(String(v ?? '—'));
+    return `<div class="cap-item"><div class="cap-key">${esc(k)}</div><div class="cap-value ${cls}">${disp}</div></div>`;
+  }).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function statusBadge(status) {
+  const cls = ['investigating','pr_open','resolved','cooldown','human_required','escalated','ticket_created']
+    .includes(status) ? 's-' + status : 's-default';
+  return `<span class="badge ${cls}">${esc((status || '').replace(/_/g,' '))}</span>`;
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  return isNaN(d) ? s : d.toLocaleString(undefined, {
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+// ── Go ────────────────────────────────────────────────────────────────────────
+boot();
+</script>
+</body>
+</html>

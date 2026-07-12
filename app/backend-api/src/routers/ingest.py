@@ -281,21 +281,6 @@ async def dispatch_investigation(
         )
 
 
-def execute_agent_sync(job_data: dict) -> None:
-    """Executes the agent synchronously inline."""
-    agent_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../python-agent")
-    )
-    if agent_dir not in sys.path:
-        sys.path.insert(0, agent_dir)
-
-    from agent_src.main import process_job
-    from agent_src.models import Job
-
-    job = Job(**job_data)
-    process_job(job)
-
-
 # ---------------------------------------------------------------------------
 # API Routes
 # ---------------------------------------------------------------------------

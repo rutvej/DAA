@@ -27,7 +27,7 @@ const MainLayout = ({ children }) => (
 );
 
 const Header = () => {
-  const { logout } = useContext(AuthContext);
+  const { logout, authEnabled } = useContext(AuthContext);
   return (
     <header className="header">
       <div className="logo">
@@ -38,8 +38,16 @@ const Header = () => {
         </div>
       </div>
       <div className="user-info">
-        <span>Welcome, Admin</span>
-        <button className="ghost-btn" onClick={logout}>Logout</button>
+        {authEnabled === false ? (
+          <span style={{ fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>
+            Internal mode · no auth
+          </span>
+        ) : (
+          <>
+            <span>Welcome, Admin</span>
+            <button className="ghost-btn" onClick={logout}>Logout</button>
+          </>
+        )}
       </div>
     </header>
   );
@@ -68,7 +76,20 @@ const Sidebar = () => {
 };
 
 const AppRoutes = () => {
-  const { token } = useContext(AuthContext);
+  const { token, booting } = useContext(AuthContext);
+
+  // Wait for the capabilities check to complete before rendering routes.
+  // This prevents a flash of the login page when auth is disabled.
+  if (booting) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', color: '#6b7280', fontSize: 14,
+      }}>
+        Loading DAA Admin Panel…
+      </div>
+    );
+  }
 
   return (
     <Router>

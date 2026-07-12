@@ -1,10 +1,12 @@
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
-from .database import Base, engine, SessionLocal, Application, run_db_migrations
+from .database import Base, engine, SessionLocal, Application, run_db_migrations, DAA_DB_PROVIDER
 from .routers import (
     auth,
     fixes,
@@ -18,6 +20,7 @@ from .routers import (
     ingest,
     telemetry,
 )
+_DB_ACTIVE = DAA_DB_PROVIDER not in ("none", "internal-redis", "external-redis")
 
 if engine is not None:
     Base.metadata.create_all(bind=engine)
@@ -67,6 +70,10 @@ app.add_middleware(
 
 @app.middleware("http")
 async def dynamic_cors_middleware(request: Request, call_next):
+    # Skip DB lookup in no-DB mode — MockSession can't do real queries.
+    if not _DB_ACTIVE:
+        return await call_next(request)
+
     origin = request.headers.get("origin")
     if origin:
         try:
@@ -123,6 +130,38 @@ app.include_router(telemetry.router, tags=["telemetry"])
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+
+# ── Baked-in minimal admin panel (served from the single Docker image) ─────────
+# DAA_SERVE_PANEL=true  → serve /admin (default for single-image mode)
+# DAA_SERVE_PANEL=false → disable (set this in docker-compose backend service
+#                          when a dedicated admin-panel container is running)
+_SERVE_PANEL = os.environ.get("DAA_SERVE_PANEL", "true").lower() == "true"
+_ADMIN_HTML_PATH = Path(__file__).parent / "static" / "admin.html"
+_ADMIN_HTML: str = (
+    _ADMIN_HTML_PATH.read_text(encoding="utf-8")
+    if _SERVE_PANEL and _ADMIN_HTML_PATH.exists()
+    else ""
+)
+
+
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+def serve_admin_panel():
+    """Minimal admin panel baked into the backend image.
+
+    Enabled only when DAA_SERVE_PANEL=true (default).
+    Set DAA_SERVE_PANEL=false in docker-compose to disable this route
+    when a dedicated React admin-panel container is already running on :5003.
+
+    Security: the HTML itself is public, but every data endpoint it calls
+    (/dashboard, /incidents/, etc.) enforces get_current_user() — so no
+    data leaks even if this route is reachable. When DAA_AUTH_ENABLED=true
+    the panel will not auto-login and all API calls will return 401.
+    """
+    if not _SERVE_PANEL:
+        from fastapi.responses import Response
+        return Response(status_code=404)
+    return HTMLResponse(content=_ADMIN_HTML)
 
 
 @app.get("/health")

@@ -1,11 +1,15 @@
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from ..database import get_db, Incident as DBIncident, Fix as DBFix
+from ..database import get_db, Incident as DBIncident, Fix as DBFix, DAA_DB_PROVIDER
 from .auth import get_current_user
+from .git_provider import fetch_prs, get_provider_info
 
 router = APIRouter()
+
+_NO_DB = DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis")
 
 
 class IncidentResponse(BaseModel):
@@ -23,6 +27,8 @@ class IncidentResponse(BaseModel):
     ticket_url: Optional[str] = None
     postmortem_md: Optional[str] = None
     fix_id: Optional[str] = None
+    # Informational: tells the panel where this record came from
+    source: Optional[str] = "db"
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -54,6 +60,28 @@ def _to_incident_response(inc: DBIncident, db: Session) -> IncidentResponse:
         ticket_url=inc.ticket_url,
         postmortem_md=inc.postmortem_md,
         fix_id=fix.id if fix else None,
+        source="db",
+    )
+
+
+def _git_pr_to_incident(pr: dict) -> IncidentResponse:
+    """Convert a normalised git PR dict into an IncidentResponse."""
+    return IncidentResponse(
+        id=pr["id"],
+        fingerprint=pr["fingerprint"],
+        app_name=pr["app_name"],
+        status=pr["status"],
+        occurrence_count=pr["occurrence_count"],
+        first_seen_at=pr["first_seen_at"],
+        last_seen_at=pr["last_seen_at"],
+        agent_attempts=pr["agent_attempts"],
+        root_cause_summary=pr.get("root_cause_summary"),
+        confidence_score=pr.get("confidence_score"),
+        pr_url=pr.get("pr_url"),
+        ticket_url=pr.get("ticket_url"),
+        postmortem_md=pr.get("postmortem_md"),
+        fix_id=pr.get("fix_id"),
+        source="git",
     )
 
 
@@ -62,6 +90,7 @@ def list_incidents(
     db: Session = Depends(get_db),
     status: Optional[str] = Query(None),
     app_name: Optional[str] = Query(None),
+    refresh: bool = Query(False, description="Force-bypass the git PR cache"),
     current_user: dict = Depends(get_current_user),
 ):
     if current_user.get("role") == "application":
@@ -69,6 +98,27 @@ def list_incidents(
             status_code=403,
             detail="Applications are not authorized to access this resource",
         )
+
+    # ── Git-only mode ──────────────────────────────────────────────────────────
+    if _NO_DB:
+        # Map the frontend ?status= filter to git PR states
+        git_state = "all"
+        if status == "resolved":
+            git_state = "closed"
+        elif status in ("pr_open", "investigating", "processing", "fix_proposed"):
+            git_state = "open"
+
+        prs = fetch_prs(state=git_state, force_refresh=refresh)
+
+        # Apply optional filters
+        if status:
+            prs = [p for p in prs if p["status"] == status]
+        if app_name:
+            prs = [p for p in prs if p["app_name"] == app_name]
+
+        return [_git_pr_to_incident(p) for p in prs]
+
+    # ── DB mode ────────────────────────────────────────────────────────────────
     query = db.query(DBIncident)
     if status:
         query = query.filter(DBIncident.status == status)
@@ -81,6 +131,7 @@ def list_incidents(
 @router.get("/{id}", response_model=IncidentResponse)
 def get_incident(
     id: str,
+    refresh: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -89,6 +140,16 @@ def get_incident(
             status_code=403,
             detail="Applications are not authorized to access this resource",
         )
+
+    # ── Git-only mode ──────────────────────────────────────────────────────────
+    if _NO_DB:
+        prs = fetch_prs(state="all", force_refresh=refresh)
+        match = next((p for p in prs if p["id"] == id), None)
+        if not match:
+            raise HTTPException(status_code=404, detail="Incident not found")
+        return _git_pr_to_incident(match)
+
+    # ── DB mode ────────────────────────────────────────────────────────────────
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
@@ -107,6 +168,18 @@ def update_incident(
             status_code=403,
             detail="Applications are not authorized to access this resource",
         )
+
+    # Git-only mode: mutations aren't possible without a DB
+    if _NO_DB:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Incident updates require a database. "
+                "Currently running in Git-only mode (DAA_DB_PROVIDER=none). "
+                "Update the PR directly on your git provider."
+            ),
+        )
+
     inc = db.query(DBIncident).filter(DBIncident.id == id).first()
     if not inc:
         raise HTTPException(status_code=404, detail="Incident not found")
