@@ -186,35 +186,6 @@ DAA/
 
 ---
 
-## 📣 How to Get Visibility (Grow DAA's Audience)
-
-> [!TIP]
-> These are the most effective channels to make DAA discoverable in 2026.
-
-### GitHub Discovery
-- ⭐ **Star the repo** — GitHub's trending algorithm weights recent star velocity. Ask early users, friends, and colleagues to star.
-- **Tag releases properly** — Use semantic versioning (`v3.0.1`) and write detailed release notes so GitHub features the release in feeds.
-- **Fill out the About section** — Add relevant topics: `sre`, `autonomous-agent`, `llm`, `langchain`, `devops`, `incident-response`, `fastapi`, `observability`.
-
-### Community Channels
-- **Hacker News** — Post under "Show HN: DAA – an open-source autonomous SRE agent that auto-fixes production bugs". Best time: Tuesday–Thursday, 8–10am ET.
-- **Reddit** — Post in `r/devops`, `r/SRE`, `r/MachineLearning`, `r/selfhosted` with a demo GIF.
-- **Dev.to / Hashnode** — Write a deep-dive: *"How we built an AI that fixes production bugs automatically"*. Links back to the repo.
-
-### Content Strategy
-- **Record a demo video** — A 2-minute Loom/YouTube video showing DAA catching a Redis OOM, running the agent, and opening a PR is worth 100 README paragraphs.
-- **Tweet/X threads** — Break down the Three-Phase flow in a 5-tweet thread with code snippets. Tag `#buildinpublic`, `#LangChain`, `#SRE`, `#DevOps`.
-
-### LLM & AI Search Visibility (SEO for AI)
-- The `index.html` portal (GitHub Pages) is already optimized with structured JSON-LD, Open Graph tags, and rich `<meta>` descriptions so LLM web-search tools (Perplexity, ChatGPT Browse, Gemini) pick it up.
-- Keep **DEPLOYMENT.md** and **README.md** verbose and keyword-rich — LLM crawlers index GitHub markdown.
-
-### Integrations & Partnerships
-- **Submit to awesome lists** — `awesome-sre`, `awesome-langchain`, `awesome-devops`.
-- **ProductHunt launch** — Schedule a ProductHunt post on a Tuesday. Prepare a maker comment explaining the problem space.
-- **Docker Hub** — Keep `rutvej1/daa-standalone` up-to-date with descriptive labels. Docker Hub is a search engine for infrastructure tools.
-
----
 
 ## 📄 License
 
