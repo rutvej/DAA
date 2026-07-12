@@ -684,138 +684,137 @@ class PostflightOrchestrator:
             text=True,
         )
 
+    def _apply_and_push_fix(
+        self,
+        worktree_path: str,
+        fingerprint: str,
+        app_name: str,
+        diff_text: str,
+        explanation: str,
+        incident_id: str,
+        already_committed: bool = False,  # NEW: True if agent used write_file directly
+        modified_files_hint: list = None,  # NEW: files agent reported writing
+    ) -> dict:
+        start_time = time.time()
 
-def _apply_and_push_fix(
-    self,
-    worktree_path: str,
-    fingerprint: str,
-    app_name: str,
-    diff_text: str,
-    explanation: str,
-    incident_id: str,
-    already_committed: bool = False,  # NEW: True if agent used write_file directly
-    modified_files_hint: list = None,  # NEW: files agent reported writing
-) -> dict:
-    start_time = time.time()
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
 
-    if os.environ.get("DAA_GIT_MODE") == "api":
-        explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
+            from .tools.clonefree_client import CloneFreeGitClient
 
-        from .tools.clonefree_client import CloneFreeGitClient
+            client = CloneFreeGitClient(app_name)
+            branch_name = f"fix/{fingerprint[:12]}"
 
-        client = CloneFreeGitClient(app_name)
-        branch_name = f"fix/{fingerprint[:12]}"
+            # ---- Case A: agent already committed via write_file ----
+            # Skip patch application entirely — the branch/commit already exists.
+            if already_committed:
+                modified_files = modified_files_hint or []
+                logger.info(
+                    "Skipping patch step: agent already wrote %d file(s) via write_file",
+                    len(modified_files),
+                )
+            else:
+                if not worktree_path:
+                    worktree_path = f"/tmp/{app_name}"
 
-        # ---- Case A: agent already committed via write_file ----
-        # Skip patch application entirely — the branch/commit already exists.
-        if already_committed:
-            modified_files = modified_files_hint or []
-            logger.info(
-                "Skipping patch step: agent already wrote %d file(s) via write_file",
-                len(modified_files),
-            )
-        else:
-            if not worktree_path:
-                worktree_path = f"/tmp/{app_name}"
+                modified_files = []
+                for line in diff_text.splitlines():
+                    if line.startswith("+++ b/"):
+                        file_path = line[6:].split("\t")[0].strip()
+                        modified_files.append(file_path)
 
-            modified_files = []
-            for line in diff_text.splitlines():
-                if line.startswith("+++ b/"):
-                    file_path = line[6:].split("\t")[0].strip()
-                    modified_files.append(file_path)
+                os.makedirs(worktree_path, exist_ok=True)
+                for file_path in modified_files:
+                    original_content = client.get_file_content(file_path) or ""
+                    local_file_path = os.path.join(worktree_path, file_path)
+                    os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
+                    with open(local_file_path, "w", encoding="utf-8") as f:
+                        f.write(original_content)
 
-            os.makedirs(worktree_path, exist_ok=True)
-            for file_path in modified_files:
-                original_content = client.get_file_content(file_path) or ""
-                local_file_path = os.path.join(worktree_path, file_path)
-                os.makedirs(os.path.dirname(local_file_path), exist_ok=True)
-                with open(local_file_path, "w", encoding="utf-8") as f:
-                    f.write(original_content)
+                # Prefer the Python fallback first — system `patch` chokes on
+                # unescaped special chars (e.g. `~`) in context/removed lines.
+                patch_failed = False
+                try:
+                    for file_path in modified_files:
+                        local_file_path = os.path.join(worktree_path, file_path)
+                        original_content = ""
+                        if os.path.exists(local_file_path):
+                            with open(local_file_path, "r", encoding="utf-8") as f:
+                                original_content = f.read()
+                        patched_content = _apply_unified_diff_to_text(
+                            original_content, diff_text
+                        )
+                        with open(local_file_path, "w", encoding="utf-8") as f:
+                            f.write(patched_content)
+                except Exception as exc:
+                    logger.warning(
+                        "Python diff fallback failed (%s); trying system patch", exc
+                    )
+                    patch_failed = True
 
-            # Prefer the Python fallback first — system `patch` chokes on
-            # unescaped special chars (e.g. `~`) in context/removed lines.
-            patch_failed = False
-            try:
+                if patch_failed:
+                    try:
+                        patch_bin = shutil.which("patch")
+                        if not patch_bin:
+                            raise FileNotFoundError("patch")
+                        subprocess.run(
+                            [patch_bin, "-p1", "-d", worktree_path],
+                            input=diff_text,
+                            capture_output=True,
+                            text=True,
+                            check=True,
+                        )
+                    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+                        stderr = getattr(exc, "stderr", str(exc))
+                        logger.error("Both diff appliers failed: %s", stderr)
+                        postmortem = self._generate_postmortem(
+                            app_name=app_name,
+                            fingerprint=fingerprint,
+                            elapsed_sec=time.time() - start_time,
+                            explanation=f"ESCALATION: patch failed -- {str(stderr)[:200]}",
+                            pr_url=None,
+                            files_changed=[],
+                        )
+                        return {
+                            "pr_url": None,
+                            "postmortem": postmortem,
+                            "status": "escalated",
+                        }
+
+                client.create_branch(branch_name)
                 for file_path in modified_files:
                     local_file_path = os.path.join(worktree_path, file_path)
-                    original_content = ""
-                    if os.path.exists(local_file_path):
-                        with open(local_file_path, "r", encoding="utf-8") as f:
-                            original_content = f.read()
-                    patched_content = _apply_unified_diff_to_text(
-                        original_content, diff_text
+                    with open(local_file_path, "r", encoding="utf-8") as f:
+                        patched_content = f.read()
+                    client.write_file_content(
+                        file_path=file_path,
+                        content=patched_content,
+                        branch_name=branch_name,
+                        commit_message=f"fix: {app_name} -- {explanation[:60]}",
                     )
-                    with open(local_file_path, "w", encoding="utf-8") as f:
-                        f.write(patched_content)
-            except Exception as exc:
-                logger.warning(
-                    "Python diff fallback failed (%s); trying system patch", exc
-                )
-                patch_failed = True
 
-            if patch_failed:
-                try:
-                    patch_bin = shutil.which("patch")
-                    if not patch_bin:
-                        raise FileNotFoundError("patch")
-                    subprocess.run(
-                        [patch_bin, "-p1", "-d", worktree_path],
-                        input=diff_text,
-                        capture_output=True,
-                        text=True,
-                        check=True,
-                    )
-                except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-                    stderr = getattr(exc, "stderr", str(exc))
-                    logger.error("Both diff appliers failed: %s", stderr)
-                    postmortem = self._generate_postmortem(
-                        app_name=app_name,
-                        fingerprint=fingerprint,
-                        elapsed_sec=time.time() - start_time,
-                        explanation=f"ESCALATION: patch failed -- {str(stderr)[:200]}",
-                        pr_url=None,
-                        files_changed=[],
-                    )
-                    return {
-                        "pr_url": None,
-                        "postmortem": postmortem,
-                        "status": "escalated",
-                    }
-
-            client.create_branch(branch_name)
-            for file_path in modified_files:
-                local_file_path = os.path.join(worktree_path, file_path)
-                with open(local_file_path, "r", encoding="utf-8") as f:
-                    patched_content = f.read()
-                client.write_file_content(
-                    file_path=file_path,
-                    content=patched_content,
+            # ---- Create PR via API (runs for both Case A and Case B) ----
+            if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
+                pr_url = f"AWAITING_APPROVAL:{branch_name}"
+            else:
+                pr_url = self._create_pr_idempotent(
+                    repo_url=client.repo_url,
                     branch_name=branch_name,
-                    commit_message=f"fix: {app_name} -- {explanation[:60]}",
+                    app_name=app_name,
+                    explanation=explanation,
+                    base_branch=client.default_branch,
                 )
 
-        # ---- Create PR via API (runs for both Case A and Case B) ----
-        if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
-            pr_url = f"AWAITING_APPROVAL:{branch_name}"
-        else:
-            pr_url = self._create_pr_idempotent(
-                repo_url=client.repo_url,
-                branch_name=branch_name,
+            elapsed = time.time() - start_time
+            postmortem = self._generate_postmortem(
                 app_name=app_name,
+                fingerprint=fingerprint,
+                elapsed_sec=elapsed,
                 explanation=explanation,
-                base_branch=client.default_branch,
+                pr_url=pr_url,
+                files_changed=modified_files,
             )
-
-        elapsed = time.time() - start_time
-        postmortem = self._generate_postmortem(
-            app_name=app_name,
-            fingerprint=fingerprint,
-            elapsed_sec=elapsed,
-            explanation=explanation,
-            pr_url=pr_url,
-            files_changed=modified_files,
-        )
-        return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
+            return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
 
     # ... non-API mode unchanged below ...
     def _create_pr_idempotent(
