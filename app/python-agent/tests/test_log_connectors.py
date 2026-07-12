@@ -1,14 +1,14 @@
 import os
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import timezone
+from unittest.mock import MagicMock, patch
 
 from agent_src.log_connectors import (
-    parse_timestamp,
-    get_configured_connector,
     AWSCloudWatchConnector,
-    GCPCloudLoggingConnector,
     DatadogConnector,
+    GCPCloudLoggingConnector,
+    get_configured_connector,
+    parse_timestamp,
 )
 
 

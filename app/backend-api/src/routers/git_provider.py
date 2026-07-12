@@ -37,6 +37,7 @@ def _cached(key: str, builder, ttl: int = _CACHE_TTL, force: bool = False):
 
 # ── Provider detection ────────────────────────────────────────────────────────
 
+
 def _detect_provider() -> str:
     """Return the active git provider name based on env vars.
 
@@ -56,7 +57,7 @@ def _detect_provider() -> str:
     if os.getenv("DAA_GIT_TOKEN") and (
         os.getenv("GIT_HOST") or os.getenv("GIT_REPO_URL")
     ):
-        return "gitea"   # standalone always targets a Gitea instance
+        return "gitea"  # standalone always targets a Gitea instance
     return "none"
 
 
@@ -88,7 +89,7 @@ def _is_daa_pr(title: str, labels: List[str], branch: str = "") -> bool:
     """
     if title.startswith(DAA_PR_TITLE_PREFIX):
         return True
-    label_lower = [l.lower() for l in labels]
+    label_lower = [lab.lower() for lab in labels]
     if DAA_PR_LABEL.lower() in label_lower or "daa-automated" in label_lower:
         return True
     if branch and any(branch.startswith(p) for p in _DAA_BRANCH_PREFIXES):
@@ -97,6 +98,7 @@ def _is_daa_pr(title: str, labels: List[str], branch: str = "") -> bool:
 
 
 # ── Normalised PR dict ────────────────────────────────────────────────────────
+
 
 def _normalise(
     *,
@@ -141,6 +143,7 @@ def _normalise(
 
 
 # ── GitHub ────────────────────────────────────────────────────────────────────
+
 
 def _fetch_github(state: str = "all") -> List[Dict[str, Any]]:
     token = os.getenv("GITHUB_TOKEN", "")
@@ -190,6 +193,7 @@ def _fetch_github(state: str = "all") -> List[Dict[str, Any]]:
 
 # ── GitLab ────────────────────────────────────────────────────────────────────
 
+
 def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
     token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
     host = os.getenv("GITLAB_HOST", "https://gitlab.com").rstrip("/")
@@ -214,7 +218,12 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
     # GitLab state: "opened" | "closed" | "merged" | "all"
     gl_state = {"open": "opened", "closed": "merged", "all": "all"}.get(state, "all")
     url = f"{host}/api/v4/projects/{project_id}/merge_requests"
-    params = {"state": gl_state, "per_page": 50, "order_by": "updated_at", "sort": "desc"}
+    params = {
+        "state": gl_state,
+        "per_page": 50,
+        "order_by": "updated_at",
+        "sort": "desc",
+    }
     try:
         res = requests.get(url, headers=headers, params=params, timeout=10)
         res.raise_for_status()
@@ -253,13 +262,13 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
 
 # ── Gitea ─────────────────────────────────────────────────────────────────────
 
+
 def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
     # Prefer canonical GITEA_TOKEN; fall back to DAA_GIT_TOKEN (standalone image)
     token = os.getenv("GITEA_TOKEN") or os.getenv("DAA_GIT_TOKEN", "")
     # Prefer canonical GITEA_HOST; fall back to GIT_HOST (standalone image)
     host = (
-        os.getenv("GITEA_HOST")
-        or os.getenv("GIT_HOST", "http://localhost:3000")
+        os.getenv("GITEA_HOST") or os.getenv("GIT_HOST", "http://localhost:3000")
     ).rstrip("/")
     # Prefer DAA_REPO_URL; fall back to GIT_REPO_URL (standalone image)
     repo_url = os.getenv("DAA_REPO_URL") or os.getenv("GIT_REPO_URL", "")
@@ -304,7 +313,11 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
                 pr_id=f"gt-{pr['number']}",
                 title=title,
                 body=pr.get("body") or "",
-                state="open" if not pr.get("merged") and not pr.get("closed") else "closed",
+                state=(
+                    "open"
+                    if not pr.get("merged") and not pr.get("closed")
+                    else "closed"
+                ),
                 pr_url=pr.get("html_url", ""),
                 app_name=app_name,
                 branch=branch,
@@ -318,6 +331,7 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
 
 
 # ── Bitbucket ─────────────────────────────────────────────────────────────────
+
 
 def _fetch_bitbucket(state: str = "all") -> List[Dict[str, Any]]:
     username = os.getenv("BITBUCKET_USERNAME", "")
@@ -340,7 +354,11 @@ def _fetch_bitbucket(state: str = "all") -> List[Dict[str, Any]]:
 
     auth = (username, app_password)
     # Bitbucket state: "OPEN" | "MERGED" | "DECLINED" | "SUPERSEDED"
-    bb_states = {"open": ["OPEN"], "closed": ["MERGED", "DECLINED"], "all": ["OPEN", "MERGED"]}.get(state, ["OPEN", "MERGED"])
+    bb_states = {
+        "open": ["OPEN"],
+        "closed": ["MERGED", "DECLINED"],
+        "all": ["OPEN", "MERGED"],
+    }.get(state, ["OPEN", "MERGED"])
 
     results = []
     for bb_state in bb_states:
@@ -381,6 +399,7 @@ def _fetch_bitbucket(state: str = "all") -> List[Dict[str, Any]]:
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
+
 
 def fetch_prs(state: str = "all", force_refresh: bool = False) -> List[Dict[str, Any]]:
     """

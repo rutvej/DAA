@@ -1,6 +1,7 @@
-import unittest
 import json
-from unittest.mock import patch, MagicMock
+import unittest
+from unittest.mock import MagicMock, patch
+
 from agent_src.tools.llm_tool import get_instructions
 
 

@@ -1,8 +1,9 @@
 import unittest
 import uuid
 from unittest.mock import patch
+
 from agent_src.main import process_job, scrub_secrets
-from agent_src.models import Job, ErrorLog
+from agent_src.models import ErrorLog, Job
 
 
 class TestMain(unittest.TestCase):

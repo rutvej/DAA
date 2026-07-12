@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import sys
 import json
-import sqlite3
 import os
-import urllib.parse
+import sqlite3
+import sys
+
 import requests
 
 

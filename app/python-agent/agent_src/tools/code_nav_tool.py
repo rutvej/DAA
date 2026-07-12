@@ -1,9 +1,11 @@
-import os
-import json
 import ast
+import json
+import os
 import re
+
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
+
 from .file_system_tool import get_full_path, parse_api_path
 
 
@@ -37,7 +39,7 @@ def view_file_slice(data: str) -> str:
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
             app_name, relative_path = parse_api_path(file_path)
-            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
             ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
@@ -88,7 +90,7 @@ def grep_search(data: str) -> str:
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
             app_name, relative_path = parse_api_path(search_path)
-            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
             ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
@@ -178,7 +180,7 @@ def find_symbol(data: str) -> str:
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
             app_name, relative_path = parse_api_path(search_path)
-            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
             ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"
@@ -282,7 +284,7 @@ def read_repomap(data: str) -> str:
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
             app_name, relative_path = parse_api_path(repo_path)
-            from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+            from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
             ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"

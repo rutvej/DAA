@@ -1,7 +1,6 @@
 import base64
 import logging
 import os
-import re
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import quote, urlparse

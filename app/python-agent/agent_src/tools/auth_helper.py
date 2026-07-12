@@ -1,6 +1,7 @@
-import os
-import requests
 import logging
+import os
+
+import requests
 
 
 def handle_request_with_retry(method: str, url: str, **kwargs) -> requests.Response:

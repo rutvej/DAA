@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import json
-import urllib.request
-import urllib.error
-import time
-import uuid
 import os
+import time
+import urllib.error
+import urllib.request
+import uuid
 
 BASE_URL = os.environ.get("DAA_BACKEND_API_URL", "http://localhost:8000")
 
@@ -25,7 +25,7 @@ def trigger_outage():
             res_data = json.loads(res.read().decode("utf-8"))
             token = res_data["token"]
             print("Successfully obtained DAA token!")
-    except Exception as e:
+    except Exception:
         print("Login failed. Trying to register user first...")
         try:
             req = urllib.request.Request(

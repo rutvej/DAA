@@ -352,7 +352,7 @@ class LogHydrator:
         Returns a compact string like ``cpu=12% mem=45% redis_mem=98% err_rate=142/min``
         or None on failure.
         """
-        # "why is it call the app instead of the log api" 
+        # "why is it call the app instead of the log api"
         # Don't call the fallback backend metrics API if not configured
         return None
 
@@ -363,22 +363,37 @@ class LogHydrator:
         if os.environ.get("DAA_GIT_MODE") == "api":
             try:
                 from .tools.clonefree_client import CloneFreeGitClient
+
                 client = CloneFreeGitClient(app_name)
                 import requests
-                
+
                 if client.provider in ("github", "gitea"):
-                    resp = requests.get(f"{client.api_base}/commits", headers=client.headers, params={"limit": 10}, timeout=10)
+                    resp = requests.get(
+                        f"{client.api_base}/commits",
+                        headers=client.headers,
+                        params={"limit": 10},
+                        timeout=10,
+                    )
                     if resp.status_code == 200:
                         lines = []
                         for c in resp.json()[:10]:
                             sha = c.get("sha", "")[:8]
                             c_info = c.get("commit", {})
-                            msg = c_info.get("message", "").splitlines()[0] if "message" in c_info else ""
+                            msg = (
+                                c_info.get("message", "").splitlines()[0]
+                                if "message" in c_info
+                                else ""
+                            )
                             author = c_info.get("author", {}).get("name", "")
                             lines.append(f"{sha}  {author}  {msg}")
                         return "\n".join(lines) if lines else None
                 elif client.provider == "gitlab":
-                    resp = requests.get(f"{client.api_base}/repository/commits", headers=client.headers, params={"per_page": 10}, timeout=10)
+                    resp = requests.get(
+                        f"{client.api_base}/repository/commits",
+                        headers=client.headers,
+                        params={"per_page": 10},
+                        timeout=10,
+                    )
                     if resp.status_code == 200:
                         lines = []
                         for c in resp.json()[:10]:
@@ -394,12 +409,15 @@ class LogHydrator:
 
         try:
             import subprocess
+
             git_dir = f"/var/daa/repos/{app_name}/.git"
             if not os.path.isdir(git_dir):
                 return "unavailable (repo not cached yet)"
             result = subprocess.run(
                 ["git", "--git-dir", git_dir, "log", "-n", "10", "--oneline"],
-                capture_output=True, text=True, check=True
+                capture_output=True,
+                text=True,
+                check=True,
             )
             return result.stdout.strip()
         except Exception as exc:
@@ -432,25 +450,27 @@ class LogHydrator:
             }
         """
         logger.info("Hydrating dimensions for %s @ %s", app_name, incident_timestamp)
-        
+
         dim2 = self._fetch_dim2(app_name, incident_timestamp)
         if dim2:
             logger.info("dim2 (app logs): fetched successfully")
         else:
             logger.info("dim2 (app logs): skipped (no log connector configured)")
-            
+
         dim3 = self._fetch_dim3(app_name, incident_timestamp)
         if dim3:
             logger.info("dim3 (metrics): fetched successfully")
         else:
             logger.info("dim3 (metrics): skipped (no metrics connector configured)")
-            
+
         dim4 = self._fetch_dim4(app_name)
         if dim4 and not dim4.startswith("unavailable"):
-            logger.info("dim4 (git history): fetched %d commits", len(dim4.splitlines()))
+            logger.info(
+                "dim4 (git history): fetched %d commits", len(dim4.splitlines())
+            )
         else:
             logger.info("dim4 (git history): skipped or unavailable")
-            
+
         return {
             "dim2_app_logs": dim2,
             "dim3_metrics": dim3,
@@ -664,41 +684,46 @@ class PostflightOrchestrator:
             text=True,
         )
 
-    def _apply_and_push_fix(
-        self,
-        worktree_path: str,
-        fingerprint: str,
-        app_name: str,
-        diff_text: str,
-        explanation: str,
-        incident_id: str,
-    ) -> dict:
-        """
-        Apply the unified diff, commit, push, and open a PR.
 
-        Falls back to escalation if any step fails.
-        """
-        start_time = time.time()
+def _apply_and_push_fix(
+    self,
+    worktree_path: str,
+    fingerprint: str,
+    app_name: str,
+    diff_text: str,
+    explanation: str,
+    incident_id: str,
+    already_committed: bool = False,  # NEW: True if agent used write_file directly
+    modified_files_hint: list = None,  # NEW: files agent reported writing
+) -> dict:
+    start_time = time.time()
 
-        if os.environ.get("DAA_GIT_MODE") == "api":
-            explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        explanation += "\n\n⚠️ **WARNING**: Generated in Serverless mode (UNVERIFIED - no tests run)."
 
-        if os.environ.get("DAA_GIT_MODE") == "api":
-            from .tools.clonefree_client import CloneFreeGitClient
+        from .tools.clonefree_client import CloneFreeGitClient
 
-            client = CloneFreeGitClient(app_name)
-            branch_name = f"fix/{fingerprint[:12]}"
+        client = CloneFreeGitClient(app_name)
+        branch_name = f"fix/{fingerprint[:12]}"
+
+        # ---- Case A: agent already committed via write_file ----
+        # Skip patch application entirely — the branch/commit already exists.
+        if already_committed:
+            modified_files = modified_files_hint or []
+            logger.info(
+                "Skipping patch step: agent already wrote %d file(s) via write_file",
+                len(modified_files),
+            )
+        else:
             if not worktree_path:
                 worktree_path = f"/tmp/{app_name}"
 
-            # 1. Parse modified files from diff
             modified_files = []
             for line in diff_text.splitlines():
                 if line.startswith("+++ b/"):
                     file_path = line[6:].split("\t")[0].strip()
                     modified_files.append(file_path)
 
-            # 2. Setup local virtual worktree to run patch command
             os.makedirs(worktree_path, exist_ok=True)
             for file_path in modified_files:
                 original_content = client.get_file_content(file_path) or ""
@@ -707,22 +732,10 @@ class PostflightOrchestrator:
                 with open(local_file_path, "w", encoding="utf-8") as f:
                     f.write(original_content)
 
-            # 3. Apply the patch locally
+            # Prefer the Python fallback first — system `patch` chokes on
+            # unescaped special chars (e.g. `~`) in context/removed lines.
+            patch_failed = False
             try:
-                patch_bin = shutil.which("patch")
-                if not patch_bin:
-                    raise FileNotFoundError("patch")
-                subprocess.run(
-                    [patch_bin, "-p1", "-d", worktree_path],
-                    input=diff_text,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-            except FileNotFoundError:
-                logger.warning(
-                    "System patch command unavailable; using Python fallback"
-                )
                 for file_path in modified_files:
                     local_file_path = os.path.join(worktree_path, file_path)
                     original_content = ""
@@ -734,22 +747,42 @@ class PostflightOrchestrator:
                     )
                     with open(local_file_path, "w", encoding="utf-8") as f:
                         f.write(patched_content)
-            except subprocess.CalledProcessError as exc:
-                logger.error("patch failed in API mode: %s", exc.stderr)
-                postmortem = self._generate_postmortem(
-                    app_name=app_name,
-                    fingerprint=fingerprint,
-                    elapsed_sec=time.time() - start_time,
-                    explanation=f"ESCALATION: patch failed -- {exc.stderr[:200]}",
-                    pr_url=None,
-                    files_changed=[],
+            except Exception as exc:
+                logger.warning(
+                    "Python diff fallback failed (%s); trying system patch", exc
                 )
-                return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
+                patch_failed = True
 
-            # 4. Create remote branch
+            if patch_failed:
+                try:
+                    patch_bin = shutil.which("patch")
+                    if not patch_bin:
+                        raise FileNotFoundError("patch")
+                    subprocess.run(
+                        [patch_bin, "-p1", "-d", worktree_path],
+                        input=diff_text,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+                    stderr = getattr(exc, "stderr", str(exc))
+                    logger.error("Both diff appliers failed: %s", stderr)
+                    postmortem = self._generate_postmortem(
+                        app_name=app_name,
+                        fingerprint=fingerprint,
+                        elapsed_sec=time.time() - start_time,
+                        explanation=f"ESCALATION: patch failed -- {str(stderr)[:200]}",
+                        pr_url=None,
+                        files_changed=[],
+                    )
+                    return {
+                        "pr_url": None,
+                        "postmortem": postmortem,
+                        "status": "escalated",
+                    }
+
             client.create_branch(branch_name)
-
-            # 5. Read patched files and commit them via API
             for file_path in modified_files:
                 local_file_path = os.path.join(worktree_path, file_path)
                 with open(local_file_path, "r", encoding="utf-8") as f:
@@ -761,118 +794,16 @@ class PostflightOrchestrator:
                     commit_message=f"fix: {app_name} -- {explanation[:60]}",
                 )
 
-            # 6. Create PR via API
-            if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
-                pr_url = f"AWAITING_APPROVAL:{branch_name}"
-            else:
-                pr_url = self._create_pr_idempotent(
-                    repo_url=client.repo_url,
-                    branch_name=branch_name,
-                    app_name=app_name,
-                    explanation=explanation,
-                    base_branch=client.default_branch,
-                )
-
-            elapsed = time.time() - start_time
-            postmortem = self._generate_postmortem(
-                app_name=app_name,
-                fingerprint=fingerprint,
-                elapsed_sec=elapsed,
-                explanation=explanation,
-                pr_url=pr_url,
-                files_changed=modified_files,
-            )
-            return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
-
-        # ---- 1. Apply the diff -------------------------------------------
-        try:
-            patch_result = subprocess.run(
-                ["patch", "-p1", "-d", worktree_path],
-                input=diff_text,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            logger.info("patch output: %s", patch_result.stdout)
-        except subprocess.CalledProcessError as exc:
-            logger.error("patch failed: %s", exc.stderr)
-            postmortem = self._generate_postmortem(
-                app_name=app_name,
-                fingerprint=fingerprint,
-                elapsed_sec=time.time() - start_time,
-                explanation=f"ESCALATION: patch failed -- {exc.stderr[:200]}",
-                pr_url=None,
-                files_changed=[],
-            )
-            return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
-
-        # ---- 2. Determine changed files for the postmortem ---------------
-        try:
-            status_result = self._run(
-                ["git", "diff", "--name-only", "HEAD"],
-                cwd=worktree_path,
-                check=False,
-            )
-            files_changed = [f for f in status_result.stdout.splitlines() if f.strip()]
-        except Exception:
-            files_changed = []
-
-        # ---- 3. Get repo remote URL for PR creation ----------------------
-        try:
-            remote_result = self._run(
-                ["git", "remote", "get-url", "origin"],
-                cwd=worktree_path,
-            )
-            repo_url = remote_result.stdout.strip()
-        except subprocess.CalledProcessError as exc:
-            logger.error("Could not determine remote URL: %s", exc.stderr)
-            repo_url = ""
-
-        # ---- 4. Create / reset fix branch --------------------------------
-        branch_name = f"fix/{fingerprint[:12]}"
-        try:
-            self._run(["git", "-C", worktree_path, "checkout", "-B", branch_name])
-        except subprocess.CalledProcessError as exc:
-            logger.error("Branch checkout failed: %s", exc.stderr)
-
-        # ---- 5. Stage, commit, push --------------------------------------
-        commit_msg = f"fix: {app_name} -- {explanation[:60]}"
-        try:
-            self._run(["git", "-C", worktree_path, "add", "-A"])
-            self._run(["git", "-C", worktree_path, "commit", "-m", commit_msg])
-            self._run(
-                [
-                    "git",
-                    "-C",
-                    worktree_path,
-                    "push",
-                    "--force-with-lease",
-                    "origin",
-                    branch_name,
-                ]
-            )
-        except subprocess.CalledProcessError as exc:
-            logger.error("Git commit/push failed: %s", exc.stderr)
-            postmortem = self._generate_postmortem(
-                app_name=app_name,
-                fingerprint=fingerprint,
-                elapsed_sec=time.time() - start_time,
-                explanation=f"ESCALATION: git push failed -- {exc.stderr[:200]}",
-                pr_url=None,
-                files_changed=files_changed,
-            )
-            return {"pr_url": None, "postmortem": postmortem, "status": "escalated"}
-
-        # ---- 6. Create or retrieve PR ------------------------------------
+        # ---- Create PR via API (runs for both Case A and Case B) ----
         if os.environ.get("DAA_HITL_MODE", "false").lower() == "true":
             pr_url = f"AWAITING_APPROVAL:{branch_name}"
         else:
             pr_url = self._create_pr_idempotent(
-                repo_url=repo_url,
+                repo_url=client.repo_url,
                 branch_name=branch_name,
                 app_name=app_name,
                 explanation=explanation,
-                base_branch=os.environ.get("DAA_DEFAULT_BRANCH", "main"),
+                base_branch=client.default_branch,
             )
 
         elapsed = time.time() - start_time
@@ -882,10 +813,11 @@ class PostflightOrchestrator:
             elapsed_sec=elapsed,
             explanation=explanation,
             pr_url=pr_url,
-            files_changed=files_changed,
+            files_changed=modified_files,
         )
         return {"pr_url": pr_url, "postmortem": postmortem, "status": "fixed"}
 
+    # ... non-API mode unchanged below ...
     def _create_pr_idempotent(
         self,
         repo_url: str,
@@ -1252,7 +1184,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                         else:
                             pr_url = (
                                 client.repo_url.replace(".git", "")
-                                + f"/-/merge_requests"
+                                + "/-/merge_requests"
                             )
                     except Exception:
                         pass
@@ -1349,6 +1281,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     if worktree_path and os.environ.get("DAA_GIT_MODE") != "api":
         try:
             import json
+
             from .tools.code_nav_tool import read_repomap
 
             repomap = read_repomap(json.dumps({"repo_path": worktree_path}))

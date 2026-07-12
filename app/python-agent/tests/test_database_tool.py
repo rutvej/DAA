@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+
 from agent_src.tools.database_tool import AnalysisUpdater
 
 

@@ -17,14 +17,14 @@ Usage:
   daa version               Show version
 """
 
-import os
-import sys
-import json
-import time
 import argparse
-import subprocess
 import getpass
-from typing import Dict, Any
+import json
+import os
+import subprocess
+import sys
+import time
+from typing import Any, Dict
 
 try:
     import requests

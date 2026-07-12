@@ -1,8 +1,9 @@
 import os
-import sqlite3
 import re
-from pydantic.v1 import BaseModel, Field
+import sqlite3
+
 from langchain_core.tools import tool
+from pydantic.v1 import BaseModel, Field
 
 
 class SearchRepoInput(BaseModel):
@@ -134,7 +135,7 @@ def search_repo(query: str, repo_path: str = ".") -> str:
         from .file_system_tool import parse_api_path
 
         app_name, relative_path = parse_api_path(repo_path)
-        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
         client = CloneFreeGitClient(app_name)
         ref = ACTIVE_BRANCHES.get(app_name) or client.default_branch or "main"

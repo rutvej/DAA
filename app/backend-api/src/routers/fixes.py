@@ -1,20 +1,20 @@
 import logging
+import os
+import urllib.parse
 from datetime import datetime
 from typing import Optional
-import os
-import requests
-import urllib.parse
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+import requests
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from ..notifications.webhook import send_outbound_webhook
 
 from ..database import Fix as DBFix
-from ..database import Log as DBLog
 from ..database import Incident as DBIncident
+from ..database import Log as DBLog
 from ..database import ProjectConnection as DBProjectConnection
 from ..database import get_db
+from ..notifications.webhook import send_outbound_webhook
 from .auth import get_current_user
 
 router = APIRouter()

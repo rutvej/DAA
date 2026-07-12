@@ -1,37 +1,37 @@
-import os
 import json
 import logging
-import sys
+import os
+import platform
 import re
 import subprocess
+import sys
+import traceback
+from datetime import datetime
 
+import requests
 from langchain.agents import AgentExecutor, create_react_agent
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.tools import Tool
 
-from .models import Job
 from .llm_config import get_llm
+from .models import Job
+from .tools.alert_tool import check_alerts
+from .tools.change_tracker_tool import check_recent_changes
+from .tools.code_nav_tool import find_symbol, grep_search, read_repomap, view_file_slice
 from .tools.database_tool import AnalysisUpdater
+from .tools.execution_tool import run_tests
 from .tools.file_system_tool import list_files, read_file, write_file
 from .tools.git_tool import clone_repo, commit, create_branch, create_pull_request, push
 from .tools.llm_tool import get_instructions
-from .tools.execution_tool import run_tests
-from .tools.alert_tool import check_alerts
-from .tools.code_nav_tool import view_file_slice, grep_search, find_symbol, read_repomap
 from .tools.log_query_tool import query_correlated_logs
-from .tools.change_tracker_tool import check_recent_changes
-from .tools.ticket_tool import create_incident_ticket
 from .tools.search_tool import search_repo
+from .tools.ticket_tool import create_incident_ticket
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
 RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
 
-import traceback
-import platform
-import requests
-from datetime import datetime
 
 MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
 DAA_SELF_REPORT = os.environ.get("DAA_SELF_REPORT", "false").lower() == "true"
@@ -614,15 +614,15 @@ def process_job(job: Job):
     # - Fingerprint dedup, repo cache, log hydration, context packaging
     # =====================================================================
     try:
+        from .agent_safety import (
+            AgentSafetyWrapper,
+            HardCapCallbackHandler,
+            PlanningValidator,
+        )
         from .orchestrator import (
-            run_preflight,
             PostflightOrchestrator,
             RepoCacheManager,
-        )
-        from .agent_safety import (
-            PlanningValidator,
-            HardCapCallbackHandler,
-            AgentSafetyWrapper,
+            run_preflight,
         )
 
         preflight = run_preflight(job.__dict__, backend_url, daa_token)

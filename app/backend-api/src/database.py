@@ -1,20 +1,21 @@
+import os
+import uuid
+from datetime import datetime
+
 from sqlalchemy import (
-    create_engine,
-    Column,
-    String,
-    DateTime,
-    Text,
     Boolean,
+    Column,
+    DateTime,
     ForeignKey,
     Integer,
+    String,
+    Text,
     UniqueConstraint,
+    create_engine,
     event,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
-import os
-import uuid
+from sqlalchemy.orm import relationship, sessionmaker
 
 
 def generate_uuid():
@@ -329,7 +330,7 @@ def get_db():
 
 
 def run_db_migrations(engine):
-    from sqlalchemy import text, inspect
+    from sqlalchemy import inspect, text
 
     with engine.begin() as conn:
         try:

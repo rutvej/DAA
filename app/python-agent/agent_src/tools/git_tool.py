@@ -1,5 +1,6 @@
 import os
 from urllib.parse import urlparse, urlunparse
+
 from .git_api_providers import build_project_connection
 
 try:
@@ -178,7 +179,7 @@ def create_branch(repo_path_and_branch_name: str) -> None:
 
     if os.environ.get("DAA_GIT_MODE") == "api":
         app_name = repo_path.split("/")[-1]
-        from .clonefree_client import CloneFreeGitClient, ACTIVE_BRANCHES
+        from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
         client = CloneFreeGitClient(app_name)
         client.create_branch(branch_name)

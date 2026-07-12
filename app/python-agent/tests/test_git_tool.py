@@ -1,13 +1,14 @@
-import unittest
 import json
-from unittest.mock import patch, MagicMock
+import unittest
+from unittest.mock import MagicMock, patch
+
 from agent_src.tools.git_tool import (
-    get_project_connection,
     clone_repo,
-    create_branch,
     commit,
-    push,
+    create_branch,
     create_pull_request,
+    get_project_connection,
+    push,
 )
 
 

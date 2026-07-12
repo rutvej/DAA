@@ -1,9 +1,10 @@
+import uuid
+
 from fastapi.testclient import TestClient
-from src.main import app
-from src.database import get_db, Log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import uuid
+from src.database import Log, get_db
+from src.main import app
 
 DATABASE_URL = "sqlite:///./test.db"
 

@@ -1,16 +1,16 @@
-from typing import List, Optional
+import json
 from datetime import datetime
+from typing import List, Optional
+
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
-from ..database import (
-    get_db,
-    Application as DBApplication,
-    EscalationPolicy as DBEscalationPolicy,
-)
-from .auth import get_current_user, SECRET_KEY, ALGORITHM
-import json
-import jwt
+
+from ..database import Application as DBApplication
+from ..database import EscalationPolicy as DBEscalationPolicy
+from ..database import get_db
+from .auth import ALGORITHM, SECRET_KEY, get_current_user
 
 router = APIRouter()
 

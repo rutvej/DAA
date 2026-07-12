@@ -1,23 +1,19 @@
+import hashlib
 import json
 import os
-import hashlib
 from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pika
-from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from ..database import (
-    Log as DBLog,
-    Fix as DBFix,
-    Incident,
-    Application,
-    EscalationPolicy,
-    DAA_POLICY_ENABLED,
-)
+from ..database import DAA_POLICY_ENABLED, Application, EscalationPolicy
+from ..database import Fix as DBFix
+from ..database import Incident
+from ..database import Log as DBLog
 from ..database import get_db
 from .auth import get_current_user
 

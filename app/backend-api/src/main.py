@@ -6,20 +6,28 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from .database import Base, engine, SessionLocal, Application, run_db_migrations, DAA_DB_PROVIDER
+from .database import (
+    DAA_DB_PROVIDER,
+    Application,
+    Base,
+    SessionLocal,
+    engine,
+    run_db_migrations,
+)
 from .routers import (
-    auth,
-    fixes,
-    logs,
-    status,
     alerts,
-    projects,
     applications,
-    incidents,
+    auth,
     dashboard,
+    fixes,
+    incidents,
     ingest,
+    logs,
+    projects,
+    status,
     telemetry,
 )
+
 _DB_ACTIVE = DAA_DB_PROVIDER not in ("none", "internal-redis", "external-redis")
 
 if engine is not None:
@@ -160,6 +168,7 @@ def serve_admin_panel():
     """
     if not _SERVE_PANEL:
         from fastapi.responses import Response
+
         return Response(status_code=404)
     return HTMLResponse(content=_ADMIN_HTML)
 

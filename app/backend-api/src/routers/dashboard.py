@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from datetime import datetime, timedelta
 
-from ..database import get_db, Log, Fix, Incident, Alert, DAA_DB_PROVIDER
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from ..database import DAA_DB_PROVIDER, Alert, Fix, Incident, Log, get_db
 from .auth import get_current_user
 from .git_provider import fetch_dashboard_stats
 

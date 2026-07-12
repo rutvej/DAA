@@ -1,10 +1,11 @@
-from fastapi.testclient import TestClient
-from src.main import app
-from src.database import get_db
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 import uuid
 from unittest.mock import patch
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from src.database import get_db
+from src.main import app
 from src.routers.logs import get_current_user
 
 DATABASE_URL = "sqlite:///./test.db"

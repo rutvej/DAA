@@ -14,11 +14,11 @@ import os
 import sys
 import time
 import uuid
-import json
 
 # Try importing TestClient to allow standalone in-memory simulation if server is offline
 try:
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
+
     from fastapi.testclient import TestClient
 
     db_file = "./demo_showcase.db"
@@ -32,9 +32,9 @@ try:
     sys.path.append(
         os.path.abspath(os.path.join(os.path.dirname(__file__), "../app/backend-api"))
     )
-    from src.main import app as backend_app
-    from src.database import get_db, Base, engine
     from sqlalchemy.orm import sessionmaker
+    from src.database import Base, engine, get_db
+    from src.main import app as backend_app
 
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -129,7 +129,7 @@ def run_showcase():
             "cooldown_minutes": 30,
         },
     )
-    print(f"  ✔ Created Escalation Policy: Escalate after 3 errors in 60 seconds")
+    print("  ✔ Created Escalation Policy: Escalate after 3 errors in 60 seconds")
 
     # --- STEP 2: Simulate Production Outage & Error Flood ---
     print_step(2, "Simulating Cascading Outage (Redis Connection Timeout Flood)...")
@@ -161,13 +161,13 @@ def run_showcase():
                 f"  🚨 [Log {i}/5] THRESHOLD BREACHED (3/3)! -> Status: Escalated to Agent!"
             )
             print(f"     ➔ Created Active Incident ID: {inc_id}")
-            print(f"     ➔ Published Fix Job to RabbitMQ Queue 'fix_jobs'")
+            print("     ➔ Published Fix Job to RabbitMQ Queue 'fix_jobs'")
         elif "Suppressed (Deduplicated)" in log_status:
             print(
                 f"  🛡️  [Log {i}/5] IDENTICAL ERROR DETECTED -> Status: Suppressed (Deduplicated)!"
             )
             print(
-                f"     ➔ SHA256 Fingerprint matched active incident. 0% Redundant LLM Token Waste!"
+                "     ➔ SHA256 Fingerprint matched active incident. 0% Redundant LLM Token Waste!"
             )
 
     # --- STEP 3: Verify Incident State in Database ---
@@ -201,7 +201,7 @@ def run_showcase():
         "  [Dimension 3: Correlated Traces] Executing `query_correlated_logs(trace_id)`..."
     )
     print(
-        f"    ➔ Correlated 3 failed requests across payment-service and checkout-service"
+        "    ➔ Correlated 3 failed requests across payment-service and checkout-service"
     )
     time.sleep(0.5)
     print(

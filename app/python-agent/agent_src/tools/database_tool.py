@@ -1,5 +1,4 @@
 import logging
-
 import os
 
 from .auth_helper import handle_request_with_retry

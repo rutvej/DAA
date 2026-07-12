@@ -8,18 +8,14 @@ import sys
 import uuid
 from datetime import datetime
 from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
-from ..database import (
-    get_db,
-    Log as DBLog,
-    Incident,
-    ProjectConnection,
-    DAA_DB_PROVIDER,
-    DAA_AUTH_ENABLED,
-)
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Incident
+from ..database import Log as DBLog
+from ..database import ProjectConnection, get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest")

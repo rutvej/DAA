@@ -1,9 +1,12 @@
 import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import Log as DBLog, get_db, DAA_DB_PROVIDER, DAA_AUTH_ENABLED, DAA_POLICY_ENABLED
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, DAA_POLICY_ENABLED
+from ..database import Log as DBLog
+from ..database import get_db
 from .auth import get_current_user
 from .git_provider import get_provider_info
 
@@ -54,10 +57,11 @@ def get_capabilities():
         "git_provider": git_provider,
         "data_sources": data_sources,
         "deployment_mode": (
-            "full-stack" if db_enabled and git_configured
-            else "db-only" if db_enabled
-            else "git-only" if git_configured
-            else "minimal"
+            "full-stack"
+            if db_enabled and git_configured
+            else (
+                "db-only" if db_enabled else "git-only" if git_configured else "minimal"
+            )
         ),
     }
 

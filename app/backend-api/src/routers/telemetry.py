@@ -1,12 +1,14 @@
-import os
-import json
 import hashlib
+import json
 import logging
+import os
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from ..database import SessionLocal, Incident, Application, Log, Fix
+
+from ..database import Application, Fix, Incident, Log, SessionLocal
 
 logger = logging.getLogger(__name__)
 
