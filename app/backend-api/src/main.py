@@ -1,14 +1,38 @@
 import os
+from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
-from .database import Base, engine, SessionLocal, Application, run_db_migrations
-from .routers import auth, fixes, logs, status, alerts, projects, applications, incidents, dashboard
+from .database import (
+    DAA_DB_PROVIDER,
+    Application,
+    Base,
+    SessionLocal,
+    engine,
+    run_db_migrations,
+)
+from .routers import (
+    alerts,
+    applications,
+    auth,
+    dashboard,
+    fixes,
+    incidents,
+    ingest,
+    logs,
+    projects,
+    status,
+    telemetry,
+)
 
-Base.metadata.create_all(bind=engine)
-run_db_migrations(engine)
+_DB_ACTIVE = DAA_DB_PROVIDER not in ("none", "internal-redis", "external-redis")
+
+if engine is not None:
+    Base.metadata.create_all(bind=engine)
+    run_db_migrations(engine)
 
 app = FastAPI(
     title="DAA v2.0 — Autonomous SRE Platform",
@@ -16,15 +40,30 @@ app = FastAPI(
     version="2.0.0",
 )
 
-cors_origins = [origin.strip() for origin in os.environ.get(
-    "CORS_ALLOW_ORIGINS",
-    "http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003"
-).split(",") if origin.strip()]
+# Startup validation for Cloud Run constraints
+if (
+    os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
+    and "K_SERVICE" in os.environ
+):
+    raise RuntimeError(
+        "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run. "
+        "Cloud Run request-scoped containers suspend CPU, which breaks long-running RabbitMQ consumers. "
+        "Please use DAA_QUEUE_MODE=sync or deploy to a standard container environment."
+    )
+
+cors_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ALLOW_ORIGINS",
+        "http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003",
+    ).split(",")
+    if origin.strip()
+]
 
 # Allow LAN access from devices on private 192.168.x.x addresses when the UI is opened remotely.
 cors_origin_regex = os.environ.get(
     "CORS_ALLOW_ORIGIN_REGEX",
-    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$"
+    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$",
 )
 
 app.add_middleware(
@@ -36,8 +75,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.middleware("http")
 async def dynamic_cors_middleware(request: Request, call_next):
+    # Skip DB lookup in no-DB mode — MockSession can't do real queries.
+    if not _DB_ACTIVE:
+        return await call_next(request)
+
     origin = request.headers.get("origin")
     if origin:
         try:
@@ -46,17 +90,24 @@ async def dynamic_cors_middleware(request: Request, call_next):
             if origin_host:
                 db = SessionLocal()
                 try:
-                    matched = db.query(Application).filter(Application.allowed_ip == origin_host).first()
+                    matched = (
+                        db.query(Application)
+                        .filter(Application.allowed_ip == origin_host)
+                        .first()
+                    )
                     if matched:
                         if request.method == "OPTIONS":
                             from fastapi.responses import Response
+
                             response = Response()
                             response.headers["Access-Control-Allow-Origin"] = origin
-                            response.headers["Access-Control-Allow-Credentials"] = "true"
+                            response.headers["Access-Control-Allow-Credentials"] = (
+                                "true"
+                            )
                             response.headers["Access-Control-Allow-Methods"] = "*"
                             response.headers["Access-Control-Allow-Headers"] = "*"
                             return response
-                        
+
                         response = await call_next(request)
                         response.headers["Access-Control-Allow-Origin"] = origin
                         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -69,6 +120,7 @@ async def dynamic_cors_middleware(request: Request, call_next):
             pass
     return await call_next(request)
 
+
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(logs.router, prefix="/logs", tags=["logs"])
 app.include_router(fixes.router, prefix="/fixes", tags=["fixes"])
@@ -79,11 +131,47 @@ app.include_router(applications.router, prefix="/applications", tags=["applicati
 app.include_router(applications.router, prefix="/apps", tags=["applications"])
 app.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 app.include_router(dashboard.router, tags=["dashboard"])
+app.include_router(ingest.router, tags=["ingest"])
+app.include_router(telemetry.router, tags=["telemetry"])
 
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+
+# ── Baked-in minimal admin panel (served from the single Docker image) ─────────
+# DAA_SERVE_PANEL=true  → serve /admin (default for single-image mode)
+# DAA_SERVE_PANEL=false → disable (set this in docker-compose backend service
+#                          when a dedicated admin-panel container is running)
+_SERVE_PANEL = os.environ.get("DAA_SERVE_PANEL", "true").lower() == "true"
+_ADMIN_HTML_PATH = Path(__file__).parent / "static" / "admin.html"
+_ADMIN_HTML: str = (
+    _ADMIN_HTML_PATH.read_text(encoding="utf-8")
+    if _SERVE_PANEL and _ADMIN_HTML_PATH.exists()
+    else ""
+)
+
+
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+def serve_admin_panel():
+    """Minimal admin panel baked into the backend image.
+
+    Enabled only when DAA_SERVE_PANEL=true (default).
+    Set DAA_SERVE_PANEL=false in docker-compose to disable this route
+    when a dedicated React admin-panel container is already running on :5003.
+
+    Security: the HTML itself is public, but every data endpoint it calls
+    (/dashboard, /incidents/, etc.) enforces get_current_user() — so no
+    data leaks even if this route is reachable. When DAA_AUTH_ENABLED=true
+    the panel will not auto-login and all API calls will return 401.
+    """
+    if not _SERVE_PANEL:
+        from fastapi.responses import Response
+
+        return Response(status_code=404)
+    return HTMLResponse(content=_ADMIN_HTML)
+
 
 @app.get("/health")
 def health_check():
@@ -100,5 +188,8 @@ def mock_create_jira_issue(payload: dict):
 
 @app.get("/mock-jira/browse/{issue_key}")
 def mock_browse_jira_issue(issue_key: str):
-    return {"status": "ok", "issue_key": issue_key, "message": "This is a mock Jira ticket page."}
-
+    return {
+        "status": "ok",
+        "issue_key": issue_key,
+        "message": "This is a mock Jira ticket page.",
+    }

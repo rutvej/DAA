@@ -1,27 +1,48 @@
-# Admin Panel - Business Logic
+# Admin Panel Business Logic Specification
 
-This document outlines the business logic of the Admin Panel, detailing how administrators interact with the system and manage the error log processing workflow.
+This document details the user authentication lifecycle, live log polling engines, and SRE resolution controls in the Admin Panel application.
 
-## User Authentication
+## 1. User Authentication Lifecycle (`AuthContext.js`)
 
-1.  **Login:** Administrators log in to the Admin Panel using their credentials.
-2.  **Session Management:** The Admin Panel maintains a session with the **Backend API** to ensure that the user is authenticated for all subsequent requests.
+Authentication state is managed by the context provider [AuthContext.js](file:///home/rutvej/Desktop/DAA/app/admin-panel/src/contexts/AuthContext.js):
 
-## Dashboard and Monitoring
+- **Login Action**:
+  1. Operator submits credentials via `LoginPage.js`.
+  2. Context executes `POST /auth/login` to backend.
+  3. If authenticated (HTTP 200), saves the access token and user role to `localStorage` and updates context state.
+  4. Triggers routing shift to `/dashboard`.
+- **Session Restoration**:
+  1. On reload, the root `index.js` mounts the provider, which reads `localStorage.getItem('token')`.
+  2. If the token is found, context states are re-populated, avoiding forcing the user to sign back in.
+- **Logout Action**:
+  1. Clears local storage keys.
+  2. Resets state variables to `null`.
+  3. Redirects to the login route.
 
-1.  **Dashboard View:** Upon logging in, the administrator is presented with a dashboard that provides a real-time overview of the system.
-2.  **Data Fetching:** The dashboard fetches data from the **Backend API** to display:
-    -   The number of pending, in-progress, and completed tasks.
-    -   A list of the most recent error logs.
-    -   The status of the different system components.
+---
 
-## Log and Fix Management
+## 2. Live Log Polling Engine
 
-1.  **Viewing Logs:** Administrators can navigate to a dedicated section to view a list of all submitted error logs.
-2.  **Searching and Filtering:** The interface provides options to search for specific logs or filter them by status (e.g., "Pending", "In Progress", "Completed").
-3.  **Viewing Fixes:** For completed tasks, administrators can view the details of the generated fix, including the code changes and any other relevant information.
+When the SRE opens the fix page for an incident currently being investigated:
+- **Polling Loop**: The view executes `GET /fixes/{id}/logs` every 2 seconds inside a React `useEffect` hook.
+- **Deduplication & Rendering**:
+  - The component checks incoming array lines against current state arrays.
+  - New lines are appended and parsed using a Markdown component.
+  - Triggers a DOM reference scroll operation `element.scrollIntoView({ behavior: 'smooth' })` to keep the latest agent steps in view.
+- **Loop Termination**: The polling timer is cleared when the backend incident status transitions to `"resolved"`, `"cooldown"`, or `"human_required"`.
 
-## System Health Monitoring
+---
 
-1.  **Health Check:** The Admin Panel includes a section that displays the health status of the various microservices.
-2.  **Status Polling:** The Admin Panel periodically polls the **Backend API** to get the latest health status of each component.
+## 3. SRE Approval and Remediation Dispatches
+
+In `FixViewerPage.js`, the SRE interacts with the agent's proposed resolutions:
+
+- **Approve Action**:
+  - Clicking the **[Approve & Merge]** button triggers `api.post(`/fixes/${id}/approve`)`.
+  - The UI locks input buttons, displays a loading spinner, and waits for a response.
+  - On HTTP 200 success, the UI displays the merge pull request link and updates the incident status to `"resolved"`.
+- **Reject / Re-Run Action**:
+  - SRE can request the agent retry the diagnosis by submitting instructions (e.g. "Try checking file headers").
+  - Dispatches a request to reset the fix record and queue a new background task.
+- **Manual Escalate Action**:
+  - Skips automated remediation, requesting the backend generate a Jira ticket.

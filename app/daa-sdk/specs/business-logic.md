@@ -1,13 +1,41 @@
-# Daa SDK Business Logic
+# DAA SDK Business Logic Specification
 
-## 1. Initialization
+This document details the telemetry processing workflows, stack trace extraction steps, and error resilience policies within the DAA SDK.
 
-The Daa SDK is initialized with the Daa backend API URL and an authentication token. These values are retrieved from the environment variables of the application.
+## 1. Exception Capture Workflow
 
-## 2. Error Capturing
+The following flowchart describes the operations executed when an application captures an error:
 
-The Daa SDK is used in a try-except block to capture any exceptions that occur in the application. When an exception is caught, the SDK captures the error message, stack trace, and other relevant context information.
+```mermaid
+graph TD
+    A[Exception Raised in Application] --> B[Pass to SDK captureException]
+    B --> C[Unwind Stack Frames & Capture Message]
+    C --> D[Format Payload Object]
+    D --> E[Serialize to JSON String]
+    E --> F[Print Debug cURL Command to Stdout]
+    F --> G[Dispatch HTTP POST to /logs/]
+```
 
-## 3. Log Sending
+### Stack Frame Extraction details
+- **Python**: Leverages the `traceback` standard library. `traceback.format_exc()` retrieves the complete call stack string.
+- **NodeJS**: Inspects the `error.stack` property. It contains lines detailing filenames, function names, and line/column offsets.
+- **Go**: Uses `runtime/debug.Stack()`. It unwinds Go runtime goroutines to dump active execution threads.
 
-The captured error log is then sent to the Daa backend API. The SDK handles the authentication with the backend API and sends the error log asynchronously to avoid blocking the application's main thread.
+---
+
+## 2. Ingestion Routing Dispatch
+
+- **Destination**: Submits to `{DAA_BACKEND_API_URL}/logs/`.
+- **Credential Header**: Attaches `Authorization: Bearer <DAA_TOKEN>` payload header.
+- **Microservice context**: Attaches `REPO_NAME` (stored in the payload as `app_name`) to specify which project is affected.
+
+---
+
+## 3. Resilience and Error Swallowing Policies
+
+Because SRE monitoring platforms are secondary services, they must never degrade primary business features:
+
+- **Safety Wrapper**: The HTTP client POST dispatch is executed inside a `try/catch` or `defer` execution context:
+  - If the Backend API is down, returns an HTTP 504 gateway error, or if network connectivity times out, the SDK catches the exception.
+  - The error is written to the developer console log (as standard error outputs), but is prevented from propagating back to the runtime framework.
+  - The host application continues processing requests without interruption.

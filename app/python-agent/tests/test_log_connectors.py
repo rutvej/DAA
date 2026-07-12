@@ -1,19 +1,18 @@
 import os
 import unittest
-from unittest.mock import patch, MagicMock
 from datetime import timezone
+from unittest.mock import MagicMock, patch
 
-from src.log_connectors import (
-    parse_timestamp,
-    get_configured_connector,
+from agent_src.log_connectors import (
     AWSCloudWatchConnector,
+    DatadogConnector,
     GCPCloudLoggingConnector,
-    DatadogConnector
+    get_configured_connector,
+    parse_timestamp,
 )
 
 
 class TestLogConnectors(unittest.TestCase):
-
     def test_parse_timestamp_iso(self):
         ts = parse_timestamp("2026-07-08T19:26:03Z")
         self.assertEqual(ts.year, 2026)
@@ -39,36 +38,36 @@ class TestLogConnectors(unittest.TestCase):
             connector = get_configured_connector()
             self.assertIsNone(connector)
 
-    @patch.dict(os.environ, {
-        "AWS_ACCESS_KEY_ID": "mock_id",
-        "AWS_SECRET_ACCESS_KEY": "mock_secret"
-    }, clear=True)
+    @patch.dict(
+        os.environ,
+        {"AWS_ACCESS_KEY_ID": "mock_id", "AWS_SECRET_ACCESS_KEY": "mock_secret"},
+        clear=True,
+    )
     def test_get_configured_connector_aws(self):
         connector = get_configured_connector()
         self.assertIsInstance(connector, AWSCloudWatchConnector)
 
-    @patch.dict(os.environ, {
-        "GCP_PROJECT_ID": "mock_project"
-    }, clear=True)
+    @patch.dict(os.environ, {"GCP_PROJECT_ID": "mock_project"}, clear=True)
     def test_get_configured_connector_gcp(self):
         connector = get_configured_connector()
         self.assertIsInstance(connector, GCPCloudLoggingConnector)
 
-    @patch.dict(os.environ, {
-        "DD_API_KEY": "mock_api",
-        "DD_APP_KEY": "mock_app"
-    }, clear=True)
+    @patch.dict(
+        os.environ, {"DD_API_KEY": "mock_api", "DD_APP_KEY": "mock_app"}, clear=True
+    )
     def test_get_configured_connector_datadog(self):
         connector = get_configured_connector()
         self.assertIsInstance(connector, DatadogConnector)
 
-    @patch.dict(os.environ, {
-        "AWS_ACCESS_KEY_ID": "mock_id",
-        "AWS_SECRET_ACCESS_KEY": "mock_secret"
-    }, clear=True)
+    @patch.dict(
+        os.environ,
+        {"AWS_ACCESS_KEY_ID": "mock_id", "AWS_SECRET_ACCESS_KEY": "mock_secret"},
+        clear=True,
+    )
     def test_aws_connector_fetch(self):
         # Setup mock boto3 logs client
         import sys
+
         mock_boto3 = MagicMock()
         mock_client = MagicMock()
         mock_boto3.client.return_value = mock_client
@@ -78,7 +77,7 @@ class TestLogConnectors(unittest.TestCase):
         mock_client.filter_log_events.return_value = {
             "events": [
                 {"timestamp": 100, "message": "Log line 1"},
-                {"timestamp": 200, "message": "Log line 2"}
+                {"timestamp": 200, "message": "Log line 2"},
             ]
         }
 
@@ -88,10 +87,11 @@ class TestLogConnectors(unittest.TestCase):
             self.assertEqual(logs, "Log line 1\nLog line 2")
             mock_client.filter_log_events.assert_called_once()
 
-    @patch.dict(os.environ, {
-        "GCP_PROJECT_ID": "mock_project",
-        "GCP_ACCESS_TOKEN": "mock_token"
-    }, clear=True)
+    @patch.dict(
+        os.environ,
+        {"GCP_PROJECT_ID": "mock_project", "GCP_ACCESS_TOKEN": "mock_token"},
+        clear=True,
+    )
     @patch("requests.post")
     def test_gcp_connector_fetch_rest_fallback(self, mock_post):
         # Mock requests.post for GCP Logging REST API
@@ -99,7 +99,7 @@ class TestLogConnectors(unittest.TestCase):
         mock_resp.json.return_value = {
             "entries": [
                 {"textPayload": "GCP line 1"},
-                {"jsonPayload": {"message": "GCP line 2"}}
+                {"jsonPayload": {"message": "GCP line 2"}},
             ]
         }
         mock_resp.raise_for_status.return_value = None
@@ -112,17 +112,16 @@ class TestLogConnectors(unittest.TestCase):
             self.assertEqual(logs, "GCP line 1\nGCP line 2")
             mock_post.assert_called_once()
 
-    @patch.dict(os.environ, {
-        "DD_API_KEY": "mock_api",
-        "DD_APP_KEY": "mock_app"
-    }, clear=True)
+    @patch.dict(
+        os.environ, {"DD_API_KEY": "mock_api", "DD_APP_KEY": "mock_app"}, clear=True
+    )
     @patch("requests.post")
     def test_datadog_connector_fetch(self, mock_post):
         mock_resp = MagicMock()
         mock_resp.json.return_value = {
             "data": [
                 {"attributes": {"message": "Datadog log 1"}},
-                {"attributes": {"message": "Datadog log 2"}}
+                {"attributes": {"message": "Datadog log 2"}},
             ]
         }
         mock_resp.raise_for_status.return_value = None

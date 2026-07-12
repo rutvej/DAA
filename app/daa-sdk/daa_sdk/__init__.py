@@ -1,8 +1,10 @@
-import os
-import requests
-import traceback
 import datetime
 import json
+import os
+import traceback
+
+import requests
+
 
 class DaaSdk:
     def __init__(self, backend_url=None):
@@ -12,12 +14,14 @@ class DaaSdk:
 
     def capture_exception(self, e):
         log = {
-            "content": json.dumps({
-                "message": str(e),
-                "stack_trace": traceback.format_exc(),
-                "context": {},
-                "timestamp": str(datetime.datetime.now()),
-            }),
+            "content": json.dumps(
+                {
+                    "message": str(e),
+                    "stack_trace": traceback.format_exc(),
+                    "context": {},
+                    "timestamp": str(datetime.datetime.now()),
+                }
+            ),
             "app_name": self.repo_name or "default-app",
         }
         self.send_log(log)

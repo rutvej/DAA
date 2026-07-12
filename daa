@@ -17,14 +17,14 @@ Usage:
   daa version               Show version
 """
 
-import os
-import sys
-import json
-import time
 import argparse
-import subprocess
 import getpass
-from typing import Dict, Any
+import json
+import os
+import subprocess
+import sys
+import time
+from typing import Any, Dict
 
 try:
     import requests
@@ -57,13 +57,32 @@ def header(msg): print(f"\n{BOLD}{msg}{RESET}")
 
 
 def load_config() -> dict:
+    cfg = {}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE) as f:
-                return json.load(f)
+                cfg.update(json.load(f))
         except Exception:
             pass
-    return {}
+    for env_path in (".env", ".env.daa"):
+        if os.path.exists(env_path):
+            try:
+                with open(env_path) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip()
+                            if k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+                                cfg["LLM_API_KEY"] = v
+                            elif k in ("GITHUB_TOKEN", "GITLAB_PRIVATE_TOKEN"):
+                                cfg["GIT_TOKEN"] = v
+                            else:
+                                cfg[k] = v
+            except Exception:
+                pass
+    return cfg
 
 
 def save_config(cfg: dict):
@@ -254,8 +273,60 @@ def cmd_init(_args):
     if llm_base_url:
         cfg["LLM_BASE_URL"] = llm_base_url
 
-    # ── Step 3: Cloud Logging Credentials (Skippable) ──
-    header("Step 3 — Cloud Logging Access (Skippable)")
+    # ── Step 3: Deployment Mode & Engine Selector ──
+    header("Step 3 — Deployment Mode & Engine Selector")
+    print("  Configure DAA's infrastructure profile (Stateless vs. Full-Stack).")
+    
+    deploy_choice = ask_choice(
+        "Choose your deployment architecture:",
+        ["Stateless / Serverless (GCP Cloud Run, AWS Fargate)", "Full-Stack (Multi-container, VM, Kubernetes)"],
+        default=cfg.get("DEPLOY_CHOICE", "Full-Stack (Multi-container, VM, Kubernetes)")
+    )
+    
+    if deploy_choice.startswith("Stateless"):
+        print(f"\n  {YELLOW}⚠ INFO on Stateless / Serverless Deployments:{RESET}")
+        print("    Stateless deployment runs without local database storage.")
+        print("    - If you select 'none' for the database, auth and policies are disabled.")
+        print("    - If you select 'sqlite', it will work, but there is NO guarantee")
+        print("      of data persistence when the serverless container restarts/scales to zero.")
+        print("      For persistence in serverless, configure an external database.")
+        
+        db_choice = ask_choice(
+            "Select database provider:",
+            ["none (Bypass auth, zero dependencies)", "sqlite (In-memory, testing only)", "external-postgres (Persistent DB)"],
+            default="none (Bypass auth, zero dependencies)"
+        )
+        db_provider = db_choice.split(" ")[0]
+        git_mode = "api"
+        queue_mode = "sync"
+        policy_enabled = "false" if db_provider == "none" else "true"
+        auth_enabled = "false" if db_provider == "none" else "true"
+    else:
+        db_choice = ask_choice(
+            "Select database engine:",
+            ["sqlite", "internal-postgres", "external-postgres"],
+            default="sqlite"
+        )
+        db_provider = db_choice
+        git_mode = "local"
+        queue_choice = ask_choice(
+            "Select background queue engine:",
+            ["sync (Threaded worker, single container)", "rabbitmq (Distributed worker pool)"],
+            default="sync (Threaded worker, single container)"
+        )
+        queue_mode = queue_choice.split(" ")[0]
+        policy_enabled = "true"
+        auth_enabled = "true"
+
+    cfg["DEPLOY_CHOICE"] = deploy_choice
+    cfg["DAA_DB_PROVIDER"] = db_provider
+    cfg["DAA_GIT_MODE"] = git_mode
+    cfg["DAA_QUEUE_MODE"] = queue_mode
+    cfg["DAA_POLICY_ENABLED"] = policy_enabled
+    cfg["DAA_AUTH_ENABLED"] = auth_enabled
+
+    # ── Step 4: Cloud Logging Credentials (Skippable) ──
+    header("Step 4 — Cloud Logging Access (Skippable)")
     configure_cloud_logs = ask("Configure Cloud Logging connector (AWS/GCP/Datadog) to pull live logs? [y/N]", "N")
     
     cloud_config = {}
@@ -285,6 +356,24 @@ def cmd_init(_args):
         cfg["cloud_logging"] = None
         info("Cloud logging configuration skipped.")
 
+    # ── Step 5: Self-Healing Telemetry (Opt-in) ──
+    header("Step 5 — DAA Self-Improvement Telemetry (Opt-in)")
+    print("  Help improve DAA by automatically reporting DAA's own internal")
+    print("  errors back to the DAA project.")
+    print("  What is sent:")
+    print(f"  {GREEN}✓{RESET} DAA's own stack traces (only DAA source files)")
+    print(f"  {GREEN}✓{RESET} DAA version, Python version, deployment mode")
+    print(f"  {RED}✗{RESET} Your application code — NEVER sent")
+    print(f"  {RED}✗{RESET} Your API keys — NEVER sent")
+    print(f"  {RED}✗{RESET} Your repo URLs — NEVER sent")
+    print(f"  {RED}✗{RESET} Your error logs — NEVER sent\n")
+    print("  This is like Windows Error Reporting or Chrome crash reports,")
+    print("  but for DAA. Your crash reports help DAA fix itself faster.")
+    
+    self_report_opt = ask("Enable self-reporting? [y/N]", "N")
+    enable_self_report = "true" if self_report_opt.upper().startswith("Y") else "false"
+    cfg["DAA_SELF_REPORT"] = enable_self_report
+
     # ── Save and Write files ──
     save_config(cfg)
     
@@ -294,6 +383,12 @@ def cmd_init(_args):
         "LLM_MODEL": llm_model,
         "SECRET_KEY": cfg.get("SECRET_KEY", "demo_secret_key"),
         "RABBITMQ_HOST": "rabbitmq",
+        "DAA_SELF_REPORT": enable_self_report,
+        "DAA_DB_PROVIDER": db_provider,
+        "DAA_GIT_MODE": git_mode,
+        "DAA_QUEUE_MODE": queue_mode,
+        "DAA_POLICY_ENABLED": policy_enabled,
+        "DAA_AUTH_ENABLED": auth_enabled,
     }
     
     # LLM Keys
@@ -307,6 +402,7 @@ def cmd_init(_args):
         env_map["LLM_BASE_URL"] = llm_base_url
 
     # Git Credentials
+    env_map["DAA_GIT_TOKEN"] = git_token
     if git_provider == "github":
         env_map["GITHUB_TOKEN"] = git_token
     elif git_provider == "gitlab":
@@ -339,13 +435,25 @@ def cmd_init(_args):
 
     write_env_vars(env_map)
     header("━━━ Setup Complete! ━━━")
-    print(f"\n  To applyLLM configurations and deploy DAA services, run:")
-    print(f"    {CYAN}daa redeploy{RESET}")
+    if deploy_choice.startswith("Stateless"):
+        print(f"\n  To build and run DAA as a single unified stateless Docker container, run:")
+        print(f"    {CYAN}docker build -t daa:latest .{RESET}")
+        print(f"    {CYAN}docker run -d -p 8000:80 --env-file .env daa:latest{RESET}")
+    else:
+        print(f"\n  To apply LLM configurations and deploy DAA services, run:")
+        print(f"    {CYAN}daa redeploy{RESET}")
     print()
 
 
 def cmd_register(args):
     cfg = load_config()
+    if cfg.get("DAA_DB_PROVIDER") == "none":
+        header("━━━ Register Application ━━━")
+        info("Registration is bypassed: DAA is running in Stateless / Serverless mode (zero-database).")
+        info("All configuration is loaded dynamically from environment variables.")
+        print()
+        return
+
     backend = cfg.get("backend_url", DEFAULT_BACKEND)
 
     header("━━━ Register Application ━━━")
@@ -418,6 +526,13 @@ def cmd_register(args):
 
 def cmd_policy(args):
     cfg = load_config()
+    if cfg.get("DAA_DB_PROVIDER") == "none":
+        header("━━━ Configure Escalation Policy ━━━")
+        info("Escalation policies are bypassed: DAA is running in Stateless / Serverless mode (zero-database).")
+        info("Alert processing defaults to immediate escalation.")
+        print()
+        return
+
     backend = cfg.get("backend_url", DEFAULT_BACKEND)
 
     header("━━━ Configure Escalation Policy ━━━")
@@ -536,6 +651,36 @@ def cmd_mcp(args):
             sys.exit(1)
 
 
+def cmd_self_report(args):
+    if args.preview:
+        header("━━━ DAA Self-Report Preview ━━━")
+        print("Would send to https://master.daa.dev/api/v1/self-report:")
+        report_preview = {
+            "exception_type": "AttributeError",
+            "exception_message": "module 'orchestrator' has no attribute 'run_preflight'",
+            "traceback": "  File \"app/python-agent/src/main.py\", line 480, in process_job\n    preflight = run_preflight(job.__dict__, backend_url, daa_token)",
+            "daa_file": "app/python-agent/src/main.py",
+            "daa_line": 480,
+            "daa_function": "process_job",
+            "daa_version": "3.0.1",
+            "python_version": "3.11.9",
+            "llm_provider": "google",
+            "deployment_mode": "docker-compose",
+            "os_info": "Linux 6.1.0 x86_64",
+            "phase": "preflight",
+            "trigger": "webhook",
+            "timestamp": "2026-07-09T14:22:00.000000",
+            "instance_id": "anon-uuid-value-123"
+        }
+        import pprint
+        pprint.pprint(report_preview)
+        print("\nNo user application data is included in self-reports.")
+    else:
+        cfg = load_config()
+        enabled = cfg.get("DAA_SELF_REPORT", "false")
+        print(f"DAA Self-Reporting enabled: {BOLD}{enabled}{RESET}")
+
+
 def cmd_config_set_model(args):
     if not args.provider or not args.model:
         err("set-model requires --provider and --model flags.")
@@ -570,34 +715,81 @@ def cmd_config_set_model(args):
     print()
 
 
-def cmd_redeploy(_args):
-    header("━━━ Redeploy DAA Services ━━━")
-    info("Restarting Docker containers to apply latest configurations...")
-
-    # Detect compose command
-    compose_cmd = "docker-compose"
-    try:
-        subprocess.run(["docker-compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-    except Exception:
-        try:
-            subprocess.run(["docker", "compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-            compose_cmd = "docker compose"
-        except Exception:
-            err("Neither docker-compose nor docker compose could be found.")
-            sys.exit(1)
-
-    try:
-        # Run down
-        info("Stopping active containers...")
-        subprocess.run(f"{compose_cmd} down", shell=True, check=True)
-        # Run up
-        info("Building and starting containers in background...")
-        subprocess.run(f"{compose_cmd} up -d --build", shell=True, check=True)
-        ok("DAA Services successfully rebuilt and redeployed!")
-        print()
-    except subprocess.CalledProcessError as e:
-        err(f"Redeployment failed: {e}")
+def cmd_config_set_git(args):
+    if not args.provider or not args.token:
+        err("set-git requires --provider and --token flags.")
         sys.exit(1)
+        
+    header("━━━ Update Git Configuration ━━━")
+    cfg = load_config()
+    cfg["GIT_PROVIDER"] = args.provider
+    cfg["GIT_TOKEN"] = args.token
+    save_config(cfg)
+    
+    env_map = {
+        "DAA_GIT_TOKEN": args.token,
+    }
+    if args.provider == "github":
+        env_map["GITHUB_TOKEN"] = args.token
+    elif args.provider in ("gitlab", "gitea"):
+        env_map["GITLAB_PRIVATE_TOKEN"] = args.token
+        
+    write_env_vars(env_map)
+    ok(f"Updated Git configuration to: provider={args.provider}")
+    info("To redeploy services with the new token, run: daa redeploy")
+    print()
+
+def cmd_redeploy(_args):
+    cfg = load_config()
+    header("━━━ Redeploy DAA Services ━━━")
+    
+    is_stateless = cfg.get("DAA_DB_PROVIDER") == "none"
+    
+    if is_stateless:
+        info("Rebuilding and running DAA as a single unified stateless Docker container...")
+        try:
+            # Stop existing standalone container if running
+            subprocess.run("docker stop daa-stateless 2>/dev/null || true", shell=True)
+            subprocess.run("docker rm daa-stateless 2>/dev/null || true", shell=True)
+            
+            # Run docker build
+            info("Building unified Docker image (daa:latest)...")
+            subprocess.run("docker build -t daa:latest .", shell=True, check=True)
+            
+            # Run docker run
+            info("Starting unified stateless container on port 8000...")
+            subprocess.run("docker run -d --name daa-stateless -p 8000:8080 --env-file .env daa:latest", shell=True, check=True)
+            ok("DAA Stateless service successfully rebuilt and started at http://localhost:8000!")
+            print()
+        except subprocess.CalledProcessError as e:
+            err(f"Redeployment failed: {e}")
+            sys.exit(1)
+    else:
+        info("Restarting Docker compose containers to apply latest configurations...")
+        # Detect compose command
+        compose_cmd = "docker-compose"
+        try:
+            subprocess.run(["docker-compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        except Exception:
+            try:
+                subprocess.run(["docker", "compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                compose_cmd = "docker compose"
+            except Exception:
+                err("Neither docker-compose nor docker compose could be found.")
+                sys.exit(1)
+
+        try:
+            # Run down
+            info("Stopping active containers...")
+            subprocess.run(f"{compose_cmd} down", shell=True, check=True)
+            # Run up
+            info("Building and starting containers in background...")
+            subprocess.run(f"{compose_cmd} up -d --build", shell=True, check=True)
+            ok("DAA Services successfully rebuilt and redeployed!")
+            print()
+        except subprocess.CalledProcessError as e:
+            err(f"Redeployment failed: {e}")
+            sys.exit(1)
 
 
 def cmd_status(args):
@@ -763,8 +955,16 @@ def main():
     set_model_parser.add_argument("--model", required=True, help="Model name")
     set_model_parser.add_argument("--api-key", help="API key")
 
+    set_git_parser = cfg_sub.add_parser("set-git", help="Set git provider and token")
+    set_git_parser.add_argument("--provider", required=True, help="Git provider (github, gitlab, gitea)")
+    set_git_parser.add_argument("--token", required=True, help="Git personal access token")
+
     # redeploy
     subparsers.add_parser("redeploy", help="Redeploy DAA Services")
+
+    # self-report
+    sr_parser = subparsers.add_parser("self-report", help="Manage self-healing telemetry reports")
+    sr_parser.add_argument("--preview", action="store_true", help="Preview a sample crash report payload")
 
     # status, test, logs, version
     subparsers.add_parser("status", help="Health check all services")
@@ -779,12 +979,13 @@ def main():
         "register": cmd_register,
         "policy": cmd_policy,
         "mcp": cmd_mcp,
-        "config": lambda a: cmd_config_set_model(a) if a.config_command == "set-model" else cfg_parser.print_help(),
+        "config": lambda a: cmd_config_set_model(a) if a.config_command == "set-model" else (cmd_config_set_git(a) if a.config_command == "set-git" else cfg_parser.print_help()),
         "redeploy": cmd_redeploy,
         "status": cmd_status,
         "test": cmd_test,
         "logs": cmd_logs,
         "version": cmd_version,
+        "self-report": cmd_self_report,
     }
 
     if args.command in commands:

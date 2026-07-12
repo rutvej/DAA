@@ -1,34 +1,44 @@
-# Admin Panel - UI Design
+# Admin Panel UI Design Specification
 
-This document provides a high-level overview of the UI design for the Admin Panel. The goal is to create a clean, intuitive, and user-friendly interface that allows administrators to easily monitor and manage the system.
+This document defines the layout grids, visual components, styling rules, and views of the React Admin Panel interface.
 
-## General Principles
+## 1. Grid & Global Layout
 
--   **Consistency:** The UI should be consistent across all pages, with a common layout, color scheme, and set of components.
--   **Clarity:** The interface should be easy to understand, with clear labels and intuitive navigation.
--   **Responsiveness:** The layout should be responsive and adapt to different screen sizes, from desktops to mobile devices.
+The UI utilizes a two-column layout:
+- **Navigation Sidebar (Width: 260px)**: Persistent on the left side of the screen. Displays navigation links and logged-in user profile widgets.
+- **Main View Canvas (Flex-1)**: Fills the remaining screen width. Contains the title header, dashboard stats grid, and detail views.
 
-## Key Screens
+---
 
-### 1. Login Page
+## 2. Visual Elements & Page Mockups
 
--   A simple form with fields for username and password.
--   A "Log In" button to submit the credentials.
+### A. Login & Register Screens
+- **Layout**: Centered card overlay against a dark Slate background.
+- **Form Controls**: TextInput boxes for Username and Password. Buttons for [Sign In] and [Sign Up].
+- **Error Banners**: Bright Rose alerts that appear inline if credentials fail.
 
-### 2. Dashboard
+### B. Outage Dashboard (`DashboardPage.js`)
+- **Stats Card Grid**:
+  - Three card indicators: Firing Outages (Rose background), Fix Success Rate (Emerald background), Firing Alerts (Indigo background).
+- **Incident Activity List**:
+  - A table of active incidents. Clicking an incident row routes the SRE operator to the corresponding `/fixes/{id}` details view.
 
--   **Header:** A persistent header with the application logo, the name of the logged-in user, and a logout button.
--   **Metrics:** A set of cards or widgets that display key metrics, such as the number of pending, in-progress, and completed tasks.
--   **Recent Logs:** A table or list that shows the most recently submitted error logs with their current status.
--   **System Health:** A section that displays the status of the different system components in a clear and concise way.
+### C. Live Fix details & Diff Viewer (`FixViewerPage.js`)
+- **Surgical Code Diff**:
+  - Code diffs are rendered using split or unified panes with syntax highlighting.
+  - Deletions are shown in soft red `#fee2e2` with `-` markers.
+  - Additions are shown in soft green `#dcfce7` with `+` markers.
+- **Audit Logs Term Terminal**:
+  - Consists of a dark background console wrapper with a monospace font.
+  - Shows pulsing icons indicating that the agent is currently diagnosing the incident.
+  - Appends formatted markdown strings.
+- **Approval Call-to-Action Bar**:
+  - Positioned at the top or bottom of the fix view.
+  - Includes an **[Approve & Merge]** button (triggers code push to main branch) and a **[Reject & Re-run]** button (wipes fix state and enqueues a retry job).
 
-### 3. Logs Page
-
--   **Search and Filter:** A set of controls for searching and filtering the logs.
--   **Log Table:** A table that lists all the error logs with columns for ID, status, timestamp, and a summary of the content.
--   **Log Details:** Clicking on a log in the table will open a detailed view with the full content of the log and a link to the generated fix if available.
-
-### 4. Fix Viewer Page
-
--   **Fix Details:** A page that displays the details of a generated fix, including the original error log and the code changes suggested by the LLM.
--   **Code Diff:** A side-by-side view that highlights the differences between the original code and the generated fix.
+### D. System Health Check (`SystemHealthPage.js`)
+- **Status Cards**: Grid of components for Backend, Postgres, RabbitMQ, and MCP Server.
+- **Indicators**:
+  - Green dot: Active, healthy.
+  - Yellow dot: Throttled or in warning (e.g. SQLite database not in WAL mode).
+  - Red dot: Disconnected or down.

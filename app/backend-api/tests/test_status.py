@@ -1,14 +1,16 @@
+import uuid
+
 from fastapi.testclient import TestClient
-from src.main import app
-from src.database import get_db, Log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import uuid
+from src.database import Log, get_db
+from src.main import app
 
 DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 
 def override_get_db():
     try:
@@ -17,17 +19,23 @@ def override_get_db():
     finally:
         db.close()
 
+
 app.dependency_overrides[get_db] = override_get_db
 
 client = TestClient(app)
 
+
 def setup():
     from src.database import Base
+
     Base.metadata.create_all(bind=engine)
+
 
 def teardown():
     from src.database import Base
+
     Base.metadata.drop_all(bind=engine)
+
 
 def test_get_status():
     setup()
@@ -41,6 +49,7 @@ def test_get_status():
     assert response.status_code == 200
     assert response.json() == {"status": "In Progress"}
     teardown()
+
 
 def test_get_nonexistent_status():
     setup()

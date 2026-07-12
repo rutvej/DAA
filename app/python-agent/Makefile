@@ -5,7 +5,7 @@ setup:
 	uv pip install -r requirements.txt
 
 test:
-	. .venv/bin/activate && python3 -m unittest discover tests
+	. .venv/bin/activate && PYTHONPATH=. python3 -m unittest discover tests
 
 lint:
 	. .venv/bin/activate && ruff check .

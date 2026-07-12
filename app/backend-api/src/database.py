@@ -1,18 +1,177 @@
-from sqlalchemy import create_engine, Column, String, DateTime, Text, Boolean, ForeignKey, Integer
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship
-from datetime import datetime
 import os
 import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    event,
+)
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
 
 def generate_uuid():
     return str(uuid.uuid4())
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./test.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+DAA_DB_PROVIDER = os.environ.get("DAA_DB_PROVIDER")
+if not DAA_DB_PROVIDER:
+    db_url = os.environ.get("DATABASE_URL", "")
+    if "postgresql" in db_url or "postgres" in db_url:
+        DAA_DB_PROVIDER = "postgres"
+    else:
+        DAA_DB_PROVIDER = "sqlite"
+else:
+    DAA_DB_PROVIDER = DAA_DB_PROVIDER.lower()
+
+default_policy = (
+    "true"
+    if DAA_DB_PROVIDER
+    in ("sqlite", "postgres", "internal-postgres", "external-postgres")
+    else "false"
+)
+default_auth = (
+    "true"
+    if DAA_DB_PROVIDER
+    in ("sqlite", "postgres", "internal-postgres", "external-postgres")
+    else "false"
+)
+
+DAA_POLICY_ENABLED = (
+    os.environ.get("DAA_POLICY_ENABLED", default_policy).lower() == "true"
+)
+DAA_AUTH_ENABLED = os.environ.get("DAA_AUTH_ENABLED", default_auth).lower() == "true"
+
+
+class MockQuery:
+    def __init__(self, model_class=None, data=None):
+        self.model_class = model_class
+        self.data = data or []
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def filter_by(self, *args, **kwargs):
+        return self
+
+    def join(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def limit(self, *args, **kwargs):
+        return self
+
+    def offset(self, *args, **kwargs):
+        return self
+
+    def first(self):
+        return None
+
+    def all(self):
+        return []
+
+    def count(self):
+        return 0
+
+
+class MockSession:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def query(self, model_class):
+        return MockQuery(model_class)
+
+    def add(self, instance):
+        import uuid
+        from datetime import datetime
+
+        if hasattr(instance, "id") and not getattr(instance, "id"):
+            instance.id = str(uuid.uuid4())
+        if hasattr(instance, "timestamp") and not getattr(instance, "timestamp"):
+            instance.timestamp = datetime.utcnow()
+        if hasattr(instance, "created_at") and not getattr(instance, "created_at"):
+            instance.created_at = datetime.utcnow()
+        if hasattr(instance, "first_seen_at") and not getattr(
+            instance, "first_seen_at"
+        ):
+            instance.first_seen_at = datetime.utcnow()
+        if hasattr(instance, "last_seen_at") and not getattr(instance, "last_seen_at"):
+            instance.last_seen_at = datetime.utcnow()
+
+    def delete(self, instance):
+        pass
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+    def refresh(self, instance):
+        pass
+
+    def close(self):
+        pass
+
+    def begin(self):
+        class MockTransaction:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                pass
+
+        return MockTransaction()
+
+
+if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+    engine = None
+    SessionLocal = MockSession
+elif DAA_DB_PROVIDER == "sqlite":
+    if "K_SERVICE" in os.environ:
+        import logging
+
+        logging.warning(
+            "SQLite is fundamentally incompatible with bucket-mounted storage (GCS FUSE) "
+            "due to lack of advisory POSIX locking and mmap support. This will cause "
+            "database corruption or lock errors on Cloud Run. "
+            "Please migrate to an external Postgres database, or libSQL/Turso."
+        )
+
+    DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
+    engine = create_engine(
+        DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30.0}
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+    # Configure SQLite WAL mode (disabled on Cloud Run to prevent mmap crashes)
+    if "K_SERVICE" not in os.environ:
+
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.close()
+
+else:
+    DATABASE_URL = os.environ.get(
+        "DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db"
+    )
+    engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=40, pool_timeout=60)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 Base = declarative_base()
+
 
 class User(Base):
     __tablename__ = "users"
@@ -21,6 +180,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     passwordHash = Column(String)
     role = Column(String, default="User")
+
 
 class Log(Base):
     __tablename__ = "logs"
@@ -38,6 +198,7 @@ class Log(Base):
 
     user = relationship("User")
 
+
 class Fix(Base):
     __tablename__ = "fixes"
 
@@ -52,6 +213,7 @@ class Fix(Base):
 
     log = relationship("Log")
 
+
 class ProjectConnection(Base):
     __tablename__ = "project_connections"
 
@@ -64,6 +226,7 @@ class ProjectConnection(Base):
     jira_token = Column(String)
     jira_project_key = Column(String)
 
+
 class Alert(Base):
     __tablename__ = "alerts"
 
@@ -74,6 +237,7 @@ class Alert(Base):
     severity = Column(String, default="warning")  # "info", "warning", "critical"
     status = Column(String, default="firing")  # "firing", "resolved"
     timestamp = Column(DateTime, default=datetime.utcnow)
+
 
 class Application(Base):
     __tablename__ = "applications"
@@ -91,19 +255,25 @@ class Application(Base):
 
     escalation_policies = relationship("EscalationPolicy", back_populates="application")
 
+
 class EscalationPolicy(Base):
     __tablename__ = "escalation_policies"
 
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
     application_id = Column(String, ForeignKey("applications.id"))
-    rule_type = Column(String)  # "error_rate_threshold", "severity_immediate", "external_webhook", "error_rate_spike"
+    rule_type = Column(
+        String
+    )  # "error_rate_threshold", "severity_immediate", "external_webhook", "error_rate_spike"
     condition_value = Column(Integer, nullable=True)
     window_seconds = Column(Integer, default=120)
-    severity_keywords = Column(Text, nullable=True)  # JSON string e.g. '["FATAL", "OOMKill"]'
+    severity_keywords = Column(
+        Text, nullable=True
+    )  # JSON string e.g. '["FATAL", "OOMKill"]'
     cooldown_minutes = Column(Integer, default=30)
     is_active = Column(Boolean, default=True)
 
     application = relationship("Application", back_populates="escalation_policies")
+
 
 class Incident(Base):
     __tablename__ = "incidents"
@@ -111,7 +281,9 @@ class Incident(Base):
     id = Column(String, primary_key=True, index=True, default=generate_uuid)
     fingerprint = Column(String, index=True, nullable=False)
     app_name = Column(String, index=True, nullable=False)
-    status = Column(String, default="investigating")  # "investigating", "pr_open", "ticket_created", "cooldown", "resolved", "human_required"
+    status = Column(
+        String, default="investigating"
+    )  # "investigating", "pr_open", "ticket_created", "cooldown", "resolved", "human_required"
     occurrence_count = Column(Integer, default=1)
     first_seen_at = Column(DateTime, default=datetime.utcnow)
     last_seen_at = Column(DateTime, default=datetime.utcnow)
@@ -122,6 +294,32 @@ class Incident(Base):
     pr_url = Column(String, nullable=True)
     ticket_url = Column(String, nullable=True)
     postmortem_md = Column(Text, nullable=True)
+    active_lock = Column(String, default="active")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "fingerprint", "active_lock", name="uq_incident_fingerprint_active_lock"
+        ),
+    )
+
+
+@event.listens_for(Incident.status, "set")
+def on_incident_status_change(target, value, oldvalue, initiator):
+    active_statuses = [
+        "investigating",
+        "pr_open",
+        "ticket_created",
+        "cooldown",
+        "fix_proposed",
+        "processing",
+        "awaiting_approval",
+        "fix_open",
+    ]
+    if value not in active_statuses:
+        target.active_lock = target.id or str(uuid.uuid4())
+    else:
+        target.active_lock = "active"
+
 
 def get_db():
     db = SessionLocal()
@@ -132,19 +330,58 @@ def get_db():
 
 
 def run_db_migrations(engine):
-    from sqlalchemy import text, inspect
+    from sqlalchemy import inspect, text
+
     with engine.begin() as conn:
         try:
             inspector = inspect(engine)
-            if 'applications' in inspector.get_table_names():
-                columns = [col['name'] for col in inspector.get_columns('applications')]
-                if 'allowed_ip' not in columns:
+            if "applications" in inspector.get_table_names():
+                columns = [col["name"] for col in inspector.get_columns("applications")]
+                if "allowed_ip" not in columns:
                     print("Adding column 'allowed_ip' to applications table...")
-                    conn.execute(text("ALTER TABLE applications ADD COLUMN allowed_ip VARCHAR(255) NULL"))
-                if 'token' not in columns:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE applications ADD COLUMN allowed_ip VARCHAR(255) NULL"
+                        )
+                    )
+                if "token" not in columns:
                     print("Adding column 'token' to applications table...")
-                    conn.execute(text("ALTER TABLE applications ADD COLUMN token TEXT NULL"))
+                    conn.execute(
+                        text("ALTER TABLE applications ADD COLUMN token TEXT NULL")
+                    )
+
+            if "incidents" in inspector.get_table_names():
+                columns = [col["name"] for col in inspector.get_columns("incidents")]
+                if "active_lock" not in columns:
+                    print("Adding column 'active_lock' to incidents table...")
+                    conn.execute(
+                        text(
+                            "ALTER TABLE incidents ADD COLUMN active_lock VARCHAR(255) DEFAULT 'active'"
+                        )
+                    )
+                    conn.execute(
+                        text(
+                            "CREATE UNIQUE INDEX IF NOT EXISTS uq_incident_fingerprint_active_lock ON incidents(fingerprint, active_lock)"
+                        )
+                    )
         except Exception as e:
             print(f"Error checking/running database migrations: {e}")
 
-
+    # When auth is disabled, get_current_user() returns a synthetic user with
+    # id="admin-id".  The logs table has a FK → users.id, so any INSERT with
+    # userId="admin-id" fails with ForeignKeyViolation unless that row exists.
+    # Seed it here so the constraint is always satisfied regardless of auth mode.
+    if not DAA_AUTH_ENABLED:
+        try:
+            with engine.begin() as conn:
+                # Use INSERT … ON CONFLICT DO NOTHING (works for both Postgres and SQLite)
+                conn.execute(
+                    text(
+                        'INSERT INTO users (id, username, "passwordHash", role) '
+                        "VALUES ('admin-id', 'admin', 'disabled', 'admin') "
+                        "ON CONFLICT (id) DO NOTHING"
+                    )
+                )
+                print("Seeded synthetic admin-id user (auth disabled).")
+        except Exception as e:
+            print(f"Warning: could not seed admin-id user: {e}")

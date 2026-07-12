@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-import sys
 import json
-import sqlite3
 import os
-import urllib.parse
+import sqlite3
+import sys
+
 import requests
+
 
 # Set up logging to stderr so it does not corrupt the JSON-RPC stdout channel
 def log_info(msg):
     sys.stderr.write(f"[DAA-MCP] {msg}\n")
     sys.stderr.flush()
+
 
 def get_db():
     # Dynamic database location lookup
@@ -24,6 +26,7 @@ def get_db():
     elif db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
         try:
             import psycopg2
+
             return psycopg2.connect(db_url)
         except Exception as e:
             log_info(f"Failed to connect to PostgreSQL database: {e}")
@@ -46,6 +49,7 @@ def _ph(conn):
 # Existing tools (v1.0.0)
 # ---------------------------------------------------------------------------
 
+
 def get_fixes_awaiting_approval():
     conn = get_db()
     if not conn:
@@ -60,18 +64,21 @@ def get_fixes_awaiting_approval():
         rows = cursor.fetchall()
         fixes_list = []
         for r in rows:
-            fixes_list.append({
-                "fix_id": r[0],
-                "log_id": r[1],
-                "branch_name": r[2],
-                "app_name": r[3],
-                "log_content": r[4]
-            })
+            fixes_list.append(
+                {
+                    "fix_id": r[0],
+                    "log_id": r[1],
+                    "branch_name": r[2],
+                    "app_name": r[3],
+                    "log_content": r[4],
+                }
+            )
         return {"fixes": fixes_list}
     except Exception as e:
         return {"error": f"Database query error: {e}"}
     finally:
         conn.close()
+
 
 def get_incident_postmortem(fix_id):
     conn = get_db()
@@ -82,7 +89,7 @@ def get_incident_postmortem(fix_id):
         ph = _ph(conn)
         cursor.execute(
             f"SELECT id, logId, postmortem, status, pull_request_url FROM fixes WHERE id = {ph}",
-            (fix_id,)
+            (fix_id,),
         )
         row = cursor.fetchone()
         if not row:
@@ -92,12 +99,13 @@ def get_incident_postmortem(fix_id):
             "log_id": row[1],
             "postmortem": row[2],
             "status": row[3],
-            "pull_request_url": row[4]
+            "pull_request_url": row[4],
         }
     except Exception as e:
         return {"error": f"Database query error: {e}"}
     finally:
         conn.close()
+
 
 def approve_remediation_fix(fix_id):
     # Call the backend API directly so that it triggers the full approval workflow
@@ -121,6 +129,7 @@ def approve_remediation_fix(fix_id):
 # New DAA 3.0 tools (v2.0.0)
 # ---------------------------------------------------------------------------
 
+
 def get_active_incidents():
     """
     Return all incidents currently in 'processing' or 'pending' state,
@@ -132,6 +141,7 @@ def get_active_incidents():
         return {"error": "Could not connect to database. Please check DATABASE_URL."}
     try:
         import datetime
+
         cursor = conn.cursor()
         cursor.execute(
             "SELECT incidents.id, incidents.status, incidents.created_at, "
@@ -154,14 +164,16 @@ def get_active_incidents():
             except Exception:
                 elapsed_str = "unknown"
 
-            incidents.append({
-                "incident_id": r[0],
-                "status": r[1],
-                "created_at": str(r[2]),
-                "elapsed": elapsed_str,
-                "app_name": r[3],
-                "exception_type": r[4],
-            })
+            incidents.append(
+                {
+                    "incident_id": r[0],
+                    "status": r[1],
+                    "created_at": str(r[2]),
+                    "elapsed": elapsed_str,
+                    "app_name": r[3],
+                    "exception_type": r[4],
+                }
+            )
         return {"active_incidents": incidents, "count": len(incidents)}
     except Exception as e:
         return {"error": f"Database query error: {e}"}
@@ -185,7 +197,7 @@ def get_fix_by_fingerprint(fingerprint: str):
             f"SELECT id, fingerprint, pull_request_url, status, postmortem, created_at "
             f"FROM fixes WHERE fingerprint = {ph} "
             f"ORDER BY created_at DESC LIMIT 1",
-            (fingerprint,)
+            (fingerprint,),
         )
         row = cursor.fetchone()
         if not row:
@@ -256,7 +268,11 @@ def trigger_manual_incident(app_name: str, error_message: str, file_path: str = 
         "app_name": app_name,
         "content": error_message,
         "exception_type": "ManualTrigger",
-        "stack_trace": f"Manually triggered via MCP.\nFile: {file_path}" if file_path else "Manually triggered via MCP.",
+        "stack_trace": (
+            f"Manually triggered via MCP.\nFile: {file_path}"
+            if file_path
+            else "Manually triggered via MCP."
+        ),
         "source": "mcp_manual_trigger",
     }
 
@@ -264,7 +280,10 @@ def trigger_manual_incident(app_name: str, error_message: str, file_path: str = 
         res = requests.post(logs_url, json=payload, headers=headers, timeout=15)
         if res.status_code in (200, 201):
             return {"success": True, "response": res.json()}
-        return {"success": False, "error": f"Backend returned {res.status_code}: {res.text}"}
+        return {
+            "success": False,
+            "error": f"Backend returned {res.status_code}: {res.text}",
+        }
     except Exception as e:
         return {"success": False, "error": f"Failed to reach backend: {e}"}
 
@@ -272,6 +291,7 @@ def trigger_manual_incident(app_name: str, error_message: str, file_path: str = 
 # ---------------------------------------------------------------------------
 # JSON-RPC request router
 # ---------------------------------------------------------------------------
+
 
 def handle_request(req):
     req_id = req.get("id")
@@ -287,10 +307,7 @@ def handle_request(req):
                     {
                         "name": "get_fixes_awaiting_approval",
                         "description": "Retrieve all DAA SRE incident remediation fixes currently awaiting human approval.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {}
-                        }
+                        "inputSchema": {"type": "object", "properties": {}},
                     },
                     {
                         "name": "get_incident_postmortem",
@@ -300,11 +317,11 @@ def handle_request(req):
                             "properties": {
                                 "fix_id": {
                                     "type": "string",
-                                    "description": "The unique ID of the fix."
+                                    "description": "The unique ID of the fix.",
                                 }
                             },
-                            "required": ["fix_id"]
-                        }
+                            "required": ["fix_id"],
+                        },
                     },
                     {
                         "name": "approve_remediation_fix",
@@ -314,20 +331,17 @@ def handle_request(req):
                             "properties": {
                                 "fix_id": {
                                     "type": "string",
-                                    "description": "The unique ID of the fix."
+                                    "description": "The unique ID of the fix.",
                                 }
                             },
-                            "required": ["fix_id"]
-                        }
+                            "required": ["fix_id"],
+                        },
                     },
                     # --- DAA 3.0 new tools ---
                     {
                         "name": "get_active_incidents",
                         "description": "Get all currently active (processing/pending) incidents with their app name, status, fingerprint, and elapsed time.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {}
-                        }
+                        "inputSchema": {"type": "object", "properties": {}},
                     },
                     {
                         "name": "get_fix_by_fingerprint",
@@ -337,19 +351,16 @@ def handle_request(req):
                             "properties": {
                                 "fingerprint": {
                                     "type": "string",
-                                    "description": "SHA-256 or MD5 fingerprint hash of the error signature."
+                                    "description": "SHA-256 or MD5 fingerprint hash of the error signature.",
                                 }
                             },
-                            "required": ["fingerprint"]
-                        }
+                            "required": ["fingerprint"],
+                        },
                     },
                     {
                         "name": "list_registered_apps",
                         "description": "List all applications registered in DAA with their repository URL, cloud provider config, and escalation policy.",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {}
-                        }
+                        "inputSchema": {"type": "object", "properties": {}},
                     },
                     {
                         "name": "trigger_manual_incident",
@@ -359,23 +370,23 @@ def handle_request(req):
                             "properties": {
                                 "app_name": {
                                     "type": "string",
-                                    "description": "The name of the registered application to trigger an incident for."
+                                    "description": "The name of the registered application to trigger an incident for.",
                                 },
                                 "error_message": {
                                     "type": "string",
-                                    "description": "The synthetic error message or log content to submit."
+                                    "description": "The synthetic error message or log content to submit.",
                                 },
                                 "file_path": {
                                     "type": "string",
-                                    "description": "Optional source file path associated with the error."
-                                }
+                                    "description": "Optional source file path associated with the error.",
+                                },
                             },
-                            "required": ["app_name", "error_message"]
-                        }
-                    }
+                            "required": ["app_name", "error_message"],
+                        },
+                    },
                 ]
             },
-            "id": req_id
+            "id": req_id,
         }
 
     elif method == "tools/call":
@@ -405,20 +416,15 @@ def handle_request(req):
             return {
                 "jsonrpc": "2.0",
                 "error": {"code": -32601, "message": f"Method not found: {tool_name}"},
-                "id": req_id
+                "id": req_id,
             }
 
         return {
             "jsonrpc": "2.0",
             "result": {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(result_data, indent=2)
-                    }
-                ]
+                "content": [{"type": "text", "text": json.dumps(result_data, indent=2)}]
             },
-            "id": req_id
+            "id": req_id,
         }
 
     # Handle standard initializations or other requests gracefully
@@ -427,22 +433,14 @@ def handle_request(req):
             "jsonrpc": "2.0",
             "result": {
                 "protocolVersion": "2024-11-05",
-                "capabilities": {
-                    "tools": {}
-                },
-                "serverInfo": {
-                    "name": "daa-sre-mcp-server",
-                    "version": "2.0.0"
-                }
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "daa-sre-mcp-server", "version": "2.0.0"},
             },
-            "id": req_id
+            "id": req_id,
         }
 
-    return {
-        "jsonrpc": "2.0",
-        "result": {},
-        "id": req_id
-    }
+    return {"jsonrpc": "2.0", "result": {}, "id": req_id}
+
 
 def main():
     log_info("DAA SRE MCP Server v2.0.0 started.")
@@ -457,6 +455,7 @@ def main():
             sys.stdout.flush()
         except Exception as e:
             log_info(f"Error handling request: {e}")
+
 
 if __name__ == "__main__":
     main()

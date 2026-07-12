@@ -1,56 +1,113 @@
-# Backend API - API Contract
+# Backend API Contract Specification
 
-This document defines the API contract for the Backend API, detailing the available endpoints, the expected request and response formats, and the authentication requirements.
+This document describes all API endpoints exposed by the FastAPI backend module.
 
-## Authentication
+## 1. Authentication Endpoints (`/auth`)
 
-All endpoints, unless otherwise specified, require a valid JWT to be included in the `Authorization` header of the request.
+### Register User
+* **Method**: `POST /auth/register`
+* **Request Body**:
+```json
+{
+  "username": "sre_user",
+  "password": "sre_password",
+  "role": "User"
+}
+```
+* **Response (200 OK)**: `{"message": "User created successfully"}`
+* **Response (400 Bad Request)**: `{"detail": "Username already registered"}`
+
+### Login User
+* **Method**: `POST /auth/login`
+* **Request Body**:
+```json
+{
+  "username": "sre_user",
+  "password": "sre_password"
+}
+```
+* **Response (200 OK)**:
+```json
+{
+  "access_token": "jwt-token-string",
+  "token_type": "bearer"
+}
+```
 
 ---
 
-## Endpoints
+## 2. Ingestion & Log Endpoints (`/logs`, `/ingest`)
 
-### Authentication
+### Submit Outage Log
+* **Method**: `POST /logs/`
+* **Authentication**: Authorization Bearer Token
+* **Request Body**:
+```json
+{
+  "content": "RedisConnectionError: timed out",
+  "app_name": "checkout-service",
+  "exception_type": "RedisConnectionError",
+  "trace_id": "12345",
+  "correlation_id": "67890",
+  "metadata_json": "{}"
+}
+```
+* **Response (202 Accepted)**:
+  - If escalated: `{"logId": "uuid", "status": "Escalated to Agent", "incidentId": "uuid", "fingerprint": "hash"}`
+  - If below threshold: `{"logId": "uuid", "status": "Logged (Threshold not reached)", "error_count": 1, ...}`
+* **Response (403 Forbidden)**: `{"detail": "This token is only authorized to submit logs for application..."}`
 
--   **`POST /auth/register`**
-    -   **Description:** Registers a new user.
-    -   **Request Body:** ` { "username": "string", "password": "string" } `
-    -   **Response:** ` { "message": "User registered successfully" } `
+### Ingest Prometheus Alert
+* **Method**: `POST /ingest/prometheus`
+* **Request Body**: Alertmanager payload.
+* **Response (200 OK)**: `{"status": "accepted", "jobs": 1}`
 
--   **`POST /auth/login`**
-    -   **Description:** Authenticates a user and returns a JWT.
-    -   **Request Body:** ` { "username": "string", "password": "string" } `
-    -   **Response:** ` { "token": "string" } `
+### Ingest Sentry Webhook
+* **Method**: `POST /ingest/sentry`
+* **Headers**: `X-Sentry-Signature`
+* **Response (200 OK)**: `{"status": "accepted"}`
 
-### Logs
+---
 
--   **`POST /logs`**
-    -   **Description:** Submits a new error log for processing.
-    -   **Request Body:** ` { "content": "string" } `
-    -   **Response:** ` { "logId": "string", "status": "Pending" } `
+## 3. Incident Management Endpoints (`/incidents`)
 
--   **`GET /logs`**
-    -   **Description:** Retrieves a list of all logs.
-    -   **Query Parameters:** `page`, `limit`, `status`
-    -   **Response:** ` [ { "id": "string", "status": "string", "timestamp": "datetime" } ] `
+### List Incidents
+* **Method**: `GET /incidents/`
+* **Query Parameters**: `status` (optional), `limit` (default: 10)
+* **Response (200 OK)**: List of Incident records.
 
--   **`GET /logs/{id}`**
-    -   **Description:** Retrieves the details of a specific log.
-    -   **Response:** ` { "id": "string", "status": "string", "timestamp": "datetime", "content": "string" } `
+### Fetch Incident Details
+* **Method**: `GET /incidents/{id}`
+* **Response (200 OK)**: Complete incident payload, including confidence scores and postmortems.
 
-### Fixes
+---
 
--   **`POST /fixes`**
-    -   **Description:** Updates the analysis status of a log.
-    -   **Request Body:** ` { "log_id": "string", "status": "string", "pull_request_url": "string" } `
-    -   **Response:** ` { "status": "success" } `
+## 4. Fix Review Endpoints (`/fixes`)
 
--   **`GET /fixes/{id}`**
-    -   **Description:** Retrieves the details of a specific fix.
-    -   **Response:** ` { "id": "string", "logId": "string", "timestamp": "datetime", "generatedFix": "string" } `
+### Fetch Fix by Fingerprint
+* **Method**: `GET /fixes/fingerprint/{fingerprint}`
+* **Response (200 OK)**:
+```json
+{
+  "status": "fix_open",
+  "pr_url": "https://github.com/...",
+  "fix_id": "uuid"
+}
+```
 
-### System Health
+### Append Agent Trace Log
+* **Method**: `POST /fixes/{id}/append-log`
+* **Request Body**: `{"log_line": "string"}`
+* **Response (200 OK)**: `{"status": "ok"}`
 
--   **`GET /health`**
-    -   **Description:** Retrieves the health status of the system's components.
-    -   **Response:** ` [ { "serviceName": "string", "status": "string" } ] `
+### Approve Agent Fix
+* **Method**: `POST /fixes/{id}/approve`
+* **Response (200 OK)**: `{"status": "approved", "pr_url": "..."}`
+
+---
+
+## 5. Mock JIRA Endpoints (Testing)
+
+These mock endpoints are provided in `main.py` to bypass JIRA Cloud authentication during local dry runs:
+- `POST /mock-jira/rest/api/3/issue` (returns HTTP 201 Created and `{"key": "INC-1234"}`).
+- `GET /mock-jira/browse/{issue_key}` (returns HTTP 200 OK mock browse page).
