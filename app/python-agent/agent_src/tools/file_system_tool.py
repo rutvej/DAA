@@ -57,7 +57,7 @@ def parse_api_path(file_path: str) -> tuple[str, str]:
     file_path = file_path.strip().strip("'\"")
     if file_path.startswith("/tmp/"):
         parts = [p for p in file_path.split("/") if p]
-        if len(parts) >= 3:
+        if len(parts) >= 2:
             app_name = parts[1]
             relative_path = "/".join(parts[2:])
             return app_name, relative_path

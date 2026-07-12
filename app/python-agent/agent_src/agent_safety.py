@@ -98,8 +98,12 @@ class PlanningValidator:
         This tells the agent it MUST emit a structured plan before using tools.
         """
         return (
-            "IMPORTANT: Your FIRST output must be a JSON investigation plan "
-            "in this exact format:\n"
+            "IMPORTANT: Your FIRST output must be a JSON investigation plan. "
+            "Because you must follow the ReAct format, you MUST place this JSON "
+            "plan entirely inside your very first `Thought:` block, and immediately "
+            "follow it with an `Action:` and `Action Input:` to start investigating.\n"
+            "The JSON must be in this exact format:\n"
+            "```json\n"
             "{{\n"
             '  "hypothesis": "<your hypothesis about the root cause>",\n'
             '  "evidence_needed": [\n'
@@ -109,7 +113,8 @@ class PlanningValidator:
             "  ],\n"
             '  "will_not_check": ["<things you will deliberately not investigate>"]\n'
             "}}\n"
-            "Only after submitting this plan may you call investigation tools."
+            "```\n"
+            "Only after submitting this plan in your Thought may you call investigation tools."
         )
 
 

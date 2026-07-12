@@ -342,23 +342,8 @@ class LogHydrator:
                 "Error in cloud log connector execution: %s, falling back", exc
             )
 
-        # Fallback to local database logs
-        url = f"{self.backend_url}/apps/{app_name}/logs"
-        try:
-            resp = requests.get(
-                url,
-                params={"before": timestamp, "limit": 500},
-                headers=self._headers,
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Backend may return {"lines": [...]} or a raw list
-            lines = data if isinstance(data, list) else data.get("lines", [])
-            return "\n".join(str(line) for line in lines)
-        except requests.RequestException as exc:
-            logger.warning("dim2 (app logs) fetch failed: %s", exc)
-            return None
+        # As requested: "if not logs are set it should not call the logs api"
+        return None
 
     def _fetch_dim3(self, app_name: str, timestamp: str) -> Optional[str]:
         """
@@ -367,46 +352,57 @@ class LogHydrator:
         Returns a compact string like ``cpu=12% mem=45% redis_mem=98% err_rate=142/min``
         or None on failure.
         """
-        url = f"{self.backend_url}/apps/{app_name}/metrics"
-        try:
-            resp = requests.get(
-                url,
-                params={"timestamp": timestamp},
-                headers=self._headers,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # Format every key=value pair into a compact string
-            parts = [
-                f"{k}={v}" for k, v in data.items() if not isinstance(v, (dict, list))
-            ]
-            return "  ".join(parts) if parts else None
-        except requests.RequestException as exc:
-            logger.warning("dim3 (metrics) fetch failed: %s", exc)
-            return None
+        # "why is it call the app instead of the log api" 
+        # Don't call the fallback backend metrics API if not configured
+        return None
 
     def _fetch_dim4(self, app_name: str) -> Optional[str]:
         """
-        Fetch the last 10 recent commits from the backend.
-
-        Returns a multi-line string (one commit per line) or None on failure.
+        Fetch the last 10 recent commits.
         """
-        url = f"{self.backend_url}/apps/{app_name}/recent-changes"
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            try:
+                from .tools.clonefree_client import CloneFreeGitClient
+                client = CloneFreeGitClient(app_name)
+                import requests
+                
+                if client.provider in ("github", "gitea"):
+                    resp = requests.get(f"{client.api_base}/commits", headers=client.headers, params={"limit": 10}, timeout=10)
+                    if resp.status_code == 200:
+                        lines = []
+                        for c in resp.json()[:10]:
+                            sha = c.get("sha", "")[:8]
+                            c_info = c.get("commit", {})
+                            msg = c_info.get("message", "").splitlines()[0] if "message" in c_info else ""
+                            author = c_info.get("author", {}).get("name", "")
+                            lines.append(f"{sha}  {author}  {msg}")
+                        return "\n".join(lines) if lines else None
+                elif client.provider == "gitlab":
+                    resp = requests.get(f"{client.api_base}/repository/commits", headers=client.headers, params={"per_page": 10}, timeout=10)
+                    if resp.status_code == 200:
+                        lines = []
+                        for c in resp.json()[:10]:
+                            sha = c.get("id", "")[:8]
+                            msg = c.get("title", "")
+                            author = c.get("author_name", "")
+                            lines.append(f"{sha}  {author}  {msg}")
+                        return "\n".join(lines) if lines else None
+                return None
+            except Exception as exc:
+                logger.warning("dim4 (git history api) fetch failed: %s", exc)
+                return None
+
         try:
-            resp = requests.get(url, headers=self._headers, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            commits = data if isinstance(data, list) else data.get("commits", [])
-            # Take at most 10 commits; format as "<sha> <author> <message>"
-            lines = []
-            for commit in commits[:10]:
-                sha = commit.get("sha", "")[:8]
-                msg = commit.get("message", "").splitlines()[0]  # first line only
-                author = commit.get("author", "")
-                lines.append(f"{sha}  {author}  {msg}")
-            return "\n".join(lines) if lines else None
-        except requests.RequestException as exc:
+            import subprocess
+            git_dir = f"/var/daa/repos/{app_name}/.git"
+            if not os.path.isdir(git_dir):
+                return "unavailable (repo not cached yet)"
+            result = subprocess.run(
+                ["git", "--git-dir", git_dir, "log", "-n", "10", "--oneline"],
+                capture_output=True, text=True, check=True
+            )
+            return result.stdout.strip()
+        except Exception as exc:
             logger.warning("dim4 (git history) fetch failed: %s", exc)
             return None
 
@@ -436,10 +432,29 @@ class LogHydrator:
             }
         """
         logger.info("Hydrating dimensions for %s @ %s", app_name, incident_timestamp)
+        
+        dim2 = self._fetch_dim2(app_name, incident_timestamp)
+        if dim2:
+            logger.info("dim2 (app logs): fetched successfully")
+        else:
+            logger.info("dim2 (app logs): skipped (no log connector configured)")
+            
+        dim3 = self._fetch_dim3(app_name, incident_timestamp)
+        if dim3:
+            logger.info("dim3 (metrics): fetched successfully")
+        else:
+            logger.info("dim3 (metrics): skipped (no metrics connector configured)")
+            
+        dim4 = self._fetch_dim4(app_name)
+        if dim4 and not dim4.startswith("unavailable"):
+            logger.info("dim4 (git history): fetched %d commits", len(dim4.splitlines()))
+        else:
+            logger.info("dim4 (git history): skipped or unavailable")
+            
         return {
-            "dim2_app_logs": self._fetch_dim2(app_name, incident_timestamp),
-            "dim3_metrics": self._fetch_dim3(app_name, incident_timestamp),
-            "dim4_git_history": self._fetch_dim4(app_name),
+            "dim2_app_logs": dim2,
+            "dim3_metrics": dim3,
+            "dim4_git_history": dim4,
         }
 
 
