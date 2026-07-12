@@ -68,7 +68,7 @@ def get_status(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    if current_user.get(\"role\") == "application":
+    if current_user.get("role") == "application":
         raise HTTPException(
             status_code=403,
             detail="Applications are not authorized to perform this action",

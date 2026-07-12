@@ -38,7 +38,12 @@ def _cached(key: str, builder, ttl: int = _CACHE_TTL, force: bool = False):
 # ── Provider detection ────────────────────────────────────────────────────────
 
 def _detect_provider() -> str:
-    """Return the active git provider name based on env vars."""
+    """Return the active git provider name based on env vars.
+
+    Checks both the canonical names (GITEA_TOKEN, GITHUB_TOKEN, etc.) and
+    the standalone-image aliases (DAA_GIT_TOKEN + GIT_HOST/GIT_REPO_URL).
+    """
+    # Canonical provider env vars
     if os.getenv("GITHUB_TOKEN") and os.getenv("GITHUB_REPO"):
         return "github"
     if os.getenv("GITLAB_PRIVATE_TOKEN"):
@@ -47,6 +52,11 @@ def _detect_provider() -> str:
         return "gitea"
     if os.getenv("BITBUCKET_APP_PASSWORD") and os.getenv("BITBUCKET_USERNAME"):
         return "bitbucket"
+    # Standalone-image aliases: DAA_GIT_TOKEN + GIT_HOST or GIT_REPO_URL
+    if os.getenv("DAA_GIT_TOKEN") and (
+        os.getenv("GIT_HOST") or os.getenv("GIT_REPO_URL")
+    ):
+        return "gitea"   # standalone always targets a Gitea instance
     return "none"
 
 
@@ -64,13 +74,26 @@ def get_provider_info() -> Dict[str, Any]:
 DAA_PR_LABEL = os.getenv("DAA_PR_LABEL", "daa-fix")
 DAA_PR_TITLE_PREFIX = "[DAA]"
 
+# Branch prefixes that DAA always uses when creating fix branches
+_DAA_BRANCH_PREFIXES = ("fix/", "remediation/", "daa-fix/", "daa/", "autofix/")
 
-def _is_daa_pr(title: str, labels: List[str]) -> bool:
-    """Return True if this PR was created by DAA."""
+
+def _is_daa_pr(title: str, labels: List[str], branch: str = "") -> bool:
+    """Return True if this PR was created by DAA.
+
+    Matches on:
+    - Title prefix  [DAA]
+    - Label         daa-fix / daa-automated (or DAA_PR_LABEL env)
+    - Branch name   starts with a known DAA remediation prefix
+    """
     if title.startswith(DAA_PR_TITLE_PREFIX):
         return True
     label_lower = [l.lower() for l in labels]
-    return DAA_PR_LABEL.lower() in label_lower or "daa-automated" in label_lower
+    if DAA_PR_LABEL.lower() in label_lower or "daa-automated" in label_lower:
+        return True
+    if branch and any(branch.startswith(p) for p in _DAA_BRANCH_PREFIXES):
+        return True
+    return False
 
 
 # ── Normalised PR dict ────────────────────────────────────────────────────────
@@ -142,10 +165,9 @@ def _fetch_github(state: str = "all") -> List[Dict[str, Any]]:
     for pr in prs:
         labels = [lbl["name"] for lbl in pr.get("labels", [])]
         title = pr.get("title", "")
-        if not _is_daa_pr(title, labels):
-            continue
-        # Infer app_name from branch name: "daa-fix/app-name/..." or fallback to repo
         branch = pr.get("head", {}).get("ref", "")
+        if not _is_daa_pr(title, labels, branch=branch):
+            continue
         parts = branch.split("/")
         app_name = parts[1] if len(parts) >= 3 else repo.split("/")[-1]
         results.append(
@@ -204,9 +226,9 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
     for mr in mrs:
         labels = mr.get("labels", [])
         title = mr.get("title", "")
-        if not _is_daa_pr(title, labels):
-            continue
         branch = mr.get("source_branch", "")
+        if not _is_daa_pr(title, labels, branch=branch):
+            continue
         parts = branch.split("/")
         app_name = parts[1] if len(parts) >= 3 else project_path.split("/")[-1]
         mr_state = mr.get("state", "opened")
@@ -232,9 +254,15 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
 # ── Gitea ─────────────────────────────────────────────────────────────────────
 
 def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
-    token = os.getenv("GITEA_TOKEN", "")
-    host = os.getenv("GITEA_HOST", "http://localhost:3000").rstrip("/")
-    repo_url = os.getenv("DAA_REPO_URL", "")
+    # Prefer canonical GITEA_TOKEN; fall back to DAA_GIT_TOKEN (standalone image)
+    token = os.getenv("GITEA_TOKEN") or os.getenv("DAA_GIT_TOKEN", "")
+    # Prefer canonical GITEA_HOST; fall back to GIT_HOST (standalone image)
+    host = (
+        os.getenv("GITEA_HOST")
+        or os.getenv("GIT_HOST", "http://localhost:3000")
+    ).rstrip("/")
+    # Prefer DAA_REPO_URL; fall back to GIT_REPO_URL (standalone image)
+    repo_url = os.getenv("DAA_REPO_URL") or os.getenv("GIT_REPO_URL", "")
     if not token:
         return []
 
@@ -265,9 +293,9 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
     for pr in prs:
         labels = [lbl["name"] for lbl in pr.get("labels", [])]
         title = pr.get("title", "")
-        if not _is_daa_pr(title, labels):
-            continue
         branch = pr.get("head", {}).get("ref", "")
+        if not _is_daa_pr(title, labels, branch=branch):
+            continue
         parts_branch = branch.split("/")
         app_name = parts_branch[1] if len(parts_branch) >= 3 else repo_name
         merged_at = pr.get("merged") and pr.get("updated")
