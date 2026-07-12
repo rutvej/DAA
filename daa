@@ -120,7 +120,7 @@ def write_env_vars(env_map: Dict[str, str]):
             existing[k] = v
             
     with open(".env", "w") as f:
-        f.write("# Deduplicated Autonomous Agent Workspace Env\n")
+        f.write("# Debugging Autonomous Agent Workspace Env\n")
         for k, v in existing.items():
             f.write(f"{k}={v}\n")
     ok("Updated local .env workspace file")

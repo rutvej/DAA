@@ -46,7 +46,7 @@ Active anomalies or outages tracked by DAA.
 - `fingerprint` (VARCHAR, Indexed): SHA-256 hash of `app_name + exception_type + top_stack_frame`.
 - `app_name` (VARCHAR, Indexed): Affected service.
 - `status` (VARCHAR): Investigational status (`"investigating"`, `"pr_open"`, `"ticket_created"`, `"cooldown"`, `"resolved"`, `"human_required"`).
-- `occurrence_count` (INTEGER): Deduplicated occurrence frequency counter.
+- `occurrence_count` (INTEGER): Debugging occurrence frequency counter.
 - `first_seen_at` (DATETIME): Incident creation time.
 - `last_seen_at` (DATETIME): Last error timestamp matched to this fingerprint.
 - `cooldown_until` (DATETIME, Nullable): Lockout expiry time for auto-remediator.

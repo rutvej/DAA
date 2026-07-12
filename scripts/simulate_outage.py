@@ -162,9 +162,9 @@ def run_showcase():
             )
             print(f"     ➔ Created Active Incident ID: {inc_id}")
             print("     ➔ Published Fix Job to RabbitMQ Queue 'fix_jobs'")
-        elif "Suppressed (Deduplicated)" in log_status:
+        elif "Suppressed (Debugging)" in log_status:
             print(
-                f"  🛡️  [Log {i}/5] IDENTICAL ERROR DETECTED -> Status: Suppressed (Deduplicated)!"
+                f"  🛡️  [Log {i}/5] IDENTICAL ERROR DETECTED -> Status: Suppressed (Debugging)!"
             )
             print(
                 "     ➔ SHA256 Fingerprint matched active incident. 0% Redundant LLM Token Waste!"
