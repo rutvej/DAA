@@ -140,7 +140,7 @@ export default function ApplicationsPage() {
 
           <h4 style={{ margin: '20px 0 4px', color: '#374151' }}>Escalation Policy</h4>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: '#6b7280' }}>
-            DAA will escalate to the agent after <b>N errors</b> in <b>W seconds</b>. Identical errors are SHA256-deduplicated.
+            DAA will escalate to the agent after <b>N errors</b> in <b>W seconds</b>. Identical errors are SHA256-Debugging.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0 16px' }}>
             <div>

@@ -2,7 +2,7 @@
 
 ![DAA — Autonomous SRE Platform](./docs/daa_hero.jpg)
 
-<h1>DAA — Deduplicated Autonomous SRE Platform</h1>
+<h1>DAA — Debugging Autonomous SRE Platform</h1>
 
 <p><strong>Stop waking up engineers at 3AM. Let AI triage it first.</strong></p>
 
