@@ -21,3 +21,6 @@ Detailed specs are in the following folders:
 - `app/admin-panel/specs`
 - `app/daa-sdk/specs`
 - `app/test-app/specs`
+
+## Security & Authentication Architecture (`v3.0`)
+For comprehensive documentation on External IAM pass-through (`[P0-SEC-3]`), machine-to-machine webhook HMAC verification, CORS origin restrictions (`[P0-SEC-2]`), and container volume isolation (`[P0-SEC-1]`), refer directly to the [Security Policy & Hardening Guide](../SECURITY.md) (`SECURITY.md`).
