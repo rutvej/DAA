@@ -10,7 +10,7 @@ We will iterate through these **one by one**: discussing the design and exact co
 
 ### 🛡️ Security Blockers (P0)
 
-- [ ] **Task 1 (`[P0-SEC-1]`): Remove Host Developer Credentials & CLI Binary Volume Mounts**
+- [x] **Task 1 (`[P0-SEC-1]`): Remove Host Developer Credentials & CLI Binary Volume Mounts**
   - **Target Files:** [docker-compose.yml](file:///home/rutvej/Desktop/DAA/docker-compose.yml#L80-L83) (Lines 80–83)
   - **Exact Changes:** Delete lines mounting `- /var/run/docker.sock:/var/run/docker.sock`, `- ${CODEX_AUTH_JSON_PATH}:/app/auth.json`, `- /home/rutvej/.gemini:/root/.gemini`, and `- /home/rutvej/.local/bin/agy:/usr/local/bin/agy`. Replace with isolated, container-scoped volume definitions or explicit API key environment variables (`GEMINI_API_KEY`, `DAA_GIT_TOKEN`).
   - **Why It Is Needed:** Currently, the `python-agent` container mounts the host developer's live personal OAuth tokens (`auth.json`), entire Google Antigravity configuration directory (`.gemini`), and host CLI binary (`agy`). Because the AI agent executes arbitrary tool calls (`read_file`, `subprocess`), any prompt injection from a malicious git commit or webhook allows complete exfiltration of the developer's personal credentials and full command execution on the host machine.

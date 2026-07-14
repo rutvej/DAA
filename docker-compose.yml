@@ -77,11 +77,7 @@ services:
       - 1.1.1.1
     volumes:
       - secrets:/var/run/secrets
-      - ${CODEX_AUTH_JSON_PATH:-/home/rutvej/snap/codex/34/auth.json}:/app/auth.json:ro
       - ${DAA_GIT_DIR:-/home/rutvej/Desktop/DAA/.git}:/app/.git:ro
-      - /home/rutvej/.local/bin/agy:/usr/local/bin/agy:ro
-      - /home/rutvej/.gemini:/root/.gemini:ro
-      - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/daa:/tmp/daa
     extra_hosts:
       - "host.docker.internal:host-gateway"
