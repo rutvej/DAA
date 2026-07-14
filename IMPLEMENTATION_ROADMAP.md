@@ -9,7 +9,13 @@
 
 ## 1. Executive Synthesis & Current Platform Posture
 
-The **Dynamic Autonomous SRE Agent (DAA)** platform is an ambitious, highly sophisticated AI engineering system designed to bridge the gap between observability alerts and closed-loop code remediation. At its core, DAA implements a multi-topology architecture capable of operating as a distributed, queue-driven asynchronous pipeline (via **RabbitMQ** and **PostgreSQL**) or as a stateless, zero-clone serverless agent (**True Serverless / Cloud Run** mode using **Gitea/GitHub/GitLab REST APIs** via `CloneFreeGitClient`).
+> [!IMPORTANT]
+> **Upstream Sync & Rebranding Notice (`origin/main` @ `04f2d77`):**  
+> Since the original 10-phase audit, upstream pull requests #6 through #9 have been cleanly merged into this branch (`audit/comprehensive-10-phase-review`). Key upstream modifications verified during sync:
+> - **Platform Nomenclature Rebranding**: All core references across `backend-api` (`logs.py`), `admin-panel` (`ApplicationsPage.js`, `IncidentsPage.js`, `LogsPage.js`), `python-agent` (`orchestrator.py`), `daa` CLI (`write_env_vars`), `install.sh`, and `scripts/simulate_outage.py` were updated from `"Suppressed (Deduplicated)"` / `"Deduplicated"` to `"Suppressed (Debugging)"` / `"Debugging"`.
+> - **Documentation & Portal Refinement**: `README.md` was streamlined by removing the experimental marketing section (`How to Get Visibility`), focusing purely on core architecture and local deployment (`DEPLOYMENT.md`). The standalone documentation portal (`index.html`) was similarly updated to reflect the `Debugging` platform structure.
+
+The **Debugging Autonomous SRE Platform (DAA)** (formerly Dynamic/Deduplicated Autonomous SRE Agent) is an ambitious, highly sophisticated AI engineering system designed to bridge the gap between observability alerts and closed-loop code remediation. At its core, DAA implements a multi-topology architecture capable of operating as a distributed, queue-driven asynchronous pipeline (via **RabbitMQ** and **PostgreSQL**) or as a stateless, zero-clone serverless agent (**True Serverless / Cloud Run** mode using **Gitea/GitHub/GitLab REST APIs** via `CloneFreeGitClient`).
 
 Across our 10-phase forensic audit, we inspected ~10,373 lines of code across **65 features**, **27 distinct integrations**, and **6 deployment matrix topologies**. While DAA exhibits world-class capabilities—such as race-free cryptographic incident deduplication (`FingerprintDedup`), instant bare `git worktree` allocation with SQLite FTS5 AST indexing (`RepoCacheManager`), and live ReAct thought streaming with browser-based Human-in-the-Loop (`HITL`) intercept—the repository currently stands at an **Enterprise Alpha** maturity level. 
 

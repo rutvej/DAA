@@ -1,6 +1,9 @@
 # DAA Repository Comprehensive Forensic Audit Reports (2026)
 
-This folder contains the complete, code-verified 10-phase forensic audit and master registry generated for the **Dynamic Autonomous SRE Agent (`DAA`)** platform. Each phase report is stored in its own separate folder with exhaustive code evidence (`.py`, `.js`, `.sh`, `Dockerfile`, `docker-compose.yml`, `terraform/main.tf`).
+This folder contains the complete, code-verified 10-phase forensic audit and master registry generated for the **Debugging Autonomous SRE Platform (`DAA`)** (formerly Deduplicated Autonomous Agent). Each phase report is stored in its own separate folder with exhaustive code evidence (`.py`, `.js`, `.sh`, `Dockerfile`, `docker-compose.yml`, `terraform/main.tf`).
+
+> [!NOTE]
+> **Upstream Sync Update (2026-07-14):** All reports have been synced against upstream `origin/main` (commit `04f2d77`), incorporating the system-wide shift from "Deduplicated" to "Debugging" nomenclature across `backend-api`, `admin-panel`, `python-agent`, `daa` CLI, `install.sh`, `index.html`, and `README.md`.
 
 ---
 
