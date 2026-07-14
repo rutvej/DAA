@@ -60,65 +60,13 @@ cors_origins = [
     if origin.strip()
 ]
 
-# Allow LAN access from devices on private 192.168.x.x addresses when the UI is opened remotely.
-cors_origin_regex = os.environ.get(
-    "CORS_ALLOW_ORIGIN_REGEX",
-    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$",
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.middleware("http")
-async def dynamic_cors_middleware(request: Request, call_next):
-    # Skip DB lookup in no-DB mode — MockSession can't do real queries.
-    if not _DB_ACTIVE:
-        return await call_next(request)
-
-    origin = request.headers.get("origin")
-    if origin:
-        try:
-            parsed = urlparse(origin)
-            origin_host = parsed.hostname
-            if origin_host:
-                db = SessionLocal()
-                try:
-                    matched = (
-                        db.query(Application)
-                        .filter(Application.allowed_ip == origin_host)
-                        .first()
-                    )
-                    if matched:
-                        if request.method == "OPTIONS":
-                            from fastapi.responses import Response
-
-                            response = Response()
-                            response.headers["Access-Control-Allow-Origin"] = origin
-                            response.headers["Access-Control-Allow-Credentials"] = (
-                                "true"
-                            )
-                            response.headers["Access-Control-Allow-Methods"] = "*"
-                            response.headers["Access-Control-Allow-Headers"] = "*"
-                            return response
-
-                        response = await call_next(request)
-                        response.headers["Access-Control-Allow-Origin"] = origin
-                        response.headers["Access-Control-Allow-Credentials"] = "true"
-                        response.headers["Access-Control-Allow-Methods"] = "*"
-                        response.headers["Access-Control-Allow-Headers"] = "*"
-                        return response
-                finally:
-                    db.close()
-        except Exception:
-            pass
-    return await call_next(request)
 
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
