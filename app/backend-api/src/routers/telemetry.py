@@ -4,7 +4,7 @@ import logging
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -45,6 +45,7 @@ def get_db():
 
 @router.post("/api/v1/self-report")
 def receive_self_report(
+    request: Request,
     report: DAAInternalErrorReport,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -58,6 +59,13 @@ def receive_self_report(
             status_code=403,
             detail="Self-reporting endpoint is disabled on this DAA instance.",
         )
+
+    # Enforce API key verification on self-report submissions if DAA_API_KEY is configured
+    daa_api_key = os.environ.get("DAA_API_KEY")
+    if daa_api_key:
+        api_key_header = request.headers.get("X-API-Key") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        if api_key_header != daa_api_key:
+            raise HTTPException(status_code=401, detail="Unauthorized: Invalid DAA_API_KEY for self-report")
 
     # 1. Compute fingerprint
     fingerprint_input = (

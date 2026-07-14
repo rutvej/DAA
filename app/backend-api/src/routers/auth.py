@@ -67,7 +67,16 @@ def get_current_user(
     request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     if not DAA_AUTH_ENABLED:
-        return {"username": "admin", "id": "admin-id", "role": "admin"}
+        iam_user = request.headers.get("X-Forwarded-User") or request.headers.get("X-DAA-User")
+        iam_role = request.headers.get("X-Forwarded-Role") or request.headers.get("X-DAA-Role")
+        if iam_user:
+            return {
+                "username": iam_user,
+                "id": f"iam-{iam_user}",
+                "role": iam_role if iam_role in ("admin", "user", "readonly") else os.getenv("DAA_DEFAULT_ROLE", "user")
+            }
+        default_role = os.getenv("DAA_DEFAULT_ROLE_WHEN_NO_AUTH", "readonly")
+        return {"username": "anonymous", "id": "anonymous-id", "role": default_role}
 
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")

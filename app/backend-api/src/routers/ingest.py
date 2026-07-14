@@ -50,8 +50,6 @@ def resolve_jsonpath(data: dict, path: str):
 
 async def verify_webhook_auth(request: Request):
     """Verifies DAA_API_KEY if configured in environment."""
-    if not DAA_AUTH_ENABLED:
-        return
     daa_api_key = os.environ.get("DAA_API_KEY")
     if daa_api_key:
         api_key_header = request.headers.get("X-API-Key")
@@ -76,8 +74,6 @@ async def verify_webhook_auth(request: Request):
 
 async def verify_sentry_signature(request: Request):
     """Verifies X-Sentry-Signature if SENTRY_WEBHOOK_SECRET is configured."""
-    if not DAA_AUTH_ENABLED:
-        return
     sentry_secret = os.environ.get("SENTRY_WEBHOOK_SECRET")
     if sentry_secret:
         signature = request.headers.get("X-Sentry-Signature")
