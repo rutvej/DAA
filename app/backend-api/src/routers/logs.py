@@ -103,7 +103,7 @@ def submit_log(
         db.commit()
         return {
             "logId": db_log.id,
-            "status": "Suppressed (Deduplicated)",
+            "status": "Suppressed (Debugging)",
             "incidentId": active_incident.id,
             "fingerprint": fingerprint,
         }
@@ -194,7 +194,7 @@ def submit_log(
             db.commit()
             return {
                 "logId": db_log.id,
-                "status": "Suppressed (Deduplicated via DB lock)",
+                "status": "Suppressed (Debugging via DB lock)",
                 "incidentId": active_incident.id,
                 "fingerprint": fingerprint,
             }

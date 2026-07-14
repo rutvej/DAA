@@ -63,7 +63,7 @@ const LogsPage = () => {
           <option value="">All Statuses</option>
           <option value="Logged (Threshold not reached)">Logged (Threshold not reached)</option>
           <option value="Escalated to Agent">Escalated to Agent</option>
-          <option value="Suppressed (Deduplicated)">Suppressed (Deduplicated)</option>
+          <option value="Suppressed (Debugging)">Suppressed (Debugging)</option>
         </select>
       </div>
       {isLoading ? (

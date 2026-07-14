@@ -1266,7 +1266,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                         "context": None,
                         "fingerprint": fingerprint,
                         "skip": True,
-                        "skip_reason": "Deduplicated via Git push lock",
+                        "skip_reason": "Debugging via Git push lock",
                         "pr_url": None,
                     }
             except Exception as exc:

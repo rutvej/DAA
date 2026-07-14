@@ -3,48 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAA v3.0 — Deduplicated Autonomous SRE Platform</title>
-  <meta name="description" content="DAA is an open-source autonomous SRE platform that automatically triages, diagnoses, and fixes production microservice incidents. It ingests Sentry/Prometheus alerts, runs a LangChain ReAct agent across 4 diagnostic dimensions, and opens a Pull Request with a postmortem — no human required for the first 30-60 minutes of incident response.">
-  <meta name="keywords" content="autonomous SRE, AI incident response, LangChain agent, production debugging, automatic bug fix, Sentry webhook, Prometheus alert, postmortem automation, DevOps AI, open source SRE, DAA">
+  <title>DAA — Debugging Autonomous SRE Platform</title>
+  <meta name="description" content="DAA is an open-source autonomous SRE platform that automatically triages, diagnoses, and fixes production microservice incidents using a LangChain ReAct agent.">
+  <meta name="keywords" content="autonomous SRE, AI incident response, LangChain agent, production debugging, automatic bug fix, Sentry webhook, Prometheus alert, DevOps AI, open source SRE, DAA">
   <meta name="author" content="DAA Open Source Project">
   <meta name="robots" content="index, follow">
 
-  <!-- Open Graph / Social -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://rutvej.github.io/DAA/">
-  <meta property="og:title" content="DAA v3.0 — Deduplicated Autonomous SRE Platform">
-  <meta property="og:description" content="Open-source autonomous SRE platform. Ingests production exceptions, deduplicates with SHA-256 fingerprints, dispatches a LangChain agent across 4 diagnostic dimensions, and opens a PR with a postmortem — automatically.">
+  <meta property="og:title" content="DAA — Debugging Autonomous SRE Platform">
+  <meta property="og:description" content="Open-source autonomous SRE platform. Ingests production exceptions, deduplicates with SHA-256 fingerprints, dispatches an AI agent, and opens a PR automatically.">
   <meta property="og:image" content="https://rutvej.github.io/DAA/docs/daa_hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="DAA v3.0 — Autonomous SRE Platform">
-  <meta name="twitter:description" content="AI that fixes your production bugs. Ingests Sentry/Prometheus, runs 4-dimension diagnosis, opens PRs automatically.">
+  <meta name="twitter:title" content="DAA — Autonomous SRE Platform">
+  <meta name="twitter:description" content="Stop waking up engineers at 3AM. Let AI triage it first.">
 
-  <!-- JSON-LD Structured Data for LLM Web Search -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "DAA — Deduplicated Autonomous SRE Platform",
-    "applicationCategory": "DeveloperApplication",
-    "operatingSystem": "Linux, macOS, Windows",
-    "description": "DAA is an open-source autonomous Site Reliability Engineering (SRE) platform that automates incident triage. It ingests exception logs via Sentry or Prometheus webhooks, deduplicates them using SHA-256 fingerprints, applies sliding-window escalation policies, and dispatches a LangChain ReAct agent that investigates across 4 dimensions: recent git changes, infrastructure alerts, correlated distributed traces, and surgical code navigation. The agent applies a fix, runs tests, opens a Pull Request, and generates a postmortem report.",
-    "version": "3.0.1",
-    "url": "https://rutvej.github.io/DAA/",
-    "downloadUrl": "https://hub.docker.com/r/rutvej1/daa-standalone",
-    "codeRepository": "https://github.com/rutvej/DAA",
-    "license": "https://opensource.org/licenses/MIT",
-    "programmingLanguage": ["Python", "TypeScript", "Go"],
-    "keywords": "autonomous SRE, AI incident response, LangChain, production debugging, automatic bug fix, DevOps automation",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
-  }
-  </script>
-
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
@@ -559,32 +536,13 @@
       margin-bottom: 0.5rem;
     }
 
-    /* Grid layout for files / layout */
-    .layout-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-    }
-
-    @media (max-width: 900px) {
-      .layout-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    /* Ports Table styling */
-    .table-container {
-      overflow-x: auto;
-      border-radius: 10px;
-      border: 1px solid var(--border-color);
-      margin-bottom: 1.5rem;
-    }
-
+    /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 0.925rem;
+      margin-bottom: 1.5rem;
     }
 
     th {
@@ -603,43 +561,6 @@
 
     tr:last-child td {
       border-bottom: none;
-    }
-
-    .port-link {
-      color: var(--secondary);
-      text-decoration: none;
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 500;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(6, 182, 212, 0.08);
-      border: 1px solid rgba(6, 182, 212, 0.15);
-      transition: all 0.2s;
-    }
-
-    .port-link:hover {
-      background: rgba(6, 182, 212, 0.15);
-      color: var(--text-main);
-    }
-
-    .status-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 6px;
-      background-color: var(--success);
-      box-shadow: 0 0 8px var(--success);
-    }
-
-    .status-dot.yellow {
-      background-color: var(--warning);
-      box-shadow: 0 0 8px var(--warning);
-    }
-
-    .status-dot.blue {
-      background-color: var(--secondary);
-      box-shadow: 0 0 8px var(--secondary);
     }
 
     /* LLM Configuration Tabs */
@@ -712,6 +633,11 @@
     .tab-pane pre {
       border-radius: 0;
     }
+    
+    .code-block-wrapper.standalone pre {
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
 
     .copy-btn {
       position: absolute;
@@ -743,168 +669,16 @@
       border-color: rgba(16, 185, 129, 0.3);
     }
 
-    /* Interactive SRE Incident Diagnostic Console Simulation */
-    .console-simulation {
-      background: #05070f;
-      border: 1px solid #1e293b;
-      border-radius: 12px;
-      margin-top: 1.5rem;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-      overflow: hidden;
+    .highlight-box {
+      border-left: 4px solid var(--primary);
+      background: rgba(99, 102, 241, 0.04);
+      padding: 1rem 1.25rem;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 1.25rem;
     }
 
-    .console-header {
-      background: #0f172a;
-      padding: 12px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #1e293b;
-    }
-
-    .console-controls {
-      display: flex;
-      gap: 6px;
-    }
-
-    .console-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .console-dot.red { background-color: #ef4444; }
-    .console-dot.yellow { background-color: #f59e0b; }
-    .console-dot.green { background-color: #10b981; }
-
-    .console-title {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-
-    .console-actions-top {
-      display: flex;
-      gap: 0.75rem;
-    }
-
-    .console-btn-run {
-      background: rgba(6, 182, 212, 0.15);
-      border: 1px solid rgba(6, 182, 212, 0.3);
-      color: var(--secondary);
-      padding: 4px 10px;
-      font-size: 0.75rem;
-      border-radius: 4px;
-      font-family: inherit;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    .console-btn-run:hover {
-      background: rgba(6, 182, 212, 0.3);
-      color: #ffffff;
-    }
-
-    .console-body {
-      padding: 1.25rem;
-      min-height: 250px;
-      max-height: 400px;
-      overflow-y: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.85rem;
-      line-height: 1.6;
-      color: #e2e8f0;
-      background: #03050a;
-    }
-
-    .console-line {
-      margin-bottom: 0.4rem;
-      animation: consoleFadeIn 0.2s forwards;
-      opacity: 0;
-      transform: translateY(4px);
-    }
-
-    @keyframes consoleFadeIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .console-prompt {
-      color: #6366f1;
-      font-weight: 600;
-    }
-
-    .console-success { color: #10b981; }
-    .console-warning { color: #f59e0b; }
-    .console-error { color: #ef4444; }
-    .console-info { color: #38bdf8; }
-    .console-highlight { color: #a855f7; }
-
-    /* Interactive Setup Simulation Menu */
-    .simulation-launcher {
-      display: flex;
-      gap: 1rem;
-      margin-bottom: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .sim-selector-btn {
-      flex: 1;
-      min-width: 200px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-color);
-      border-radius: 10px;
-      padding: 1rem;
-      text-align: left;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: var(--text-main);
-    }
-
-    .sim-selector-btn:hover {
-      background: rgba(99, 102, 241, 0.05);
-      border-color: var(--primary-glow);
-    }
-
-    .sim-selector-btn.active {
-      background: rgba(99, 102, 241, 0.1);
-      border-color: var(--primary);
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
-    }
-
-    .sim-selector-btn h5 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .sim-selector-btn p {
-      font-size: 0.8rem;
+    .highlight-box p:last-child {
       margin-bottom: 0;
-      line-height: 1.4;
-    }
-
-    /* Architecture diagram placeholder stylings */
-    .arch-diagram-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 2rem;
-      margin-bottom: 1.5rem;
     }
 
     /* Footers */
@@ -932,49 +706,6 @@
 
     .footer-links a:hover {
       color: var(--primary);
-    }
-
-    /* Roadmap design */
-    .roadmap-list {
-      list-style: none;
-      padding-left: 0;
-    }
-
-    .roadmap-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      padding: 0.75rem;
-      background: rgba(255, 255, 255, 0.01);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      margin-bottom: 0.5rem;
-      font-size: 0.95rem;
-    }
-
-    .roadmap-item i {
-      margin-top: 3px;
-    }
-
-    .roadmap-item.completed i {
-      color: var(--success);
-    }
-
-    .roadmap-item.pending i {
-      color: var(--warning);
-    }
-
-    /* Utility styling */
-    .highlight-box {
-      border-left: 4px solid var(--primary);
-      background: rgba(99, 102, 241, 0.04);
-      padding: 1rem 1.25rem;
-      border-radius: 0 8px 8px 0;
-      margin-bottom: 1.25rem;
-    }
-
-    .highlight-box p:last-child {
-      margin-bottom: 0;
     }
 
     /* Mobile Responsive Sidebar Toggle */
@@ -1028,16 +759,13 @@
 </head>
 <body>
 
-  <!-- Ambient Glow Background Graphics -->
   <div class="ambient-glow"></div>
   <div class="ambient-glow-2"></div>
 
-  <!-- Mobile Sidebar Toggle -->
   <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle Menu">
     <i class="fa-solid fa-bars"></i>
   </button>
 
-  <!-- Sidebar Navigation -->
   <aside id="sidebar">
     <div>
       <div class="logo-container">
@@ -1059,29 +787,20 @@
         <li class="nav-item" data-section="features">
           <a href="#features"><i class="fa-solid fa-wand-magic-sparkles"></i> Key Features</a>
         </li>
-        <li class="nav-item" data-section="architecture">
-          <a href="#architecture"><i class="fa-solid fa-sitemap"></i> Architecture</a>
-        </li>
-        <li class="nav-item" data-section="services">
-          <a href="#services"><i class="fa-solid fa-server"></i> Ports & Services</a>
-        </li>
-        <li class="nav-item" data-section="llm-config">
-          <a href="#llm-config"><i class="fa-solid fa-brain"></i> LLM Configuration</a>
-        </li>
-        <li class="nav-item" data-section="setup-guide">
-          <a href="#setup-guide"><i class="fa-solid fa-gears"></i> Setup Guide</a>
+        <li class="nav-item" data-section="quickstart">
+          <a href="#quickstart"><i class="fa-solid fa-rocket"></i> Quickstart</a>
         </li>
         <li class="nav-item" data-section="pluggable-arch">
           <a href="#pluggable-arch"><i class="fa-solid fa-cubes"></i> Pluggable Deploy</a>
         </li>
+        <li class="nav-item" data-section="git-scopes">
+          <a href="#git-scopes"><i class="fa-brands fa-git-alt"></i> Git Scopes</a>
+        </li>
+        <li class="nav-item" data-section="llm-config">
+          <a href="#llm-config"><i class="fa-solid fa-brain"></i> LLM Configuration</a>
+        </li>
         <li class="nav-item" data-section="mcp-integration">
           <a href="#mcp-integration"><i class="fa-solid fa-puzzle-piece"></i> MCP Integration</a>
-        </li>
-        <li class="nav-item" data-section="simulations">
-          <a href="#simulations"><i class="fa-solid fa-bug"></i> Outage Simulation</a>
-        </li>
-        <li class="nav-item" data-section="roadmap">
-          <a href="#roadmap"><i class="fa-solid fa-road"></i> Gaps & Roadmap</a>
         </li>
       </ul>
     </div>
@@ -1094,331 +813,278 @@
     </div>
   </aside>
 
-  <!-- Main Content Panel -->
   <main>
-    <!-- Hero Banner Header -->
     <header class="hero">
       <div class="badge-container">
-        <span class="badge">V3.0 Core</span>
-        <span class="badge green">Self-Hosted</span>
-        <span class="badge cyan">Open Source SRE</span>
+        <span class="badge">Open Source</span>
+        <span class="badge green">Docker Ready</span>
+        <span class="badge cyan">Serverless Compatible</span>
       </div>
-      <h1>Deduplicated Autonomous SRE Platform</h1>
+      <h1>Debugging Autonomous SRE Platform</h1>
       <p>
-        DAA replaces the first 30–60 minutes of manual triage toil when production microservices fail. It ingests Sentry/Prometheus alerts, deduplicates with SHA-256 fingerprints, runs a 4-dimension LangChain agent investigation, and automatically proposes pull requests with a postmortem report.
+        Stop waking up engineers at 3AM. Let AI triage it first. DAA automates the first 30–60 minutes of manual triage toil when production microservices break by deploying a LangChain SRE Agent across a 4-dimension diagnostic investigation.
       </p>
       <div class="hero-actions">
-        <a href="#setup-guide" class="btn btn-primary"><i class="fa-solid fa-circle-play"></i> Get Started</a>
-        <a href="#simulations" class="btn btn-secondary"><i class="fa-solid fa-terminal"></i> Interactive Demo</a>
+        <a href="#quickstart" class="btn btn-primary"><i class="fa-brands fa-docker"></i> 30-Second Quickstart</a>
+        <a href="https://github.com/rutvej/DAA" target="_blank" class="btn btn-secondary"><i class="fa-brands fa-github"></i> View Source</a>
       </div>
     </header>
 
-    <!-- Overview Section -->
     <section id="overview" class="doc-section scroll-section">
       <div class="section-header">
         <i class="fa-solid fa-eye"></i>
-        <h2>Overview</h2>
+        <h2>What is DAA?</h2>
       </div>
       <p>
-        DAA (Debugging Autonomous Agent) is an open-source, self-hosted <strong>Debugging Autonomous Agent</strong> platform designed to automate distributed system debugging. Unlike passive alerting mechanisms, DAA conducts a structured investigation inside your codebase, queries environmental states, checks recent changes, and outputs a validated hotfix or structured postmortem reports.
+        DAA is a pluggable, open-source <strong>Autonomous SRE Platform</strong>. It ingests exception logs (via client SDKs or Sentry/Prometheus webhooks), deduplicates them with SHA-256 fingerprints, matches them against sliding-window escalation policies, and dispatches a LangChain SRE Agent that runs a diagnostic investigation across 4 dimensions:
       </p>
-      <div class="highlight-box">
-        <p>
-          <strong>Why DAA?</strong> Production incidents are rarely single-service errors. They cascade through queues, databases, and microservices. DAA connects the dots automatically by correlating distributed trace IDs, logs, metrics, and git histories.
-        </p>
-      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>What it checks</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1. Change Horizon</strong></td>
+            <td>Recent git commits that could have caused the regression.</td>
+          </tr>
+          <tr>
+            <td><strong>2. Infrastructure</strong></td>
+            <td>Redis, PostgreSQL, RabbitMQ — OOM, timeouts, lock contention.</td>
+          </tr>
+          <tr>
+            <td><strong>3. Correlated Traces</strong></td>
+            <td>OpenTelemetry trace IDs across dependent microservices.</td>
+          </tr>
+          <tr>
+            <td><strong>4. Surgical Code Nav</strong></td>
+            <td>AST-level grep, file slicing, repo map to pinpoint the exact line.</td>
+          </tr>
+        </tbody>
+      </table>
+      
       <p>
-        Currently, the platform includes multi-language SDKs, a React SRE agent powered by LangChain, a central FastAPI backend, and an interactive admin dashboard supporting real-time incident status tracking.
+        After diagnosing the root cause, DAA applies a fix, runs verification tests, and opens a Pull/Merge Request with a generated postmortem — or creates a Jira ticket when human review is needed.
       </p>
     </section>
 
-    <!-- Key Features Section -->
     <section id="features" class="doc-section scroll-section">
       <div class="section-header">
         <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <h2>Key Features in V3.0</h2>
+        <h2>Key Features</h2>
       </div>
-      <p>
-        DAA v3.0 brings critical SRE capabilities directly to the developer environment, optimizing for speed, accuracy, and low LLM token costs.
-      </p>
       
       <div class="feature-grid">
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-shield-halved"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-shield-halved"></i></div>
           <h4>Zero Alert Fatigue</h4>
-          <p>Sliding-window escalation thresholds and SHA256 error fingerprinting prevent duplicate alerts, wake-ups, and duplicate SRE tickets.</p>
+          <p>SHA-256 error fingerprinting + sliding-window escalation policies suppress duplicates before the agent even runs.</p>
         </div>
         
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-shuffle"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-shuffle"></i></div>
           <h4>Three-Phase Hybrid Flow</h4>
-          <p>Deterministic pre-flight (cloning/caching, telemetry log hydration, dedup) and post-flight (PR creation) wrapped around a free reasoning agent.</p>
+          <p>Pre-flight (repo cache, log hydration, dedup) → Agent Core (free ReAct reasoning) → Post-flight (diff apply, PR creation, postmortem).</p>
         </div>
         
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-lock"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-lock"></i></div>
           <h4>Context Safety System</h4>
-          <p>Enforces a JSON planning step and an 8-call hard budget cap to prevent context explosion and costly agent hallucinations.</p>
+          <p>Enforces a JSON planning step and a hard 8-call budget cap to prevent context explosion and costly hallucinations.</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-shuffle"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-microchip"></i></div>
           <h4>Universal LLM Routing</h4>
-          <p>Support for Google Gemini, OpenAI, Claude, Vertex AI, Ollama, Codex, or agy proxy to easily change models without code edits.</p>
+          <p>Gemini, OpenAI, Claude, Vertex AI, Ollama, LiteLLM proxy. Switch models without code changes.</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-ticket"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
           <h4>Git & Ticket Automation</h4>
-          <p>Creates GitHub Issues, GitLab/Gitea Pull Requests, and opens offline Jira tickets automatically when a verification fails.</p>
+          <p>Auto-creates GitHub/GitLab/Gitea PRs and Jira tickets. Falls back to GitHub Issues when Jira isn't configured.</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-ban"></i>
-          </div>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-ban"></i></div>
           <h4>Circuit Breakers</h4>
-          <p>Halts operations, reports postmortems, and stops making commits if test suites fail twice or deadlocks are identified.</p>
+          <p>Stops making commits and opens a ticket if tests fail twice, or if deadlocks/race conditions are detected.</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-user-check"></i>
-          </div>
-          <h4>Human-in-the-Loop</h4>
-          <p>Defers PR/MR creation for manual validation. Review postmortems and AI agent execution logs on the UI, then approve with a single click.</p>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
+          <h4>Human-in-the-Loop (HITL)</h4>
+          <p>Set <code>DAA_HITL_MODE=true</code> to defer PR creation. Review AI agent traces and postmortems, then approve with one click.</p>
         </div>
 
         <div class="feature-card">
-          <div class="feature-icon-wrapper">
-            <i class="fa-solid fa-network-wired"></i>
-          </div>
-          <h4>Model Context Protocol</h4>
-          <p>Expose DAA SRE tools to other coding agents via a stdio MCP Server, or configure the DAA agent to consume external MCP tools.</p>
+          <div class="feature-icon-wrapper"><i class="fa-solid fa-network-wired"></i></div>
+          <h4>MCP Integration</h4>
+          <p>Expose DAA SRE tools to Cursor, Claude Desktop, or configure DAA to consume external MCP tools.</p>
         </div>
       </div>
     </section>
 
-    <!-- Architecture Section -->
-    <section id="architecture" class="doc-section scroll-section">
+    <section id="quickstart" class="doc-section scroll-section">
       <div class="section-header">
-        <i class="fa-solid fa-sitemap"></i>
-        <h2>Architecture & System Flow</h2>
+        <i class="fa-solid fa-rocket"></i>
+        <h2>30-Second Quickstart (Prebuilt Docker Image)</h2>
       </div>
       <p>
-        DAA uses a decoupled, event-driven architecture designed to process, store, and analyze incident alerts without blocking production applications.
+        Zero setup. Zero databases. Scales to zero on Cloud Run / Fargate. The prebuilt image contains the complete standalone environment.
       </p>
+      
+      <div class="code-block-wrapper standalone" style="margin-bottom: 1.5rem;">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code>docker pull rutvej1/daa-standalone:latest
 
-      <!-- SVG Flowchart (Highly Aesthetic CSS-Aligned Vector Diagram) -->
-      <div class="arch-diagram-container">
-        <svg viewBox="0 0 800 320" width="100%" height="auto" style="background: transparent;">
-          <defs>
-            <linearGradient id="grad-blue" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#38bdf8" />
-              <stop offset="100%" stop-color="#0369a1" />
-            </linearGradient>
-            <linearGradient id="grad-purple" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#a855f7" />
-              <stop offset="100%" stop-color="#6b21a8" />
-            </linearGradient>
-            <linearGradient id="grad-indigo" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#6366f1" />
-              <stop offset="100%" stop-color="#4338ca" />
-            </linearGradient>
-            <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#34d399" />
-              <stop offset="100%" stop-color="#065f46" />
-            </linearGradient>
-          </defs>
+docker run -d --name daa \
+  -p 8000:8080 \
+  -e LLM_PROVIDER=google \
+  -e GEMINI_API_KEY=your-gemini-key \
+  -e DAA_DB_PROVIDER=none \
+  -e DAA_GIT_MODE=api \
+  -e DAA_QUEUE_MODE=sync \
+  -e DAA_AUTH_ENABLED=false \
+  -e DAA_POLICY_ENABLED=false \
+  -e GIT_HOST=https://github.com \
+  -e GIT_ORG=your-github-org \
+  -e GITHUB_TOKEN=ghp_xxxxxxxxxxxx \
+  rutvej1/daa-standalone:latest
 
-          <!-- Group lines and connections -->
-          <g stroke="rgba(255,255,255,0.15)" stroke-width="2" fill="none">
-            <path d="M 170 120 L 250 120" stroke-dasharray="4"/>
-            <path d="M 370 120 L 450 120" stroke-dasharray="4"/>
-            <path d="M 570 120 L 650 120" />
-            <path d="M 690 160 L 690 230 L 570 230" stroke-dasharray="4"/>
-            <path d="M 290 230 L 170 230 L 170 160" />
-            <path d="M 450 230 L 370 230" />
-          </g>
-
-          <!-- Node 1: Client Application with SDK -->
-          <rect x="30" y="80" width="140" height="80" rx="10" fill="url(#grad-blue)" stroke="#0284c7" stroke-width="1.5"/>
-          <text x="100" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Client App</text>
-          <text x="100" y="135" fill="#e0f2fe" font-family="Outfit" font-size="11" text-anchor="middle">(daa-sdk Integration)</text>
-
-          <!-- Node 2: FastAPI Ingestion -->
-          <rect x="250" y="80" width="120" height="80" rx="10" fill="url(#grad-indigo)" stroke="#4f46e5" stroke-width="1.5"/>
-          <text x="310" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">FastAPI Backend</text>
-          <text x="310" y="135" fill="#e0e7ff" font-family="Outfit" font-size="11" text-anchor="middle">(Ingest & Dedup)</text>
-
-          <!-- Node 3: RabbitMQ Task Queue -->
-          <rect x="450" y="80" width="120" height="80" rx="10" fill="url(#grad-purple)" stroke="#9333ea" stroke-width="1.5"/>
-          <text x="510" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">RabbitMQ Queue</text>
-          <text x="510" y="135" fill="#faf5ff" font-family="Outfit" font-size="11" text-anchor="middle">(Async Escalate)</text>
-
-          <!-- Node 4: Python SRE Agent -->
-          <rect x="650" y="80" width="120" height="80" rx="10" fill="url(#grad-emerald)" stroke="#059669" stroke-width="1.5"/>
-          <text x="710" y="115" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">SRE Agent v3.0</text>
-          <text x="710" y="135" fill="#d1fae5" font-family="Outfit" font-size="11" text-anchor="middle">(Three-Phase Flow)</text>
-
-          <!-- Node 5: Repository / Gitea/GitLab -->
-          <rect x="450" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-          <text x="510" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Gitea/GitLab</text>
-          <text x="510" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Fix PR/MR / Code)</text>
-
-          <!-- Node 6: Ticketing / Postmortems -->
-          <rect x="250" y="190" width="120" height="80" rx="10" fill="rgba(30,41,59,0.7)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-          <text x="310" y="225" fill="#ffffff" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Jira / Tickets</text>
-          <text x="310" y="245" fill="#94a3b8" font-family="Outfit" font-size="11" text-anchor="middle">(Postmortem Log)</text>
-        </svg>
+curl http://localhost:8000/health
+# → {"status": "ok"}</code></pre>
       </div>
 
-      <div class="layout-grid">
-        <div>
-          <h3>Services and Roles:</h3>
-          <ul>
-            <li><strong>backend-api</strong> (<code>app/backend-api</code>): Manages Authentication, Ingests logs via REST API, matches deduplication metrics, and tracks fix progression.</li>
-            <li><strong>python-agent</strong> (<code>app/python-agent</code>): Performs multi-dimension analysis using ReAct agent framework and pushes fixes to the Git repository.</li>
-            <li><strong>admin-panel</strong> (<code>app/admin-panel</code>): React SPA displaying system configuration parameters, live logs, active incidents, and fix reports.</li>
-            <li><strong>daa-sdk</strong> (<code>app/daa-sdk</code>): Multi-language clients enabling direct trace and exception transmission from services.</li>
-          </ul>
-        </div>
-        <div>
-          <h3>Workflow Lifecycle:</h3>
-          <ol>
-            <li>An SDK error is triggered in the Client App.</li>
-            <li>FastAPI stores the logs and verifies if the sliding-window threshold is breached.</li>
-            <li>An <code>IncidentEscalationEvent</code> is queued via RabbitMQ.</li>
-            <li><strong>Phase 1: Pre-flight</strong> — Repo cache manager gets worktree, log hydrator fetches all 4 telemetry dimensions, and fingerprint dedup checks for existing fixes.</li>
-            <li><strong>Phase 2: Agent Core</strong> — SRE Agent submits a JSON plan first, then uses read-only tools to diagnose the bug and produce a unified diff under an 8-call safety cap.</li>
-            <li><strong>Phase 3: Post-flight</strong> — Post-flight orchestrator validates the diff, checkout/commits/pushes branch, opens PR idempotently, and generates a postmortem.</li>
-          </ol>
-        </div>
+      <div class="highlight-box">
+        <p>
+          Point your <strong>Sentry</strong> or <strong>Prometheus</strong> webhooks at <code>http://&lt;host&gt;:8000/ingest/sentry</code> and DAA starts triaging immediately. No code changes required in your services.
+        </p>
+      </div>
+
+      <h3>Local Installer Alternative</h3>
+      <p>If you prefer installing the CLI tools and Python virtual environments locally instead of Docker:</p>
+      <div class="code-block-wrapper standalone">
+        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+        <pre><code>git clone https://github.com/rutvej/DAA.git
+cd DAA
+./install.sh
+sudo ln -sf $(pwd)/daa /usr/local/bin/daa
+daa init</code></pre>
       </div>
     </section>
 
-    <!-- Ports and Services Section -->
-    <section id="services" class="doc-section scroll-section">
+    <section id="pluggable-arch" class="doc-section scroll-section">
       <div class="section-header">
-        <i class="fa-solid fa-server"></i>
-        <h2>Ports & Local Infrastructure</h2>
+        <i class="fa-solid fa-cubes"></i>
+        <h2>Pluggable Architecture — One Image, All Modes</h2>
       </div>
       <p>
-        When running DAA locally, services are configured to communicate on specific host ports. Use the table below as a quick-access dashboard:
+        The <strong>same Docker image</strong> runs from fully stateless serverless functions to distributed multi-container clusters. This is controlled entirely by three environment variables:
       </p>
 
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Service Name</th>
-              <th>Local Address</th>
-              <th>Interface Role</th>
-              <th>Status indicator</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>FastAPI Ingestion Backend</strong></td>
-              <td><a href="http://localhost:8000" target="_blank" class="port-link">localhost:8000</a></td>
-              <td>REST API endpoints &amp; Swagger Docs (<code>/docs</code>)</td>
-              <td><span class="status-dot"></span> Active</td>
-            </tr>
-            <tr>
-              <td><strong>React Admin Dashboard</strong></td>
-              <td><a href="http://localhost:5003" target="_blank" class="port-link">localhost:5003</a></td>
-              <td>Incident management console</td>
-              <td><span class="status-dot"></span> Active</td>
-            </tr>
-            <tr>
-              <td><strong>Local Gitea Instance</strong></td>
-              <td><a href="http://localhost:3000" target="_blank" class="port-link">localhost:3000</a></td>
-              <td>Simulated git code forge for E2E demo</td>
-              <td><span class="status-dot"></span> Active</td>
-            </tr>
-            <tr>
-              <td><strong>RabbitMQ Broker</strong></td>
-              <td><a href="http://localhost:15672" target="_blank" class="port-link">localhost:15672</a></td>
-              <td>Queue Dashboard (Credentials: guest/guest)</td>
-              <td><span class="status-dot"></span> Active</td>
-            </tr>
-            <tr>
-              <td><strong>PostgreSQL Database</strong></td>
-              <td><code style="font-family:'JetBrains Mono'">localhost:5433</code></td>
-              <td>Primary relational store</td>
-              <td><span class="status-dot"></span> Active</td>
-            </tr>
-            <tr>
-              <td><strong>Mock Checkout Service</strong></td>
-              <td><a href="http://localhost:8001" target="_blank" class="port-link">localhost:8001</a></td>
-              <td>Sandbox Checkout Service (Outage Simulator)</td>
-              <td><span class="status-dot blue"></span> Standby</td>
-            </tr>
-            <tr>
-              <td><strong>Mock Payment Service</strong></td>
-              <td><a href="http://localhost:8002" target="_blank" class="port-link">localhost:8002</a></td>
-              <td>Sandbox Payment Service (Dependency)</td>
-              <td><span class="status-dot blue"></span> Standby</td>
-            </tr>
-            <tr>
-              <td><strong>Mock Jira endpoint</strong></td>
-              <td><a href="http://localhost:8000/mock-jira/browse/DAA-1" target="_blank" class="port-link">localhost:8000/mock-jira</a></td>
-              <td>Saves offline Jira issues and postmortem documents</td>
-              <td><span class="status-dot yellow"></span> Local Mock</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th><code>DAA_DB_PROVIDER</code></th>
+            <th><code>DAA_GIT_MODE</code></th>
+            <th><code>DAA_QUEUE_MODE</code></th>
+            <th>Best For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Stateless Serverless</strong></td>
+            <td><code>none</code></td>
+            <td><code>api</code></td>
+            <td><code>sync</code></td>
+            <td>Cloud Run · AWS Fargate · Lambda</td>
+          </tr>
+          <tr>
+            <td><strong>Self-Contained Edge</strong></td>
+            <td><code>sqlite</code></td>
+            <td><code>api</code> or <code>local</code></td>
+            <td><code>sync</code></td>
+            <td>Single VM · Raspberry Pi</td>
+          </tr>
+          <tr>
+            <td><strong>Distributed Scale-Out</strong></td>
+            <td><code>postgres</code></td>
+            <td><code>local</code></td>
+            <td><code>rabbitmq</code></td>
+            <td>Datacenter · Kubernetes Clusters</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
-    <!-- LLM Configuration Section -->
+    <section id="git-scopes" class="doc-section scroll-section">
+      <div class="section-header">
+        <i class="fa-brands fa-git-alt"></i>
+        <h2>Git Provider Minimum Scopes</h2>
+      </div>
+      <p>
+        DAA needs permission to read code, create branches, and open pull requests. Ensure your provided tokens match the required scopes below:
+      </p>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Required Scopes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>GitHub</strong></td>
+            <td>Classic PAT: <code>repo</code> · Fine-grained: <code>Contents: R/W</code>, <code>Pull requests: R/W</code></td>
+          </tr>
+          <tr>
+            <td><strong>GitLab</strong></td>
+            <td><code>api</code> (or <code>read_repository</code> + <code>write_repository</code>)</td>
+          </tr>
+          <tr>
+            <td><strong>Gitea</strong></td>
+            <td><code>write:repository</code>, <code>write:issue</code>, <code>read:user</code></td>
+          </tr>
+          <tr>
+            <td><strong>Bitbucket</strong></td>
+            <td>App Password: <code>Repositories: Write</code>, <code>Pull requests: Write</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <section id="llm-config" class="doc-section scroll-section">
       <div class="section-header">
         <i class="fa-solid fa-brain"></i>
-        <h2>Onboarding LLM Providers</h2>
+        <h2>LLM Configuration</h2>
       </div>
       <p>
-        Configure your AI model routing inside the root <code>.env</code> file. Click the tabs below to copy the specific configuration syntax for your preferred LLM backend:
+        Configure your AI model routing via standard environment variables. Click the tabs below to copy the specific syntax for your preferred LLM backend:
       </p>
 
       <div class="tab-container">
         <div class="tab-header">
-          <button class="tab-btn active" onclick="switchTab(event, 'gemini')">Google Gemini (Rec)</button>
+          <button class="tab-btn active" onclick="switchTab(event, 'gemini')">Google Gemini</button>
+          <button class="tab-btn" onclick="switchTab(event, 'openai')">OpenAI</button>
+          <button class="tab-btn" onclick="switchTab(event, 'claude')">Claude</button>
           <button class="tab-btn" onclick="switchTab(event, 'vertex')">Vertex AI</button>
-          <button class="tab-btn" onclick="switchTab(event, 'openai')">OpenAI GPT</button>
-          <button class="tab-btn" onclick="switchTab(event, 'claude')">Anthropic Claude</button>
-          <button class="tab-btn" onclick="switchTab(event, 'ollama')">Local Ollama</button>
-          <button class="tab-btn" onclick="switchTab(event, 'agy')">Host CLI Proxy</button>
+          <button class="tab-btn" onclick="switchTab(event, 'ollama')">Ollama</button>
+          <button class="tab-btn" onclick="switchTab(event, 'litellm')">LiteLLM Proxy</button>
         </div>
 
         <div id="gemini" class="tab-pane active">
           <div class="code-block-wrapper">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Google Gemini Configuration (Recommended)
+            <pre><code># Google Gemini Configuration
 LLM_PROVIDER=google
 LLM_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere</code></pre>
-          </div>
-        </div>
-
-        <div id="vertex" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Google Cloud Vertex AI Setup
-LLM_PROVIDER=vertex
-LLM_MODEL=gemini-2.5-flash
-# Note: Authenticate your environment before running DAA SRE agent using:
-# gcloud auth application-default login</code></pre>
           </div>
         </div>
 
@@ -1441,6 +1107,16 @@ LLM_MODEL=claude-3-5-sonnet-20241022
 ANTHROPIC_API_KEY=sk-ant-YourAnthropicApiKeyHere</code></pre>
           </div>
         </div>
+        
+        <div id="vertex" class="tab-pane">
+          <div class="code-block-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+            <pre><code># Google Cloud Vertex AI Setup
+LLM_PROVIDER=vertex
+LLM_MODEL=gemini-2.5-flash
+# Note: Ensure gcloud default credentials are configured in your environment</code></pre>
+          </div>
+        </div>
 
         <div id="ollama" class="tab-pane">
           <div class="code-block-wrapper">
@@ -1452,420 +1128,50 @@ OLLAMA_BASE_URL=http://localhost:11434</code></pre>
           </div>
         </div>
 
-        <div id="agy" class="tab-pane">
+        <div id="litellm" class="tab-pane">
           <div class="code-block-wrapper">
             <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># CLI Proxy mode (Uses active agy CLI credentials - No Key Leak Risk)
-LLM_PROVIDER=agy
-LLM_MODEL="Gemini 3.5 Flash (Medium)"</code></pre>
+            <pre><code># LiteLLM Proxy mode
+LLM_PROVIDER=litellm
+LLM_MODEL=custom/model-name
+LITELLM_API_BASE=http://localhost:4000</code></pre>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Setup Guide Section -->
-    <section id="setup-guide" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-gears"></i>
-        <h2>Quickstart &amp; Setup Guide</h2>
-      </div>
-      
-      <h3>1-Line Unified Installer (Linux/WSL/macOS)</h3>
-      <p>
-        The fastest way to install DAA, configure environment variables, and build core libraries:
-      </p>
-      <div class="code-block-wrapper" style="margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>curl -fsSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash</code></pre>
-      </div>
-
-      <h3>Running the E2E Walkthrough Demo</h3>
-      <p>DAA has an independent end-to-end sandbox walkthrough. Follow these steps to execute the automated resolution loop:</p>
-      
-      <ol>
-        <li>
-          <strong>Navigate to the Demo Walkthrough folder:</strong>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /path/to/daa-e2e-demo</code></pre>
-          </div>
-        </li>
-        <li>
-          <strong>Execute the Demo Orchestrator Script:</strong>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>python3 run_demo.py</code></pre>
-          </div>
-          <p style="font-size: 0.9rem; margin-top: -0.5rem;">This spins up local Gitea services, invokes the DAA CLI (<code>daa register</code> and <code>daa policy</code>) to register applications/policies, triggers the Redis OOM, and lets the SRE agent solve it autonomously.</p>
-        </li>
-      </ol>
-
-      <h3 style="margin-top: 2rem;">Redesigned SRE Workflow (Manual CLI Steps)</h3>
-      <p>If you prefer to run the installation, initialization, registration, and policy setup manually to inspect the redesigned DAA SRE workflow, follow these steps:</p>
-      
-      <ol>
-        <li style="margin-bottom: 1rem;">
-          <strong>Initialize Demo Infrastructure &amp; Repositories:</strong>
-          <p>Spin up Gitea, Postgres, and RabbitMQ, and push the local payment repositories to Gitea:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /path/to/daa-e2e-demo
-python3 run_demo.py --skip-registration --skip-load-test</code></pre>
-          </div>
-          <p style="font-size: 0.9rem; color: var(--text-muted);">Take note of the Git Token generated and printed by the script (or retrieve it from <code>.gitea_token</code>).</p>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Install and Initialize DAA:</strong>
-          <p>Navigate to the DAA directory, run the unified installation script, link it globally, and run the configuration wizard:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>cd /path/to/DAA
-./install.sh
-sudo ln -sf $(pwd)/daa /usr/local/bin/daa
-daa init</code></pre>
-          </div>
-          <ul style="margin-left: 2rem; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-            <li>Select <strong>gitea</strong> as the Git provider.</li>
-            <li>Provide Gitea base URL <code>http://localhost:3000</code> and the generated Git Token.</li>
-            <li>Provide your Gemini API key (e.g. <code>AIzaSyYourGeminiApiKeyHere</code>) and choose <code>gemini-1.5-flash</code> as the model.</li>
-            <li>Skip the cloud log connector configuration setup.</li>
-          </ul>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Deploy DAA Services:</strong>
-          <p>Spin up the local backend, database, queue, and SRE agent services in Docker:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>daa redeploy</code></pre>
-          </div>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Register Applications via DAA CLI:</strong>
-          <p>Register the microservices and obtain their telemetry tokens (you can run this from any folder now):</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>daa register --name payment-api --repo-url http://host.docker.internal:3000/daa-admin/payment-api.git --language python
-daa register --name payment-worker --repo-url http://host.docker.internal:3000/daa-admin/payment-worker.git --language go</code></pre>
-          </div>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Configure Escalation Policies:</strong>
-          <p>Set up SRE escalation rules for the registered applications using the CLI:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>daa policy --app payment-api --threshold 3 --window 60
-daa policy --app payment-worker --threshold 3 --window 60</code></pre>
-          </div>
-          <p style="font-size: 0.9rem; color: var(--text-muted);">This triggers an SRE agent run if more than 3 errors are recorded within a 60-second window.</p>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Inject Telemetry Tokens &amp; Deploy Microservices:</strong>
-          <p>Save the returned <code>DAA_TOKEN</code> values inside the demo's <code>.env</code> file (e.g. <code>DAA_TOKEN_PAYMENT_API=&lt;token&gt;</code>) and start the containers:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># In /path/to/daa-e2e-demo/.env
-cd /path/to/daa-e2e-demo
-docker-compose up -d --build payment-api payment-worker</code></pre>
-          </div>
-        </li>
-        <li style="margin-bottom: 1rem;">
-          <strong>Simulate the Outage:</strong>
-          <p>Flood the payment API cache to trigger the Redis OOM incident and launch the agent:</p>
-          <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code>./load_test.sh</code></pre>
-          </div>
-        </li>
-      </ol>
-
-      <h3 style="margin-top: 2rem;">Human-in-the-Loop (HITL) Mode Setup</h3>
-      <p>
-        To enable safe approval gatekeeper logic, add <code>DAA_HITL_MODE=true</code> to your <code>.env</code> file. When an alert triggers the agent:
-      </p>
-      <ul>
-        <li>The agent will automatically execute the sequential 4-Dimension loop (Change, Infra, Logs, Diagnostics).</li>
-        <li>It will push the remediation code to a Git branch but defer PR/MR opening.</li>
-        <li>The Admin Panel will display a status of <strong>"Awaiting Approval"</strong> and expose full step-by-step <strong>AI Execution Logs</strong>.</li>
-        <li>Review the changes and click <strong>"Approve Fix & Create PR/MR"</strong> to trigger the Gitea/GitLab/GitHub REST API instantly.</li>
-      </ul>
-
-    </section>
-
-    <!-- Pluggable Deploy Section -->
-    <section id="pluggable-arch" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-cubes"></i>
-        <h2>Pluggable Cloud-Native Deployment</h2>
-      </div>
-      <p>
-        DAA features a fully pluggable, unified container architecture. The same Docker image (<code>rutvej/daa:latest</code>) can run in a zero-dependency stateless serverless mode, a self-contained single-container stateful VM mode, or a standard multi-container Docker Compose scale.
-      </p>
-
-      <div class="alert alert-info">
-        <i class="fa-solid fa-circle-info"></i>
-        <div>
-          <strong>Stateless Serverless Recommendation:</strong> For Google Cloud Run or AWS Fargate deployments, configure <code>DAA_DB_PROVIDER=none</code>, <code>DAA_GIT_MODE=api</code>, and <code>DAA_QUEUE_MODE=sync</code> to run completely database-free, clone-free, and stateless.
-        </div>
-      </div>
-
-      <h3>Configuration Toggles</h3>
-      <table class="features-table" style="width: 100%; border-collapse: collapse; margin-top: 1rem; margin-bottom: 2rem;">
-        <thead>
-          <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
-            <th style="padding: 10px 0;">Variable</th>
-            <th style="padding: 10px 0;">Options</th>
-            <th style="padding: 10px 0;">Default</th>
-            <th style="padding: 10px 0;">Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px 0; font-family: monospace;">DAA_POLICY_ENABLED</td>
-            <td style="padding: 10px 0;">true, false</td>
-            <td style="padding: 10px 0;">false</td>
-            <td>Enable/disable incident deduplication and cooldown checks.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px 0; font-family: monospace;">DAA_AUTH_ENABLED</td>
-            <td style="padding: 10px 0;">true, false</td>
-            <td style="padding: 10px 0;">false</td>
-            <td>Enable/disable JWT-based login portal authentication.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px 0; font-family: monospace;">DAA_DB_PROVIDER</td>
-            <td style="padding: 10px 0;">none, sqlite, internal-postgres, external-postgres, internal-redis, external-redis</td>
-            <td style="padding: 10px 0;">sqlite</td>
-            <td>Select database engine. Internal options start databases inside the container automatically.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px 0; font-family: monospace;">DAA_GIT_MODE</td>
-            <td style="padding: 10px 0;">api, local</td>
-            <td style="padding: 10px 0;">local</td>
-            <td><code>api</code> reads and writes code directly via Git REST APIs (no cloning). <code>local</code> clones code.</td>
-          </tr>
-          <tr style="border-bottom: 1px solid var(--border-color);">
-            <td style="padding: 10px 0; font-family: monospace;">DAA_QUEUE_MODE</td>
-            <td style="padding: 10px 0;">sync, rabbitmq</td>
-            <td style="padding: 10px 0;">sync</td>
-            <td><code>sync</code> processes jobs inline/background tasks. <code>rabbitmq</code> uses RabbitMQ queue.</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3>Adoption Webhooks (SDK-Free Mode)</h3>
-      <p>
-        To bypass code changes or dependency installation, users can route webhooks directly from existing alert tools (Sentry, Prometheus, Datadog) to DAA. Webhooks are mapped either declaratively via YAML or using dynamic plugins:
-      </p>
-
-      <div class="code-block-wrapper" style="margin-top: 1rem; margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code># Example: gcloud deploy one-liner for Cloud Run Webhook Receiver
-gcloud run deploy daa-minimal \
-  --image rutvej/daa:latest \
-  --port 8080 \
-  --set-env-vars="LLM_PROVIDER=google,GEMINI_API_KEY=xxx,GITHUB_TOKEN=xxx,DAA_DB_PROVIDER=none,DAA_GIT_MODE=api,DAA_QUEUE_MODE=sync"</code></pre>
-      </div>
-    </section>
-
-    <!-- MCP Integration Section -->
     <section id="mcp-integration" class="doc-section scroll-section">
       <div class="section-header">
         <i class="fa-solid fa-puzzle-piece"></i>
         <h2>Model Context Protocol (MCP) Integration</h2>
       </div>
       <p>
-        DAA v3.0 natively integrates with the <strong>Model Context Protocol (MCP)</strong> to support tool extensibility, cloud data integrations, and cross-agent collaboration.
+        DAA natively integrates with the <strong>Model Context Protocol (MCP)</strong> to support tool extensibility, cloud data integrations, and cross-agent collaboration.
       </p>
 
-      <h3>A. Exposing DAA Tools to Other AI Agents (Server)</h3>
+      <h3>Exposing DAA Tools to Other AI Agents</h3>
       <p>
         Allow other software engineering agents (such as Cursor, Claude Desktop, or custom coding copilots) to connect to DAA SRE using the stdio transport. This allows external agents to query pending fixes, read root-cause postmortems, or trigger PR approvals.
       </p>
-      <p>
-        The DAA v3.0 MCP server exposes 7 powerful SRE tools:
-      </p>
-      <ul style="margin-left: 2rem; margin-top: 0.5rem; margin-bottom: 1rem; color: var(--text-muted); font-size: 0.95rem;">
-        <li style="margin-bottom: 0.25rem;"><strong>get_fixes_awaiting_approval:</strong> Retrieve all DAA SRE incident remediation fixes currently awaiting human approval.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>get_incident_postmortem:</strong> Get the detailed root-cause postmortem and AI agent trace for a given fix ID.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>approve_remediation_fix:</strong> Approve a fix and trigger Gitea/GitLab/GitHub PR/MR creation.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>get_active_incidents:</strong> Get all currently active (processing/pending) incidents with their app name, status, fingerprint, and elapsed time.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>get_fix_by_fingerprint:</strong> Get fix record by error fingerprint hash. Returns existing PR URL if the same bug was previously fixed.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>list_registered_apps:</strong> List all applications registered in DAA with their repository URL, cloud provider config, and escalation policy.</li>
-        <li style="margin-bottom: 0.25rem;"><strong>trigger_manual_incident:</strong> Manually trigger an incident analysis for a registered application by sending a synthetic error log to the DAA backend.</li>
-      </ul>
-
-      <h4 style="margin-top: 1rem;">1. Running Natively on Host</h4>
-      <p>Execute the server directly on your command line:</p>
-      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>python3 app/daa_mcp_server.py</code></pre>
-      </div>
-
-      <h4 style="margin-top: 1rem;">2. Running via Docker (Default Service)</h4>
-      <p>The MCP server is configured as a Docker Compose service (<code>mcp-server</code>) by default. It starts automatically alongside other services:</p>
-      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>docker-compose up -d</code></pre>
-      </div>
-      <p>Other agents on your host can communicate with the containerized MCP server using standard Docker commands. For example, in your host's <code>claude_desktop_config.json</code>, register the server as follows:</p>
-      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+      
+      <div class="code-block-wrapper standalone" style="margin-top: 1rem; margin-bottom: 1.5rem;">
         <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
         <pre><code>{
   "mcpServers": {
     "daa-sre-mcp": {
       "command": "docker",
-      "args": ["compose", "exec", "-T", "mcp-server", "python", "-u", "app/daa_mcp_server.py"]
+      "args": ["exec", "-i", "daa", "python", "-u", "app/daa_mcp_server.py"]
     }
   }
 }</code></pre>
       </div>
 
-      <h3>B. Allowing DAA Agent to use External MCP Tools (Client)</h3>
+      <h3>Consuming External MCP Tools</h3>
       <p>
-        Place an <code>mcp_config.json</code> file in the repository root. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset during the diagnostic loop.
+        Place an <code>mcp_config.json</code> file in the repository root. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset during the diagnostic loop. If the DAA SRE Agent detects custom MCP tools for interacting with source control or ticketing systems, it will <strong>automatically choose the MCP tools</strong> instead of its local tools.
       </p>
-
-      <h4 style="margin-top: 1rem;">1. Database MCP Server Example</h4>
-      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>{
-  "mcpServers": {
-    "postgres": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://youruser:password@localhost:5433/yourdb"]
-    }
-  }
-}</code></pre>
-      </div>
-
-      <h4 style="margin-top: 1rem;">2. Cloud &amp; BigQuery MCP Server Example</h4>
-      <p>
-        To pull real-time analytics from GCP BigQuery or configure cloud-specific logging/APIs, configure the GCP credential environment paths in your <code>mcp_config.json</code>:
-      </p>
-      <div class="code-block-wrapper" style="margin-top: 0.5rem; margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>{
-  "mcpServers": {
-    "bigquery": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-bigquery",
-        "--project-id", "your-gcp-project-id"
-      ],
-      "env": {
-        "GOOGLE_APPLICATION_CREDENTIALS": "/app/secrets/gcp-key.json"
-      }
-    }
-  }
-}</code></pre>
-      </div>
-      <p style="font-size: 0.9rem; margin-top: -0.5rem;">Ensure that your cloud keys/credentials are volume-mounted to your agent's container (e.g., <code>/app/secrets/</code>) in <code>docker-compose.yml</code>.</p>
-
-      <h3>C. Automatic Preference: Choosing MCP over Direct REST APIs (Jira &amp; Git)</h3>
-      <p>
-        If the DAA SRE Agent detects custom MCP tools are loaded for interacting with source control repositories or ticketing systems (such as GitHub/GitLab tools or Jira Cloud tools prefixed with <code>mcp_</code>), it will <strong>automatically choose the MCP tools</strong> instead of its direct local API tools (<code>create_pull_request</code>, <code>create_incident_ticket</code>, etc.).
-      </p>
-      <p>
-        This allows seamless integration of standard cloud-managed MCP services directly into the agent's reasoning loop without having to configure direct local environment variables for API tokens.
-      </p>
-
-    <!-- Outage Simulation Section -->
-    <section id="simulations" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-bug"></i>
-        <h2>Outage Simulation &amp; Live SRE Run</h2>
-      </div>
-      <p>
-        Witness DAA SRE agent's 4-dimension investigation loops by triggering real outage scenarios in our sandbox, or run the interactive simulation below to preview the agent logs.
-      </p>
-
-      <div class="simulation-launcher">
-        <button class="sim-selector-btn active" onclick="selectSimulation('redis')" id="btn-sim-redis">
-          <h5><i class="fa-solid fa-triangle-exclamation" style="color:var(--warning);"></i> Scenario A</h5>
-          <p>Redis Cache AttributeError (Misspelled Method connec)</p>
-        </button>
-        <button class="sim-selector-btn" onclick="selectSimulation('payment')" id="btn-sim-payment">
-          <h5><i class="fa-solid fa-credit-card" style="color:var(--error);"></i> Scenario B</h5>
-          <p>Payment Gateway Failure (Client/External Decline)</p>
-        </button>
-      </div>
-
-      <div class="code-block-wrapper" id="sim-command-container" style="margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code id="sim-command-code">curl -X POST 'http://localhost:8001/checkout' \
-  -H 'Content-Type: application/json' \
-  -d '{"user_id": "fail_redis", "cart_total": 150.0}'</code></pre>
-      </div>
-
-      <h3>Agent Diagnostic Console (Interactive Demo)</h3>
-      <div class="console-simulation">
-        <div class="console-header">
-          <div class="console-controls">
-            <span class="console-dot red"></span>
-            <span class="console-dot yellow"></span>
-            <span class="console-dot green"></span>
-          </div>
-          <div class="console-title">daa-agent-diagnostics.sh</div>
-          <div class="console-actions-top">
-            <button class="console-btn-run" onclick="runConsoleDemo()">
-              <i class="fa-solid fa-play"></i> Run Simulation
-            </button>
-          </div>
-        </div>
-        <div class="console-body" id="consoleBody">
-          <div class="console-line"><span class="console-prompt">SRE-AGENT$</span> Click the "Run Simulation" button to watch the SRE Agent execute its 4-dimension diagnostic loop!</div>
-        </div>
-      </div>
     </section>
 
-    <!-- Roadmap & Gaps Section -->
-    <section id="roadmap" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-road"></i>
-        <h2>Platform Gaps &amp; Roadmap</h2>
-      </div>
-      <p>
-        The SRE incident portal is constantly being updated. Below are the current active gaps and roadmap goals:
-      </p>
-
-      <ul class="roadmap-list">
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Three-Phase Hybrid Flow</strong> (Pre-flight, Agent Core, Post-flight orchestrators completed).</span>
-        </li>
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Context Safety System</strong> (JSON planning step and hard cap at 8 tool calls completed).</span>
-        </li>
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>MCP Server v2.0.0</strong> (Exposed 7 SRE tools for external agent execution completed).</span>
-        </li>
-        <li class="roadmap-item completed">
-          <i class="fa-solid fa-circle-check"></i>
-          <span><strong>Persistent Repo Cache</strong> (Cloning once, git-caching, and git worktrees per incident completed).</span>
-        </li>
-        <li class="roadmap-item pending">
-          <i class="fa-solid fa-clock"></i>
-          <span><strong>Redis Cache Layer (DAA 3.1)</strong> (Pluggable Redis support for session caching and stateless deduplication without a SQL database).</span>
-        </li>
-        <li class="roadmap-item pending">
-          <i class="fa-solid fa-clock"></i>
-          <span><strong>ChromaDB Repo Vector Search (RAG Indexing)</strong> (Semantic search over repo codebase to reduce file read token usage for DAA 3.1).</span>
-        </li>
-        <li class="roadmap-item pending">
-          <i class="fa-solid fa-clock"></i>
-          <span><strong>Real Cloud Log Connectors</strong> (Connectors for AWS CloudWatch, GCP Cloud Logging, and Datadog for DAA 3.1).</span>
-        </li>
-        <li class="roadmap-item pending">
-          <i class="fa-solid fa-clock"></i>
-          <span><strong>RabbitMQ Dead-Letter Queue (DLQ)</strong> (DLQ/DLX support for failed/crashed SRE agent jobs for DAA 3.1).</span>
-        </li>
-      </ul>
-    </section>
-
-    <!-- Footer -->
     <footer>
       <div>&copy; 2026 DAA Open Source Project. Released under the MIT License.</div>
       <div class="footer-links">
@@ -1897,7 +1203,6 @@ gcloud run deploy daa-minimal \
       }
     });
 
-    // Check system preferences or localstorage
     if (localStorage.getItem('theme') === 'light') {
       bodyEl.classList.add('light-theme');
       themeIcon.className = 'fa-solid fa-sun';
@@ -1927,7 +1232,6 @@ gcloud run deploy daa-minimal \
       let current = '';
       sections.forEach(section => {
         const sectionTop = section.offsetTop;
-        const sectionHeight = section.clientHeight;
         if (pageYOffset >= (sectionTop - 120)) {
           current = section.getAttribute('id');
         }
@@ -1941,7 +1245,7 @@ gcloud run deploy daa-minimal \
       });
     });
 
-    // Tab Switcher for LLM configuration
+    // Tab Switcher
     function switchTab(event, tabId) {
       const parent = event.currentTarget.closest('.tab-container');
       const tabBtns = parent.querySelectorAll('.tab-btn');
@@ -1970,31 +1274,6 @@ gcloud run deploy daa-minimal \
       });
     }
 
-    // Outage Simulation Selector
-    const redisCurl = `curl -X POST 'http://localhost:8001/checkout' \\
-  -H 'Content-Type: application/json' \\
-  -d '{"user_id": "fail_redis", "cart_total": 150.0}'`;
-
-    const paymentCurl = `curl -X POST 'http://localhost:8001/checkout' \\
-  -H 'Content-Type: application/json' \\
-  -d '{"user_id": "user-123", "cart_total": 6000.0}'`;
-
-    function selectSimulation(type) {
-      const btnRedis = document.getElementById('btn-sim-redis');
-      const btnPayment = document.getElementById('btn-sim-payment');
-      const codeContainer = document.getElementById('sim-command-code');
-
-      if (type === 'redis') {
-        btnRedis.classList.add('active');
-        btnPayment.classList.remove('active');
-        codeContainer.textContent = redisCurl;
-      } else {
-        btnPayment.classList.add('active');
-        btnRedis.classList.remove('active');
-        codeContainer.textContent = paymentCurl;
-      }
-    }
-
     // Search Filtering
     const docSearchInput = document.getElementById('docSearch');
     docSearchInput.addEventListener('input', (e) => {
@@ -2010,86 +1289,6 @@ gcloud run deploy daa-minimal \
         }
       });
     });
-
-    // Console Demo Simulation Logs
-    const redisSimLogs = [
-      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4091", style: "console-prompt" },
-      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
-      { text: "[*] Dimension 1: Analyzing correlated database log trace IDs...", style: "console-info" },
-      { text: "    Found failure in checkout-service: 'ConnectionRefusedError: [Errno 111] Connection refused'", style: "console-error" },
-      { text: "    Trace ID: 7b8a3e9c102f, Client app user_id: fail_redis", style: "console-muted" },
-      { text: "[*] Dimension 2: Checking Git commit activity over last 24 hours...", style: "console-info" },
-      { text: "    Recent commits found: 1", style: "console-muted" },
-      { text: "    Commit: 9ea12b 'Refactor connection pool configurations' by rutvej", style: "console-highlight" },
-      { text: "[*] Dimension 3: Querying environment health indicators...", style: "console-info" },
-      { text: "    Checking Redis connection to host:localhost, port:6379...", style: "console-muted" },
-      { text: "    [WARNING] Redis check failed: connection timeout. Server status is DOWN.", style: "console-warning" },
-      { text: "[*] Dimension 4: Commencing surgical code AST mapping...", style: "console-info" },
-      { text: "    Running 'read_repomap' on app/checkout-service...", style: "console-muted" },
-      { text: "    Found database instantiation symbol in 'app.py' line 42.", style: "console-highlight" },
-      { text: "    Fix suggestion: fallback to environment override 'REDIS_HOST' instead of hardcoded defaults.", style: "console-success" },
-      { text: "[*] Generating patch code for local validation tests...", style: "console-info" },
-      { text: "    Running tests: PYTHONPATH=app/checkout-service pytest tests/ ... [SUCCESS]", style: "console-success" },
-      { text: "[*] Branch created: fix/redis-connection-fallback", style: "console-success" },
-      { text: "[*] Pushed changes to Gitea, opened Pull Request #12 (status: MERGEABLE)", style: "console-success" },
-      { text: "[*] Incident resolved. Ticket postmortem logged in Mock Jira database as DAA-4091.", style: "console-success" }
-    ];
-
-    const paymentSimLogs = [
-      { text: "DAA-AGENT$ run diagnosis --incident-id INC-4092", style: "console-prompt" },
-      { text: "[*] Initializing 4-Dimension SRE Investigation Loop...", style: "console-info" },
-      { text: "[*] Dimension 1: Querying correlated logs matching trace ID...", style: "console-info" },
-      { text: "    Found exception in checkout-service -> payment-service API communication.", style: "console-muted" },
-      { text: "    Exception details: 'HTTP Exception 400 - Insufficient Funds / Card Declined'", style: "console-error" },
-      { text: "    Client transaction amount: $6000.00", style: "console-muted" },
-      { text: "[*] Dimension 2: Verifying change records for deployment updates...", style: "console-info" },
-      { text: "    No commits detected in python-agent or payment-service directories in 24h.", style: "console-muted" },
-      { text: "[*] Dimension 3: Querying cloud gateway health and DB nodes...", style: "console-info" },
-      { text: "    PostgreSQL service is UP, active connections pool: 4/100.", style: "console-muted" },
-      { text: "    Payment API responds: status code 200 OK (Heartbeat).", style: "console-muted" },
-      { text: "[*] Dimension 4: Checking code-level circuit guardrails...", style: "console-info" },
-      { text: "    Fault location: 'examples/payment-service/app.py' line 18.", style: "console-highlight" },
-      { text: "    Identified client-side request validation issue (cart value above single transaction limit).", style: "console-warning" },
-      { text: "    [Circuit Breaker Triggered] Safe code remediation bounds exceeded.", style: "console-error" },
-      { text: "[*] Action: Skip Pull Request (verification requires external billing provider action).", style: "console-warning" },
-      { text: "[*] Generating SRE Incident Postmortem report...", style: "console-info" },
-      { text: "[*] Jira incident ticket created under project DAA as DAA-4092.", style: "console-success" },
-      { text: "    Postmortem summary: Transaction failed on client checkout limit. Recommended admin review.", style: "console-success" }
-    ];
-
-    let consoleInterval = null;
-
-    function runConsoleDemo() {
-      const consoleBody = document.getElementById('consoleBody');
-      const isRedis = document.getElementById('btn-sim-redis').classList.contains('active');
-      const logs = isRedis ? redisSimLogs : paymentSimLogs;
-      
-      // Reset console
-      consoleBody.innerHTML = '';
-      clearInterval(consoleInterval);
-      
-      let lineIndex = 0;
-      
-      consoleInterval = setInterval(() => {
-        if (lineIndex < logs.length) {
-          const log = logs[lineIndex];
-          const div = document.createElement('div');
-          div.className = `console-line ${log.style}`;
-          
-          if (log.style === 'console-prompt') {
-            div.innerHTML = `<span class="console-prompt">${log.text.substring(0, 10)}</span>${log.text.substring(10)}`;
-          } else {
-            div.textContent = log.text;
-          }
-          
-          consoleBody.appendChild(div);
-          consoleBody.scrollTop = consoleBody.scrollHeight;
-          lineIndex++;
-        } else {
-          clearInterval(consoleInterval);
-        }
-      }, 500);
-    }
   </script>
 </body>
 </html>

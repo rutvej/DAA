@@ -113,7 +113,7 @@ def test_v2_deduplication_and_escalation(mock_pika):
     assert "incidentId" in log2.json()
     incident_id = log2.json()["incidentId"]
 
-    # 4. Submit 3rd log with SAME exception/content -> Should be Suppressed (Deduplicated)!
+    # 4. Submit 3rd log with SAME exception/content -> Should be Suppressed (Debugging)!
     log3 = client.post(
         "/logs/",
         json={
@@ -123,7 +123,7 @@ def test_v2_deduplication_and_escalation(mock_pika):
         },
     )
     assert log3.status_code == 202
-    assert "Suppressed (Deduplicated)" in log3.json()["status"]
+    assert "Suppressed (Debugging)" in log3.json()["status"]
 
     # 5. Check Incidents endpoint
     inc_res = client.get("/incidents/")
@@ -131,7 +131,7 @@ def test_v2_deduplication_and_escalation(mock_pika):
     incidents = inc_res.json()
     assert len(incidents) == 1
     assert incidents[0]["id"] == incident_id
-    assert incidents[0]["occurrence_count"] == 3  # 2 logged + 1 deduplicated!
+    assert incidents[0]["occurrence_count"] == 3  # 2 logged + 1 Debugging!
     assert incidents[0]["status"] == "investigating"
 
     teardown()

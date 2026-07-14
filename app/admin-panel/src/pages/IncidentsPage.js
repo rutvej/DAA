@@ -58,7 +58,7 @@ export default function IncidentsPage() {
         <div>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>Active Incidents</h1>
           <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: 14 }}>
-            Live SHA256-deduplicated incident tracker · auto-refreshes every 10s
+            Live SHA256-Debugging incident tracker · auto-refreshes every 10s
           </p>
         </div>
         <button onClick={fetchIncidents} style={{
