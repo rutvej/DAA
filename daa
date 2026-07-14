@@ -749,16 +749,16 @@ def cmd_redeploy(_args):
         info("Rebuilding and running DAA as a single unified stateless Docker container...")
         try:
             # Stop existing standalone container if running
-            subprocess.run("docker stop daa-stateless 2>/dev/null || true", shell=True)
-            subprocess.run("docker rm daa-stateless 2>/dev/null || true", shell=True)
+            subprocess.run(["docker", "stop", "daa-stateless"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+            subprocess.run(["docker", "rm", "daa-stateless"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
             
             # Run docker build
             info("Building unified Docker image (daa:latest)...")
-            subprocess.run("docker build -t daa:latest .", shell=True, check=True)
+            subprocess.run(["docker", "build", "-t", "daa:latest", "."], check=True)
             
             # Run docker run
             info("Starting unified stateless container on port 8000...")
-            subprocess.run("docker run -d --name daa-stateless -p 8000:8080 --env-file .env daa:latest", shell=True, check=True)
+            subprocess.run(["docker", "run", "-d", "--name", "daa-stateless", "-p", "8000:8080", "--env-file", ".env", "daa:latest"], check=True)
             ok("DAA Stateless service successfully rebuilt and started at http://localhost:8000!")
             print()
         except subprocess.CalledProcessError as e:
@@ -767,13 +767,13 @@ def cmd_redeploy(_args):
     else:
         info("Restarting Docker compose containers to apply latest configurations...")
         # Detect compose command
-        compose_cmd = "docker-compose"
+        compose_cmd = ["docker-compose"]
         try:
             subprocess.run(["docker-compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
         except Exception:
             try:
                 subprocess.run(["docker", "compose", "version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-                compose_cmd = "docker compose"
+                compose_cmd = ["docker", "compose"]
             except Exception:
                 err("Neither docker-compose nor docker compose could be found.")
                 sys.exit(1)
@@ -781,10 +781,10 @@ def cmd_redeploy(_args):
         try:
             # Run down
             info("Stopping active containers...")
-            subprocess.run(f"{compose_cmd} down", shell=True, check=True)
+            subprocess.run(compose_cmd + ["down"], check=True)
             # Run up
             info("Building and starting containers in background...")
-            subprocess.run(f"{compose_cmd} up -d --build", shell=True, check=True)
+            subprocess.run(compose_cmd + ["up", "-d", "--build"], check=True)
             ok("DAA Services successfully rebuilt and redeployed!")
             print()
         except subprocess.CalledProcessError as e:

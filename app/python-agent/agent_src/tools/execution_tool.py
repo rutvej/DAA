@@ -1,5 +1,6 @@
 import json
 import os
+import shlex
 import subprocess
 
 import requests
@@ -75,8 +76,9 @@ def run_tests(data: str) -> str:
         # 3. Execute via docker run
         cmd = f"docker run --rm -v {repo_path}:/workspace -w /workspace {runner_image} {test_command}"
         result = subprocess.run(
-            cmd,
-            shell=True,
+            shlex.split(cmd),
+            shell=False,
+            check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

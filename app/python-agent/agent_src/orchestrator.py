@@ -159,7 +159,7 @@ class RepoCacheManager:
         # ---- 1. Clone or refresh -------------------------------------------
         if os.path.isdir(git_dir):
             self._run(
-                ["git", "remote", "set-url", "origin", repo_url],
+                ["git", "remote", "set-url", "origin", "--", repo_url],
                 cwd=cache_dir,
                 check=False,
             )
@@ -175,7 +175,7 @@ class RepoCacheManager:
                 )
         else:
             logger.info("No cache found, cloning %s -> %s", repo_url, cache_dir)
-            self._run(["git", "clone", repo_url, cache_dir])
+            self._run(["git", "clone", "--", repo_url, cache_dir])
             self._write_last_fetch(app_name)
 
         # ---- 2. Create worktree --------------------------------------------
@@ -190,7 +190,7 @@ class RepoCacheManager:
 
         try:
             self._run(
-                ["git", "worktree", "add", "--force", worktree_path, "main"],
+                ["git", "worktree", "add", "--force", "--", worktree_path, "main"],
                 cwd=cache_dir,
             )
         except subprocess.CalledProcessError:
@@ -198,7 +198,7 @@ class RepoCacheManager:
                 "Failed to add worktree for branch 'main', trying 'master' fallback"
             )
             self._run(
-                ["git", "worktree", "add", "--force", worktree_path, "master"],
+                ["git", "worktree", "add", "--force", "--", worktree_path, "master"],
                 cwd=cache_dir,
             )
         # Index repo for codebase search tool (DAA 3.1)
@@ -1159,6 +1159,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                         "git",
                         "ls-remote",
                         "--heads",
+                        "--",
                         auth_url,
                         f"refs/heads/{branch_name}",
                     ],
@@ -1255,7 +1256,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 )
                 try:
                     subprocess.run(
-                        ["git", "push", "origin", f"HEAD:refs/heads/{branch_name}"],
+                        ["git", "push", "origin", "--", f"HEAD:refs/heads/{branch_name}"],
                         cwd=worktree_path,
                         check=True,
                         capture_output=True,
