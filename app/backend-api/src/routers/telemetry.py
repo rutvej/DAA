@@ -192,15 +192,18 @@ def receive_self_report(
         import pika
 
         rabbitmq_host = os.environ.get("RABBITMQ_HOST", "rabbitmq")
+        rabbitmq_queue = os.environ.get(
+            "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+        )
         try:
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host=rabbitmq_host)
             )
             channel = connection.channel()
-            channel.queue_declare(queue="fix_jobs", durable=True)
+            channel.queue_declare(queue=rabbitmq_queue, durable=True)
             channel.basic_publish(
                 exchange="",
-                routing_key="fix_jobs",
+                routing_key=rabbitmq_queue,
                 body=json.dumps(job_data),
                 properties=pika.BasicProperties(delivery_mode=2),
             )

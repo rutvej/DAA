@@ -261,16 +261,20 @@ async def dispatch_investigation(
         import pika
 
         rabbitmq_host = os.environ.get("RABBITMQ_HOST", "localhost")
+        rabbitmq_queue = os.environ.get(
+            "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+        )
         connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
         channel = connection.channel()
-        channel.queue_declare(queue="fix_jobs", durable=True)
+        channel.queue_declare(queue=rabbitmq_queue, durable=True)
         channel.basic_publish(
-            exchange="", routing_key="fix_jobs", body=json.dumps(job_data)
+            exchange="", routing_key=rabbitmq_queue, body=json.dumps(job_data)
         )
         connection.close()
         logger.info(
-            f"Published investigation job {job_id} to RabbitMQ queue 'fix_jobs'"
+            f"Published investigation job {job_id} to RabbitMQ queue '{rabbitmq_queue}'"
         )
+
 
 
 # ---------------------------------------------------------------------------

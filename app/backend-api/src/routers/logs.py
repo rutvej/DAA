@@ -20,7 +20,9 @@ from .auth import get_current_user
 router = APIRouter()
 
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
-RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+RABBITMQ_QUEUE = os.environ.get(
+    "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+)
 
 
 class LogCreate(BaseModel):
@@ -264,7 +266,7 @@ def submit_log(
 
             try:
                 channel.queue_declare(
-                    queue="fix_jobs", durable=True, arguments=arguments
+                    queue=RABBITMQ_QUEUE, durable=True, arguments=arguments
                 )
             except Exception:
                 try:
@@ -272,18 +274,18 @@ def submit_log(
                         pika.ConnectionParameters(RABBITMQ_HOST)
                     )
                     channel = connection.channel()
-                    channel.queue_delete(queue="fix_jobs")
+                    channel.queue_delete(queue=RABBITMQ_QUEUE)
                     channel.queue_declare(
-                        queue="fix_jobs", durable=True, arguments=arguments
+                        queue=RABBITMQ_QUEUE, durable=True, arguments=arguments
                     )
                 except Exception:
                     connection = pika.BlockingConnection(
                         pika.ConnectionParameters(RABBITMQ_HOST)
                     )
                     channel = connection.channel()
-                    channel.queue_declare(queue="fix_jobs", durable=True)
+                    channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
             channel.basic_publish(
-                exchange="", routing_key="fix_jobs", body=json.dumps(job_data)
+                exchange="", routing_key=RABBITMQ_QUEUE, body=json.dumps(job_data)
             )
             connection.close()
         except pika.exceptions.AMQPConnectionError:

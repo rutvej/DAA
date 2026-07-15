@@ -30,7 +30,9 @@ from .tools.ticket_tool import create_incident_ticket
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
-RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+RABBITMQ_QUEUE = os.environ.get(
+    "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+)
 
 
 MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
