@@ -163,17 +163,40 @@ class SimpleMcpClient:
             text=True,
             bufsize=1,
         )
+        if self.proc.stdin and self.proc.stdout:
+            init_req = {
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "daa-python-agent", "version": "3.0.0"},
+                },
+                "id": 0,
+            }
+            self.proc.stdin.write(json.dumps(init_req) + "\n")
+            self.proc.stdin.flush()
+            _init_resp = self.proc.stdout.readline()
+            init_notif = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {},
+            }
+            self.proc.stdin.write(json.dumps(init_notif) + "\n")
+            self.proc.stdin.flush()
 
     def send_request(self, method, params=None, id=1):
         if not self.proc:
             self.start()
         req = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": id}
-        self.proc.stdin.write(json.dumps(req) + "\n")
-        self.proc.stdin.flush()
-        line = self.proc.stdout.readline()
-        if not line:
-            return None
-        return json.loads(line)
+        if self.proc and self.proc.stdin and self.proc.stdout:
+            self.proc.stdin.write(json.dumps(req) + "\n")
+            self.proc.stdin.flush()
+            line = self.proc.stdout.readline()
+            if not line:
+                return None
+            return json.loads(line)
+        return None
 
     def close(self):
         if self.proc:
@@ -182,17 +205,25 @@ class SimpleMcpClient:
 
 
 def load_mcp_tools() -> list:
-    """Loads tools from external MCP servers configured in mcp_config.json."""
-    config_path = "mcp_config.json"
-    if not os.path.exists(config_path):
-        return []
+    """Loads tools from external MCP servers configured in mcp_config.json or DAA_MCP_CONFIG_JSON."""
+    config = None
+    env_json = os.getenv("DAA_MCP_CONFIG_JSON")
+    if env_json:
+        try:
+            config = json.loads(env_json)
+        except Exception as e:
+            print(f"Failed to parse DAA_MCP_CONFIG_JSON: {e}")
 
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(f"Failed to read mcp_config.json: {e}")
-        return []
+    if not config:
+        config_path = os.getenv("DAA_MCP_CONFIG_PATH", "mcp_config.json")
+        if not os.path.exists(config_path):
+            return []
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"Failed to read {config_path}: {e}")
+            return []
 
     mcp_tools = []
     servers = config.get("mcpServers", {})
@@ -211,6 +242,7 @@ def load_mcp_tools() -> list:
             client.close()
 
             if not res or "result" not in res:
+                print(f"[MCP Verification] Server '{server_name}' failed health check or returned invalid result; excluding tools to prevent token waste.")
                 continue
 
             tools_list = res["result"].get("tools", [])
@@ -237,9 +269,9 @@ def load_mcp_tools() -> list:
                                 return "\n".join(
                                     [c.get("text", "") for c in content_list]
                                 )
-                            return f"Error calling tool {t_name}: {call_res}"
+                            return f"Error calling MCP tool {t_name}: {call_res}. Note: If this MCP server is unavailable, fall back to native Git or local diagnostic tools."
                         except Exception as wrapper_ex:
-                            return f"Error executing tool {t_name}: {wrapper_ex}"
+                            return f"Error executing MCP tool {t_name}: {wrapper_ex}. Note: If this MCP server is unavailable, fall back to native Git or local diagnostic tools."
                         finally:
                             wrapper_client.close()
 

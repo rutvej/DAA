@@ -439,6 +439,9 @@ def handle_request(req):
             "id": req_id,
         }
 
+    if req_id is None or (method and method.startswith("notifications/")):
+        return None
+
     return {"jsonrpc": "2.0", "result": {}, "id": req_id}
 
 
@@ -451,8 +454,9 @@ def main():
         try:
             req = json.loads(line)
             resp = handle_request(req)
-            sys.stdout.write(json.dumps(resp) + "\n")
-            sys.stdout.flush()
+            if resp is not None:
+                sys.stdout.write(json.dumps(resp) + "\n")
+                sys.stdout.flush()
         except Exception as e:
             log_info(f"Error handling request: {e}")
 
