@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, Application, User, get_db
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Application, User, get_db
 
 router = APIRouter()
 
@@ -31,6 +31,11 @@ class UserLogin(BaseModel):
 
 @router.post("/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+        raise HTTPException(
+            status_code=503,
+            detail="Registration is disabled: DAA is operating in stateless/serverless mode (DAA_DB_PROVIDER=none). To enable user registration and persistent DB entries, configure DAA_DB_PROVIDER=sqlite or postgres.",
+        )
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -47,6 +52,11 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
     if not DAA_AUTH_ENABLED:
         return {"token": "dummy_token"}
+    if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+        raise HTTPException(
+            status_code=503,
+            detail="Login with persistent accounts is disabled: DAA is operating in stateless/serverless mode (DAA_DB_PROVIDER=none). To enable persistent accounts, configure DAA_DB_PROVIDER=sqlite or postgres.",
+        )
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not pwd_context.verify(user.password, db_user.passwordHash):
         raise HTTPException(status_code=401, detail="Incorrect username or password")

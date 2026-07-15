@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import Application, Fix, Incident, Log, SessionLocal
+from ..database import Application, Fix, Incident, Log, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,6 @@ class DAAInternalErrorReport(BaseModel):
     timestamp: str
     instance_id: str
 
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post("/api/v1/self-report")

@@ -170,12 +170,16 @@ elif DAA_DB_PROVIDER == "sqlite":
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
-else:
+elif DAA_DB_PROVIDER in ("postgres", "postgresql", "internal-postgres", "external-postgres"):
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db"
     )
     engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=40, pool_timeout=60)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+else:
+    raise RuntimeError(
+        f"Invalid DAA_DB_PROVIDER configured: '{DAA_DB_PROVIDER}'. Valid choices: sqlite, postgres, or none (stateless/serverless mode)."
+    )
 
 Base = declarative_base()
 
@@ -329,6 +333,8 @@ def on_incident_status_change(target, value, oldvalue, initiator):
 
 
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError("Valid database provider required (sqlite, postgres, or none for stateless mode)")
     db = SessionLocal()
     try:
         yield db
