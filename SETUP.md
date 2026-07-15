@@ -67,6 +67,12 @@ DAA's architecture uses environment variables to trigger different operational f
   2. The standalone worker container (`python -m agent_src.main`) consumes the job from RabbitMQ.
   3. The worker clones the codebase, creates worktrees, triages the bug, runs tests, and pushes fix branches to create Pull Requests.
 
+### D. MCP (Model Context Protocol) Configuration across Modes
+DAA supports connecting external MCP tools (Git, GitHub, Observability, 4-DIM Matrix) across all deployment modes while enforcing dual-layer safety:
+* **Full-Stack Mode:** Use `DAA_MCP_CONFIG_PATH=/app/mcp_config.json` (or default `mcp_config.json`) and mount your configuration file via `docker-compose.yml`.
+* **Serverless Mode (Cloud Run / AWS Fargate):** Because ephemeral containers lack local disk mounts, pass the JSON config directly via `DAA_MCP_CONFIG_JSON='{"mcpServers": {...}}'`.
+* **Dual-Layer Safety & Token Optimization:** DAA automatically performs the 3-step `initialize` handshake (`2024-11-05`) when spawning MCP processes. If any external MCP server fails health verification or returns `-32002 Server not initialized`, DAA excludes its tools to prevent LLM token waste and gracefully falls back to native Git (`CloneFreeGitClient`) and local diagnostic tools. We recommend configuring both MCP and local tools for maximum reliability.
+
 ---
 
 ## 🧪 3. E2E Verification & Outage Triggers

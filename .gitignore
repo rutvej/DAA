@@ -116,6 +116,8 @@ dmypy.json
 
 # Environments
 .env*
+!.env.example
+.env.daa
 .env
 .env.development.local
 .env.test.local
