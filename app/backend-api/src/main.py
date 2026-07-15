@@ -40,16 +40,18 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Startup validation for Cloud Run constraints
-if (
-    os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
-    and "K_SERVICE" in os.environ
-):
-    raise RuntimeError(
-        "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run. "
-        "Cloud Run request-scoped containers suspend CPU, which breaks long-running RabbitMQ consumers. "
-        "Please use DAA_QUEUE_MODE=sync or deploy to a standard container environment."
-    )
+# Startup validation for Cloud Run / Serverless constraints
+if "K_SERVICE" in os.environ:
+    queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
+    always_on_cpu = os.environ.get("DAA_ALWAYS_ON_CPU", "false").lower() == "true"
+    if queue_mode != "sync" and not always_on_cpu:
+        raise RuntimeError(
+            f"Invalid configuration: DAA_QUEUE_MODE={queue_mode} is not supported on Google Cloud Run "
+            "without always-on CPU allocation (DAA_ALWAYS_ON_CPU=true). "
+            "Cloud Run request-scoped containers suspend CPU between requests, which breaks persistent "
+            "background worker threads ('python -m agent_src.main &') and long-running consumers. "
+            "Please set DAA_QUEUE_MODE=sync, enable always-on CPU (DAA_ALWAYS_ON_CPU=true), or deploy to a standard container environment."
+        )
 
 cors_origins = [
     origin.strip()

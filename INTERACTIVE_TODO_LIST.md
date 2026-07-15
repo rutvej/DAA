@@ -34,7 +34,7 @@ We will iterate through these **one by one**: discussing the design and exact co
 
 ### ⚙️ Operational & Production Blockers (P0)
 
-- [ ] **Task 5 (`[P0-OPS-1]`): Fix Cloud Run `K_SERVICE` Fatal Startup Crash & SQLite WAL Lock Corruption**
+- [x] **Task 5 (`[P0-OPS-1]`): Fix Cloud Run `K_SERVICE` Fatal Startup Crash & SQLite WAL Lock Corruption**
   - **Target Files:** [terraform/main.tf](file:///home/rutvej/Desktop/DAA/terraform/main.tf#L61-L74), [app/backend-api/src/database.py](file:///home/rutvej/Desktop/DAA/app/backend-api/src/database.py#L140-L166), [app/backend-api/src/main.py](file:///home/rutvej/Desktop/DAA/app/backend-api/src/main.py#L44-L50)
   - **Exact Changes:** In `terraform/main.tf`, add `DAA_QUEUE_MODE = "sync"` (or `"pubsub"`) and configure Cloud Run concurrency settings. In `database.py`, disable `journal_mode=WAL` when operating on ephemeral/cloud storage and enforce explicit `pool_timeout=30`. In `main.py`, prevent spawning persistent background worker threads (`python -m agent_src.main &`) inside serverless containers without `always-on` CPU allocation.
   - **Why It Is Needed:** When deployed to GCP Cloud Run (`terraform/main.tf`), the `backend-api` container starts background Python worker threads (`agent_src.main`) and attempts to write to a local instance-scoped SQLite disk (`./daa.db`). Because Cloud Run throttles CPU allocation between HTTP requests and does not support POSIX advisory locks on cloud mounts, background workers freeze mid-execution and SQLite crashes with fatal `SQLITE_BUSY: database is locked` or permanent database corruption on first scale-out.

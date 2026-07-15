@@ -150,12 +150,19 @@ elif DAA_DB_PROVIDER == "sqlite":
 
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
     engine = create_engine(
-        DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30.0}
+        DATABASE_URL,
+        connect_args={"check_same_thread": False, "timeout": 30.0},
+        pool_timeout=30,
+        pool_pre_ping=True,
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    # Configure SQLite WAL mode (disabled on Cloud Run to prevent mmap crashes)
-    if "K_SERVICE" not in os.environ:
+    # Configure SQLite WAL mode (disabled on Cloud Run and ephemeral/cloud storage to prevent mmap crashes)
+    if (
+        "K_SERVICE" not in os.environ
+        and os.environ.get("DAA_DISABLE_WAL", "false").lower() != "true"
+        and not DATABASE_URL.startswith("sqlite:////tmp")
+    ):
 
         @event.listens_for(engine, "connect")
         def set_sqlite_pragma(dbapi_connection, connection_record):

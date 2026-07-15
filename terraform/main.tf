@@ -43,6 +43,7 @@ resource "google_cloud_run_service" "backend_api" {
 
   template {
     spec {
+      container_concurrency = 80
       containers {
         image = "gcr.io/${var.project_id}/daa-backend-api:latest"
         env {
@@ -52,6 +53,10 @@ resource "google_cloud_run_service" "backend_api" {
         env {
           name  = "RABBITMQ_HOST"
           value = "rabbitmq-service-ip" # In production, configure Cloud AMQP or fully-managed RabbitMQ
+        }
+        env {
+          name  = "DAA_QUEUE_MODE"
+          value = "sync"
         }
       }
     }
@@ -69,6 +74,11 @@ resource "google_cloud_run_service" "python_agent" {
   location = var.region
 
   template {
+    metadata {
+      annotations = {
+        "run.googleapis.com/cpu-throttling" = "false"
+      }
+    }
     spec {
       containers {
         image = "gcr.io/${var.project_id}/daa-python-agent:latest"
