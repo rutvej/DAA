@@ -254,13 +254,23 @@ class FingerprintDedup:
         exception_type: str,
         error_file: str,
         line_number: str,
+        content_or_top_frame: str = "",
     ) -> str:
         """
-        Return a deterministic SHA-256 hex string derived from the four
-        incident fields.  Same inputs => same fingerprint across runs.
+        Return a deterministic canonical SHA-256 fingerprint using common.fingerprint.
         """
-        raw = "|".join([app_name, exception_type, error_file, str(line_number)])
-        return hashlib.sha256(raw.encode()).hexdigest()
+        try:
+            from common.fingerprint import compute_canonical_fingerprint
+        except ImportError:
+            from app.common.fingerprint import compute_canonical_fingerprint
+
+        return compute_canonical_fingerprint(
+            app_name=app_name,
+            exception_type=exception_type,
+            content_or_top_frame=content_or_top_frame,
+            error_file=error_file,
+            line_number=str(line_number),
+        )
 
     def check(self, fingerprint: str) -> dict:
         """
@@ -1121,11 +1131,12 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
 
     # ---- 1. Compute fingerprint ------------------------------------------
     dedup = FingerprintDedup(backend_url=backend_url, token=token)
-    fingerprint = dedup.compute(
+    fingerprint = job.get("fingerprint") or dedup.compute(
         app_name=app_name,
         exception_type=exception_type,
         error_file=error_file,
         line_number=line_number,
+        content_or_top_frame=job.get("stack_trace", "") or str(job.get("error_log", {}).get("content", "")),
     )
     logger.info("Fingerprint: %s", fingerprint)
 

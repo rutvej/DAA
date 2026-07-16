@@ -79,11 +79,17 @@ def submit_log(
     db.commit()
     db.refresh(db_log)
 
-    # 2. Calculate SHA256 Error Fingerprint for Deduplication
-    exc_type = log.exception_type or "UnknownError"
-    top_frame = log.content[:200]
-    raw_fp = f"{log.app_name}:{exc_type}:{top_frame}"
-    fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:16]
+    # 2. Calculate SHA256 Error Fingerprint for Deduplication (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name=log.app_name,
+        exception_type=log.exception_type or "UnknownError",
+        content_or_top_frame=log.content,
+    )
 
     # 3. Check Deduplication: Is there already an active incident for this fingerprint?
     active_incident = (

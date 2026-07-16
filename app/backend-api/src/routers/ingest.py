@@ -105,10 +105,17 @@ async def dispatch_investigation(
     # [Item 1] Explicit note: Webhook/log-app-sourced errors (Sentry, Prometheus, generic log ingestion)
     # have no policy check; they escalate immediately on ingestion (upstream system already thresholded it).
 
-    # 1. Compute fingerprint
-    top_frame = stack_trace[:200]
-    raw_fp = f"{app_name}:{exception_type}:{top_frame}"
-    fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:16]
+    # 1. Compute fingerprint (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name=app_name,
+        exception_type=exception_type,
+        content_or_top_frame=stack_trace,
+    )
 
     # 2. Check Deduplication in Database
     active_incident = (

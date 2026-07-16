@@ -60,11 +60,18 @@ def receive_self_report(
         if api_key_header != daa_api_key:
             raise HTTPException(status_code=401, detail="Unauthorized: Invalid DAA_API_KEY for self-report")
 
-    # 1. Compute fingerprint
-    fingerprint_input = (
-        f"DAA|{report.exception_type}|{report.daa_file}|{report.daa_line}"
+    # 1. Compute fingerprint (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name="DAA",
+        exception_type=report.exception_type,
+        error_file=report.daa_file,
+        line_number=str(report.daa_line),
     )
-    fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()
 
     # 2. Check for duplicate incident in DB
     existing_incident = (
