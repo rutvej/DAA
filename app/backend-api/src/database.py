@@ -35,13 +35,13 @@ else:
 default_policy = (
     "true"
     if DAA_DB_PROVIDER
-    in ("sqlite", "postgres", "internal-postgres", "external-postgres")
+    in ("sqlite", "postgres", "internal-postgres", "external-postgres", "redis", "internal-redis", "external-redis", "upstash")
     else "false"
 )
 default_auth = (
     "true"
     if DAA_DB_PROVIDER
-    in ("sqlite", "postgres", "internal-postgres", "external-postgres")
+    in ("sqlite", "postgres", "internal-postgres", "external-postgres", "redis", "internal-redis", "external-redis", "upstash")
     else "false"
 )
 
@@ -134,9 +134,20 @@ class MockSession:
         return MockTransaction()
 
 
-if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+if DAA_DB_PROVIDER == "none":
     engine = None
     SessionLocal = MockSession
+elif DAA_DB_PROVIDER in ("redis", "internal-redis", "external-redis", "upstash"):
+    try:
+        from redis_storage import StatelessRedisSession
+    except ImportError:
+        import sys
+        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        if _repo_root not in sys.path:
+            sys.path.insert(0, _repo_root)
+        from app.backend_api.src.redis_storage import StatelessRedisSession
+    engine = None
+    SessionLocal = StatelessRedisSession
 elif DAA_DB_PROVIDER == "sqlite":
     if "K_SERVICE" in os.environ:
         import logging
@@ -191,7 +202,7 @@ elif DAA_DB_PROVIDER in ("postgres", "postgresql", "internal-postgres", "externa
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
     raise RuntimeError(
-        f"Invalid DAA_DB_PROVIDER configured: '{DAA_DB_PROVIDER}'. Valid choices: sqlite, postgres, or none (stateless/serverless mode)."
+        f"Invalid DAA_DB_PROVIDER configured: '{DAA_DB_PROVIDER}'. Valid choices: sqlite, postgres, redis, upstash, or none (stateless/serverless mode)."
     )
 
 Base = declarative_base()
@@ -347,7 +358,7 @@ def on_incident_status_change(target, value, oldvalue, initiator):
 
 def get_db():
     if SessionLocal is None:
-        raise RuntimeError("Valid database provider required (sqlite, postgres, or none for stateless mode)")
+        raise RuntimeError("Valid database provider required (sqlite, postgres, redis, upstash, or none for stateless mode)")
     db = SessionLocal()
     try:
         yield db
