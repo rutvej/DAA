@@ -848,9 +848,55 @@ def process_job(job: Job):
                 {"input": question}, config={"callbacks": [callback_handler]}
             )
     except Exception as e:
-        logging.error(f"Agent core failed: {e}", exc_info=True)
-        report_daa_internal_error(e, "agent_core")
-        raise e
+        logging.error(f"Agent core failed after retries ({e}). Triggering Serverless Fallback Postmortem...", exc_info=True)
+        report_daa_internal_error(e, "agent_core_fallback")
+
+        partial_logs = callback_handler.logs if callback_handler.logs else ["No agent tool steps executed before failure."]
+        traces_formatted = "\n\n".join(partial_logs)
+
+        fallback_postmortem = (
+            f"# ⚠️ DAA Investigation Interrupted: LLM Circuit Breaker Tripped\n\n"
+            f"**Reason for Interruption:** The LLM provider API failed after exhausting exponential backoff (`{type(e).__name__}: {e}`).\n\n"
+            f"## Partial Investigation Findings & Traces So Far\n"
+            f"To save developer triage time and avoid re-running from scratch, below is the exact step-by-step investigation completed right up until the API interruption:\n\n"
+            f"```\n{traces_formatted}\n```\n"
+        )
+
+        pull_request_url = None
+        if daa30_available:
+            from .orchestrator import PostflightOrchestrator, RepoCacheManager
+
+            repo_cache_mgr = RepoCacheManager()
+            postflight = PostflightOrchestrator(
+                backend_url=backend_url, token=daa_token, repo_cache_manager=repo_cache_mgr
+            )
+            try:
+                fallback_parsed = {
+                    "status": "escalated",
+                    "reason": f"LLM Circuit Breaker Tripped: {type(e).__name__}",
+                    "partial_diagnosis": f"LLM failed mid-investigation. Completed {len(partial_logs)} investigation steps.",
+                    "raw_output": fallback_postmortem,
+                }
+                pf_result = postflight.run(
+                    incident_id=str(getattr(job, "incident_id", None) or job.id),
+                    fingerprint=fingerprint,
+                    app_name=job.app_name,
+                    worktree_path=worktree_path,
+                    agent_output=fallback_parsed,
+                )
+                pull_request_url = pf_result.get("pr_url")
+            except Exception as pf_e:
+                logging.error(f"Postflight fallback error: {pf_e}")
+            finally:
+                try:
+                    repo_cache_mgr.cleanup_worktree(str(getattr(job, "incident_id", None) or job.id))
+                except Exception:
+                    pass
+
+        analysis_updater.set_pull_request_url(pull_request_url)
+        analysis_updater.set_postmortem(fallback_postmortem)
+        analysis_updater.update_analysis_completed()
+        return
 
     output_text = result.get("output", "")
 

@@ -9,6 +9,8 @@ from typing import Any, List, Optional
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 
 
 class CodexChatModel(BaseChatModel):
@@ -18,6 +20,12 @@ class CodexChatModel(BaseChatModel):
     def _llm_type(self) -> str:
         return "codex-chat"
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((urllib.error.HTTPError, urllib.error.URLError, Exception)),
+        reraise=True,
+    )
     def _generate(
         self,
         messages: List[BaseMessage],
@@ -229,6 +237,12 @@ class AgyChatModel(BaseChatModel):
     def _llm_type(self) -> str:
         return "agy-chat"
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((subprocess.CalledProcessError, Exception)),
+        reraise=True,
+    )
     def _generate(
         self,
         messages: List[BaseMessage],
@@ -350,6 +364,20 @@ class MockChatModel(BaseChatModel):
 
         ai_message = AIMessage(content=output)
         return ChatResult(generations=[ChatGeneration(message=ai_message)])
+
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type(Exception),
+    reraise=True,
+)
+def get_chat_completion(messages: List[BaseMessage], stop: Optional[List[str]] = None, **kwargs: Any) -> ChatResult:
+    """
+    Direct chat completion wrapper with tenacity exponential backoff and circuit breaker protection.
+    """
+    llm = get_llm()
+    return llm.invoke(messages, stop=stop, **kwargs)
 
 
 def get_llm():

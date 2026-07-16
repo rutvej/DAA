@@ -6,6 +6,7 @@ from typing import Optional
 from urllib.parse import quote, urlparse
 
 import requests
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 logger = logging.getLogger(__name__)
 
@@ -168,6 +169,12 @@ class BaseGitProvider:
     def headers(self) -> dict:
         return self.info.headers or {}
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        reraise=True,
+    )
     def _request(self, method: str, path: str, **kwargs):
         url = (
             path
