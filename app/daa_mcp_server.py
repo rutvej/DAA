@@ -13,6 +13,9 @@ def log_info(msg):
     sys.stderr.flush()
 
 
+_engine_cache = {}
+
+
 def get_db():
     # Dynamic database location lookup
     db_url = os.environ.get("DATABASE_URL", "sqlite:///test.db")
@@ -22,16 +25,26 @@ def get_db():
             # Resolve relative to the repository path if running locally
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             path = os.path.join(base_dir, path)
-        return sqlite3.connect(path)
-    elif db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
-        try:
-            import psycopg2
+        db_url = f"sqlite:///{path}"
 
-            return psycopg2.connect(db_url)
-        except Exception as e:
-            log_info(f"Failed to connect to PostgreSQL database: {e}")
-            return None
-    return None
+    if db_url not in _engine_cache:
+        try:
+            from common.db_factory import create_unified_engine
+        except ImportError:
+            import sys
+
+            _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            if _repo_root not in sys.path:
+                sys.path.insert(0, _repo_root)
+            from app.common.db_factory import create_unified_engine
+
+        _engine_cache[db_url] = create_unified_engine(db_url, pool_size=5, max_overflow=10)
+
+    try:
+        return _engine_cache[db_url].raw_connection()
+    except Exception as e:
+        log_info(f"Failed to connect to database via unified pool: {e}")
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -39,8 +52,8 @@ def get_db():
 # ---------------------------------------------------------------------------
 def _ph(conn):
     """Return the correct parameter placeholder for the active DB driver."""
-    # psycopg2 connections report via __class__.__module__
-    if "psycopg2" in type(conn).__module__:
+    raw = getattr(conn, "connection", conn)
+    if "psycopg2" in type(raw).__module__ or "psycopg2" in type(conn).__module__:
         return "%s"
     return "?"
 

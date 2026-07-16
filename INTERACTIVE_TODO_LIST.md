@@ -58,7 +58,7 @@ We will iterate through these **one by one**: discussing the design and exact co
 
 ## Sprint 2: Core Resilience & Architectural Unification (Phase 1 Priority)
 
-- [ ] **Task 9 (`[P1-ARCH-1]`): Unify Database Engine Configurations Across `backend-api` and `python-agent`**
+- [x] **Task 9 (`[P1-ARCH-1]`): Unify Database Engine Configurations Across `backend-api` and `python-agent`**
   - **Target Files:** [app/backend-api/src/database.py](file:///home/rutvej/Desktop/DAA/app/backend-api/src/database.py), [app/python-agent/agent_src/tools/database_tool.py](file:///home/rutvej/Desktop/DAA/app/python-agent/agent_src/tools/database_tool.py#L30-L50), [app/daa_mcp_server.py](file:///home/rutvej/Desktop/DAA/app/daa_mcp_server.py#L40)
   - **Exact Changes:** Create a shared, unifiable connection utility (`common/db_factory.py` or standardized environment variables) enforcing identical SQLAlchemy connection pooling (`pool_pre_ping=True`, `pool_recycle=3600`) across all three Python modules.
   - **Why It Is Needed:** Currently, `backend-api`, `database_tool.py`, and `daa_mcp_server.py` each declare independent `create_engine()` pools. In SQLite mode (`./daa.db`), three uncoordinated connection pools competing over the same file cause frequent `SQLITE_BUSY` lock contentions. In PostgreSQL mode, they consume triple the required database connections, leading to `MaxConnectionsExceeded` errors.

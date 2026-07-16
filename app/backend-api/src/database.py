@@ -149,12 +149,16 @@ elif DAA_DB_PROVIDER == "sqlite":
         )
 
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False, "timeout": 30.0},
-        pool_timeout=30,
-        pool_pre_ping=True,
-    )
+    try:
+        from common.db_factory import create_unified_engine
+    except ImportError:
+        import sys
+        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        if _repo_root not in sys.path:
+            sys.path.insert(0, _repo_root)
+        from app.common.db_factory import create_unified_engine
+
+    engine = create_unified_engine(DATABASE_URL)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
     # Configure SQLite WAL mode (disabled on Cloud Run and ephemeral/cloud storage to prevent mmap crashes)
@@ -174,7 +178,16 @@ elif DAA_DB_PROVIDER in ("postgres", "postgresql", "internal-postgres", "externa
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db"
     )
-    engine = create_engine(DATABASE_URL, pool_size=20, max_overflow=40, pool_timeout=60)
+    try:
+        from common.db_factory import create_unified_engine
+    except ImportError:
+        import sys
+        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        if _repo_root not in sys.path:
+            sys.path.insert(0, _repo_root)
+        from app.common.db_factory import create_unified_engine
+
+    engine = create_unified_engine(DATABASE_URL, pool_size=20, max_overflow=40)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
     raise RuntimeError(
