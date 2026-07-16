@@ -48,7 +48,10 @@ def view_file_slice(data: str) -> str:
                 return f"Error: File not found via API at {file_path}"
             lines = content.splitlines(keepends=True)
         else:
-            full_path = get_full_path(file_path.strip())
+            try:
+                full_path = get_full_path(file_path.strip())
+            except PermissionError as e:
+                return f"Error: {e}"
             if not os.path.exists(full_path):
                 return f"Error: File not found at {file_path}"
 
