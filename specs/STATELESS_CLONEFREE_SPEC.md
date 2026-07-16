@@ -251,3 +251,9 @@ DAA_OUTBOUND_WEBHOOK_SECRET=my-super-secret-hmac-key
 
 ### 5.2 Serverless Considerations
 * Since Cloud Run auto-terminates long idle connections, Webhook payloads should return `status: accepted` instantly, while the actual `commit` and `pr` commands run on an asynchronous worker task in the background of the same runtime.
+
+---
+
+## 6. Related Architectural Specifications
+
+* **Serverless-Safe LLM & Git Circuit Breakers**: See [LLM_CIRCUIT_BREAKER_RESILIENCE_SPEC.md](file:///home/rutvej/Desktop/DAA/specs/LLM_CIRCUIT_BREAKER_RESILIENCE_SPEC.md) for full details on our two-tier resilience architecture (exponential backoff across REST endpoints + deterministic partial postmortem / draft PR salvage when APIs fail).
