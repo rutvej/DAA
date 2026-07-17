@@ -1,10 +1,52 @@
+import logging
 import os
+import uuid
+from contextvars import ContextVar
 from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
+
+
+class TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not getattr(record, "trace_id", None):
+            ctx_tid = trace_id_ctx.get()
+            if ctx_tid:
+                record.trace_id = ctx_tid
+            else:
+                record.trace_id = ""
+        return True
+
+
+def setup_json_logging():
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            "%(asctime)s %(name)s %(levelname)s %(message)s %(trace_id)s"
+        )
+        handler.setFormatter(formatter)
+        handler.addFilter(TraceIdFilter())
+        logger.addHandler(handler)
+        logger.addFilter(TraceIdFilter())
+        logger.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+setup_json_logging()
 
 from .database import (
     DAA_DB_PROVIDER,
@@ -69,6 +111,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def trace_id_middleware(request: Request, call_next):
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or str(uuid.uuid4())
+    )
+    token = trace_id_ctx.set(tid)
+    try:
+        response = await call_next(request)
+        response.headers["trace_id"] = tid
+        return response
+    finally:
+        trace_id_ctx.reset(token)
 
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])

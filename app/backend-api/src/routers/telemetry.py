@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -160,12 +161,13 @@ def receive_self_report(
     db.refresh(db_fix)
 
     # Create job metadata to trigger investigation
+    trace_id = report.instance_id or str(uuid.uuid4())
     job_data = {
         "id": str(db_fix.id),
         "log_id": str(db_log.id),
         "incident_id": str(new_incident.id),
         "fingerprint": fingerprint,
-        "trace_id": report.instance_id,
+        "trace_id": trace_id,
         "app_name": "DAA",
         "status": "pending",
         "created_at": db_log.timestamp.isoformat(),
@@ -176,7 +178,7 @@ def receive_self_report(
             "content": db_log.content,
             "stack_trace": report.traceback,
             "exception_type": report.exception_type,
-            "trace_id": report.instance_id,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -205,7 +207,9 @@ def receive_self_report(
                 exchange="",
                 routing_key=rabbitmq_queue,
                 body=json.dumps(job_data),
-                properties=pika.BasicProperties(delivery_mode=2),
+                properties=pika.BasicProperties(
+                    headers={"trace_id": trace_id}, delivery_mode=2
+                ),
             )
             connection.close()
         except Exception as e:

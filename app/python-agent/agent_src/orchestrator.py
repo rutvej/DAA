@@ -10,11 +10,52 @@ import os
 import shutil
 import subprocess
 import time
+import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import unquote, urlparse
 
 import requests
+
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
+
+
+class TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not getattr(record, "trace_id", None):
+            ctx_tid = trace_id_ctx.get()
+            if ctx_tid:
+                record.trace_id = ctx_tid
+            else:
+                record.trace_id = ""
+        return True
+
+
+def setup_json_logging():
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            "%(asctime)s %(name)s %(levelname)s %(message)s %(trace_id)s"
+        )
+        handler.setFormatter(formatter)
+        handler.addFilter(TraceIdFilter())
+        logger.addHandler(handler)
+        logger.addFilter(TraceIdFilter())
+        logger.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+setup_json_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -655,6 +696,8 @@ class PostflightOrchestrator:
             {"pr_url": str|None, "postmortem": str, "status": "fixed"|"escalated"}
         """
         output_type = agent_output.get("type")
+        tid = agent_output.get("trace_id") or trace_id_ctx.get() or str(uuid.uuid4())
+        trace_id_ctx.set(tid)
 
         if output_type == "diff":
             return self._apply_and_push_fix(
@@ -1128,6 +1171,9 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     error_file = job.get("error_file", "")
     line_number = str(job.get("line_number", ""))
     incident_id = job.get("incident_id", f"{app_name}-{int(time.time())}")
+    tid = job.get("trace_id") or str(uuid.uuid4())
+    job["trace_id"] = tid
+    trace_id_ctx.set(tid)
 
     # ---- 1. Compute fingerprint ------------------------------------------
     dedup = FingerprintDedup(backend_url=backend_url, token=token)

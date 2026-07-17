@@ -23,6 +23,13 @@ from .tools.database_tool import AnalysisUpdater
 from .tools.execution_tool import run_tests
 from .tools.file_system_tool import list_files, read_file, write_file
 from .tools.git_tool import clone_repo, commit, create_branch, create_pull_request, push
+
+try:
+    from .orchestrator import setup_json_logging, trace_id_ctx
+except ImportError:
+    from orchestrator import setup_json_logging, trace_id_ctx
+
+setup_json_logging()
 from .tools.llm_tool import get_instructions
 from .tools.log_query_tool import query_correlated_logs
 from .tools.search_tool import search_repo
@@ -290,9 +297,10 @@ def load_mcp_tools() -> list:
 
 
 class ExecutionLogCallbackHandler(BaseCallbackHandler):
-    def __init__(self, log_id):
+    def __init__(self, log_id, trace_id: str = None):
         super().__init__()
         self.log_id = str(log_id)
+        self.trace_id = trace_id or trace_id_ctx.get() or ""
         self.logs = []
 
     def _send_log_line(self, line: str):
@@ -314,6 +322,15 @@ class ExecutionLogCallbackHandler(BaseCallbackHandler):
         tool_input_str = scrub_secrets(tool_input_str)
         line = f"🤖 **Thought:** {action.log.strip()}\n🛠️ **Action:** `{action.tool}` with input:\n```json\n{tool_input_str}\n```"
         self.logs.append(line)
+        logging.getLogger("ReActThought").info(
+            "ReActThought",
+            extra={
+                "trace_id": self.trace_id or trace_id_ctx.get() or "",
+                "thought": action.log.strip(),
+                "tool": action.tool,
+                "tool_input": tool_input_str,
+            },
+        )
         self._send_log_line(line)
 
     def on_tool_end(self, output, **kwargs):
@@ -600,7 +617,18 @@ def main():
         print(f" [x] Received {body}")
         try:
             job_data = json.loads(body)
+            header_tid = None
+            if (
+                properties
+                and getattr(properties, "headers", None)
+                and isinstance(properties.headers, dict)
+            ):
+                header_tid = properties.headers.get("trace_id")
+            if header_tid and not job_data.get("trace_id"):
+                job_data["trace_id"] = header_tid
             job = Job(**job_data)
+            if header_tid and not job.trace_id:
+                job.trace_id = header_tid
             process_job(job)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             print(f" [x] Done processing job {job.id}")
@@ -632,9 +660,13 @@ def process_job(job: Job):
     # [Item 5] Enforce Multi-Repo Access Boundary
     os.environ["DAA_TARGET_APP"] = job.app_name
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    tid = (
+        job.trace_id
+        or (job.error_log.trace_id if job.error_log else None)
+        or str(job.id)
     )
+    trace_id_ctx.set(tid)
+    setup_json_logging()
     logging.info(f"Processing job {job.id} for app {job.app_name}")
 
     analysis_updater = AnalysisUpdater(job.log_id)
@@ -826,7 +858,7 @@ def process_job(job: Job):
         handle_parsing_errors=True,
     )
 
-    callback_handler = ExecutionLogCallbackHandler(job.log_id)
+    callback_handler = ExecutionLogCallbackHandler(job.log_id, trace_id=job.trace_id)
 
     try:
         if daa30_available:

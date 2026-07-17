@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 
@@ -210,12 +211,13 @@ def submit_log(
             # Fallback if somehow there's no active incident after a collision
             raise
 
+    trace_id = log.trace_id or str(uuid.uuid4())
     job_data = {
         "id": str(db_log.id),
         "log_id": str(db_log.id),
         "incident_id": str(new_incident.id),
         "fingerprint": fingerprint,
-        "trace_id": log.trace_id,
+        "trace_id": trace_id,
         "app_name": db_log.app_name,
         "status": "pending",
         "created_at": db_log.timestamp.isoformat(),
@@ -226,7 +228,7 @@ def submit_log(
             "content": db_log.content,
             "stack_trace": log.content,
             "exception_type": log.exception_type,
-            "trace_id": log.trace_id,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -291,7 +293,12 @@ def submit_log(
                     channel = connection.channel()
                     channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
             channel.basic_publish(
-                exchange="", routing_key=RABBITMQ_QUEUE, body=json.dumps(job_data)
+                exchange="",
+                routing_key=RABBITMQ_QUEUE,
+                body=json.dumps(job_data),
+                properties=pika.BasicProperties(
+                    headers={"trace_id": trace_id}, delivery_mode=2
+                ),
             )
             connection.close()
         except pika.exceptions.AMQPConnectionError:

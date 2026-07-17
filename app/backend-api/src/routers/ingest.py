@@ -100,8 +100,10 @@ async def dispatch_investigation(
     db: Session,
     background_tasks: BackgroundTasks,
     error_file: str = None,
+    trace_id: str = None,
 ):
     """Computes fingerprint, runs deduplication check, records database state, and dispatches the job."""
+    trace_id = trace_id or str(uuid.uuid4())
     # [Item 1] Explicit note: Webhook/log-app-sourced errors (Sentry, Prometheus, generic log ingestion)
     # have no policy check; they escalate immediately on ingestion (upstream system already thresholded it).
 
@@ -182,6 +184,7 @@ async def dispatch_investigation(
         content=stack_trace,
         status="Escalated to Agent",
         exception_type=exception_type,
+        trace_id=trace_id,
         timestamp=datetime.utcnow(),
     )
     db.add(db_log)
@@ -233,6 +236,7 @@ async def dispatch_investigation(
         "fingerprint": fingerprint,
         "app_name": db_log.app_name,
         "status": "pending",
+        "trace_id": trace_id,
         "created_at": db_log.timestamp.isoformat(),
         "updated_at": db_log.timestamp.isoformat(),
         "error_log": {
@@ -241,6 +245,7 @@ async def dispatch_investigation(
             "content": db_log.content,
             "stack_trace": stack_trace,
             "exception_type": exception_type,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -275,7 +280,12 @@ async def dispatch_investigation(
         channel = connection.channel()
         channel.queue_declare(queue=rabbitmq_queue, durable=True)
         channel.basic_publish(
-            exchange="", routing_key=rabbitmq_queue, body=json.dumps(job_data)
+            exchange="",
+            routing_key=rabbitmq_queue,
+            body=json.dumps(job_data),
+            properties=pika.BasicProperties(
+                headers={"trace_id": trace_id}, delivery_mode=2
+            ),
         )
         connection.close()
         logger.info(
@@ -315,6 +325,12 @@ async def ingest_prometheus(
         stack_trace = annotations.get("description") or annotations.get("summary") or ""
         severity = labels.get("severity", "error")
 
+        tid = (
+            request.headers.get("trace_id")
+            or request.headers.get("x-trace-id")
+            or alert.get("trace_id")
+            or str(uuid.uuid4())
+        )
         await dispatch_investigation(
             app_name=app_name,
             exception_type=exception_type,
@@ -322,6 +338,7 @@ async def ingest_prometheus(
             severity=severity,
             db=db,
             background_tasks=background_tasks,
+            trace_id=tid,
         )
         jobs_dispatched += 1
 
@@ -354,6 +371,12 @@ async def ingest_sentry(
     error_file = metadata.get("filename") or issue.get("culprit")
     severity = issue.get("level", "error")
 
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or issue.get("trace_id")
+        or str(uuid.uuid4())
+    )
     await dispatch_investigation(
         app_name=app_name,
         exception_type=exception_type,
@@ -362,6 +385,7 @@ async def ingest_sentry(
         db=db,
         background_tasks=background_tasks,
         error_file=error_file,
+        trace_id=tid,
     )
 
     return {"status": "accepted"}
@@ -408,6 +432,12 @@ async def ingest_custom(
     severity = resolve_jsonpath(payload, mapping.get("severity", "")) or "error"
     error_file = resolve_jsonpath(payload, mapping.get("error_file", ""))
 
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or payload.get("trace_id")
+        or str(uuid.uuid4())
+    )
     await dispatch_investigation(
         app_name=app_name,
         exception_type=exception_type,
@@ -416,6 +446,7 @@ async def ingest_custom(
         db=db,
         background_tasks=background_tasks,
         error_file=error_file,
+        trace_id=tid,
     )
 
     return {"status": "accepted"}

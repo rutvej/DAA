@@ -10,3 +10,4 @@ pytest
 httpx
 PyJWT
 requests
+python-json-logger

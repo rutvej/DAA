@@ -87,7 +87,7 @@ We will iterate through these **one by one**: discussing the design and exact co
 
 ## Sprint 3: Observability, UI Polish & WOW Factor Enhancement (Phase 2 Priority)
 
-- [ ] **Task 13 (`[P2-OBS-1]`): Standardize Structured JSON Logging & OpenTelemetry Trace Propagation**
+- [x] **Task 13 (`[P2-OBS-1]`): Standardize Structured JSON Logging & OpenTelemetry Trace Propagation**
   - **Target Files:** [app/backend-api/src/main.py](file:///home/rutvej/Desktop/DAA/app/backend-api/src/main.py), [app/python-agent/agent_src/orchestrator.py](file:///home/rutvej/Desktop/DAA/app/python-agent/agent_src/orchestrator.py)
   - **Exact Changes:** Configure `python-json-logger` as the default log formatter and inject `trace_id` (UUIDv4 generated at log ingestion or webhook receipt) into `ReActThought` log payloads and RabbitMQ message headers (`properties=pika.BasicProperties(headers={'trace_id': trace_id})`).
   - **Why It Is Needed:** Logs across `backend-api` and `python-agent` currently output as uncoordinated, multi-line plaintext console prints (`print(f"[{time}] Running...")`). When multiple concurrent incident jobs run across scaled container instances, console logs interleave chaotically, making it impossible to correlate an incoming log alert (`POST /logs`) to its corresponding AI thought steps or final Git PR.
