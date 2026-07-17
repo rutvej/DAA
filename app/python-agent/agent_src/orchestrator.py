@@ -4,9 +4,11 @@
 # context packaging, diff application, branch/PR idempotent management,
 # and postmortem generation.
 
+import base64
 import hashlib
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -171,7 +173,10 @@ class RepoCacheManager:
         self, cmd: list, cwd: str = None, check: bool = True
     ) -> subprocess.CompletedProcess:
         """Thin wrapper around subprocess.run with unified logging."""
-        logger.debug("Running: %s (cwd=%s)", " ".join(cmd), cwd)
+        cmd_str = " ".join(str(c) for c in cmd)
+        cmd_str = re.sub(r"https://[^@]+@", "https://***@", cmd_str)
+        cmd_str = re.sub(r"http\.extraHeader=[^\s]+", "http.extraHeader=Authorization: Basic ***", cmd_str)
+        logger.debug("Running: %s (cwd=%s)", cmd_str, cwd)
         return subprocess.run(
             cmd,
             cwd=cwd,
@@ -184,7 +189,7 @@ class RepoCacheManager:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_worktree(self, app_name: str, repo_url: str, incident_id: str) -> str:
+    def get_worktree(self, app_name: str, repo_url: str, incident_id: str, token: str = None) -> str:
         """
         Ensure a fresh, isolated git worktree exists for *incident_id*.
 
@@ -197,6 +202,12 @@ class RepoCacheManager:
         git_dir = os.path.join(cache_dir, ".git")
         worktree_path = f"/tmp/daa/{incident_id}"
 
+        git_auth_args = []
+        if token:
+            token_str = token if ":" in token else f"x-access-token:{token}"
+            b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+            git_auth_args = ["-c", f"http.extraHeader=Authorization: Basic {b64_token}"]
+
         # ---- 1. Clone or refresh -------------------------------------------
         if os.path.isdir(git_dir):
             self._run(
@@ -207,7 +218,7 @@ class RepoCacheManager:
             age = time.time() - self._read_last_fetch(app_name)
             if age >= self.FETCH_TTL_SECONDS:
                 logger.info("Cache stale (%.0fs old), refreshing %s", age, app_name)
-                self._run(["git", "fetch", "origin"], cwd=cache_dir)
+                self._run(["git"] + git_auth_args + ["fetch", "origin"], cwd=cache_dir)
                 self._run(["git", "reset", "--hard", "origin/main"], cwd=cache_dir)
                 self._write_last_fetch(app_name)
             else:
@@ -216,7 +227,7 @@ class RepoCacheManager:
                 )
         else:
             logger.info("No cache found, cloning %s -> %s", repo_url, cache_dir)
-            self._run(["git", "clone", "--", repo_url, cache_dir])
+            self._run(["git"] + git_auth_args + ["clone", "--", repo_url, cache_dir])
             self._write_last_fetch(app_name)
 
         # ---- 2. Create worktree --------------------------------------------
@@ -1298,22 +1309,24 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 token_val = os.environ.get("DAA_GIT_TOKEN")
                 if not token_val and token and not token.startswith("eyJ"):
                     token_val = token
-                auth_url = repo_url
-                if token_val:
-                    parsed = urlparse(repo_url)
-                    auth_url = (
-                        parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl()
-                        if "@" not in parsed.netloc
-                        else repo_url
-                    )
+                parsed = urlparse(repo_url)
+                clean_url = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")).geturl()
                 worktree_path = cache_manager.get_worktree(
                     app_name=app_name,
-                    repo_url=auth_url,
+                    repo_url=clean_url,
                     incident_id=incident_id,
+                    token=token_val,
                 )
                 try:
+                    push_cmd = ["git"]
+                    if token_val:
+                        token_str = token_val if ":" in token_val else f"x-access-token:{token_val}"
+                        b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+                        push_cmd.extend(["-c", f"http.extraHeader=Authorization: Basic {b64_token}"])
+                    push_cmd.extend(["push", "origin", "--", f"HEAD:refs/heads/{branch_name}"])
+
                     subprocess.run(
-                        ["git", "push", "origin", "--", f"HEAD:refs/heads/{branch_name}"],
+                        push_cmd,
                         cwd=worktree_path,
                         check=True,
                         capture_output=True,

@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -157,14 +158,18 @@ async def dispatch_investigation(
     if repo_url:
         branch_name = f"fix/{fingerprint[:12]}"
         try:
-            auth_url = repo_url
+            parsed = urlparse(repo_url)
+            clean_url = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")).geturl()
+
+            cmd = ["git"]
             if token:
-                parsed = urlparse(repo_url)
-                netloc = f"{token}@{parsed.hostname}"
-                auth_url = parsed._replace(netloc=netloc).geturl()
+                token_str = token if ":" in token else f"x-access-token:{token}"
+                b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+                cmd.extend(["-c", f"http.extraHeader=Authorization: Basic {b64_token}"])
+            cmd.extend(["ls-remote", "--heads", clean_url, f"refs/heads/{branch_name}"])
 
             res = subprocess.run(
-                ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=10,
