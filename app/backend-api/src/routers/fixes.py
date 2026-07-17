@@ -389,6 +389,11 @@ def append_log(
         if fix.status == "Pending":
             fix.status = "processing"
     db.commit()
+    try:
+        from .status import thought_broadcaster
+        thought_broadcaster.publish(log_id, payload.log_line)
+    except Exception:
+        pass
     return {"status": "success"}
 
 
