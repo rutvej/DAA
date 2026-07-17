@@ -102,7 +102,7 @@ We will iterate through these **one by one**: discussing the design and exact co
   - **Status & Architectural Justification for Dropping:** **DROPPED / CLOSED WITHOUT IMPLEMENTATION.** In serverless and cloud deployments (such as Cloud Run or ephemeral containers), an inline UI patch editor has very limited utility and adds unnecessary stateful complexity to the web UI and API. Furthermore, multi-agent workflows and external developer tools (such as Claude Desktop, Cursor, and IDE extensions) are much better served by connecting over our hybrid Model Context Protocol (`MCP`) Server (`Task 15B`). The MCP server provides direct, standardized tooling (`fetch_pull_request_diff`, `submit_pr_review_comments`, `trigger_reinvestigation`) to inspect, edit, and collaborate on created pull requests directly from the developer's primary IDE.
   - **Original Why It Was Proposed:** When DAA generates a code fix (`/fixes/{id}`), developers originally had only binary options: `Approve` or `Reject`. While an inline web UI editor was proposed to allow minor tweaks, we opted for the superior `MCP Server` architecture (`Task 15B`) to handle Human-in-the-Loop interventions cleanly across both local and serverless deployments.
 
-- [ ] **Task 15B (`[P2-MCP-1]`): Build External-Facing Hybrid MCP Server (`stdio + HTTP/SSE`) for Multi-Agent Collaboration & PR Continuation**
+- [x] **Task 15B (`[P2-MCP-1]`): Build External-Facing Hybrid MCP Server (`stdio + HTTP/SSE`) for Multi-Agent Collaboration & PR Continuation**
   - **Target Files:** [app/daa_mcp_server.py](file:///home/rutvej/Desktop/DAA/app/daa_mcp_server.py), new `app/backend-api/src/routers/mcp_gateway.py`
   - **Exact Changes:**
     1. **Tool Exposure:** Expose specialized tools for external AI agents (Claude Desktop, Cursor, external review agents) to connect and continue work on an existing issue/PR: `get_incident_context_for_pr(pr_url)` (returns 4-DIM preflight telemetry & postmortem), `fetch_pull_request_diff(pr_url)` (returns current patch diff), `submit_pr_review_comments(pr_url, comments)` (posts surgical feedback), and `trigger_reinvestigation(pr_url, additional_context)`.
@@ -114,7 +114,7 @@ We will iterate through these **one by one**: discussing the design and exact co
 
 ## Sprint 4: Technical Debt Cleanup & Comprehensive Test Suite (Phase 3 Priority)
 
-- [ ] **Task 16 (`[P3-DEBT-1]`): Remove Dead Code & Deprecated Router/Tool Stubs**
+- [x] **Task 16 (`[P3-DEBT-1]`): Remove Dead Code & Deprecated Router/Tool Stubs**
   - **Target Files:** [app/backend-api/src/routers/projects.py](file:///home/rutvej/Desktop/DAA/app/backend-api/src/routers/projects.py#L24-L33) (`cleartext token serialization`), [app/python-agent/agent_src/tools/search_tool.py](file:///home/rutvej/Desktop/DAA/app/python-agent/agent_src/tools/search_tool.py)
   - **Exact Changes:** Remove `repo_token` and `jira_token` cleartext fields from `GET /projects` JSON schemas (`ProjectResponse`). Delete unused or broken tool stubs that return hardcoded `NotImplemented` or mock data.
   - **Why It Is Needed:** Serializing `repo_token` and `jira_token` in cleartext on `GET /projects` leaks sensitive third-party integration secrets to any authenticated user viewing the dashboard. Furthermore, retaining dead or placeholder tools clutters the LLM's tool definition schema, increasing token costs and causing hallucinations during tool selection.

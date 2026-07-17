@@ -26,9 +26,7 @@ class ProjectConnectionResponse(BaseModel):
     app_name: str
     repo_provider: str
     repo_url: str
-    repo_token: str
     jira_url: Optional[str]
-    jira_token: Optional[str]
     jira_project_key: Optional[str]
     model_config = ConfigDict(from_attributes=True)
 

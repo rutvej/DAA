@@ -65,6 +65,7 @@ from .routers import (
     incidents,
     ingest,
     logs,
+    mcp_gateway,
     projects,
     status,
     telemetry,
@@ -141,6 +142,7 @@ app.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 app.include_router(dashboard.router, tags=["dashboard"])
 app.include_router(ingest.router, tags=["ingest"])
 app.include_router(telemetry.router, tags=["telemetry"])
+app.include_router(mcp_gateway.router, prefix="/api/v1/mcp", tags=["mcp"])
 
 
 @app.get("/")
