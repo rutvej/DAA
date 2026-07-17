@@ -125,7 +125,7 @@ We will iterate through these **one by one**: discussing the design and exact co
   - **Why It Is Needed:** Currently, Git subprocess invocations pass authentication tokens inside the repository URL string (`https://token@...`). When `subprocess.run` executes, the cleartext token is exposed across three distinct channels: (1) `_run()` logs the exact command (`logger.debug("Running: %s")`), making tokens readable via `GET /logs` or container log streams; (2) Git stores the remote URL inside `.git/config` on disk (`/tmp/daa-cache/<app>/.git/config` and `/tmp/daa/<id>/.git/config`), where file-reading tools or scripts can extract it; and (3) Linux process monitoring (`ps -ef` / `/proc/<pid>/cmdline`) exposes the cleartext token to all concurrent processes running inside the container during execution.
 
 
-- [ ] **Task 17 (`[P3-TEST-1]`): Implement Comprehensive Zero-Cloud Pytest Test Suite (`test_v3_platform.py`)**
+- [x] **Task 17 (`[P3-TEST-1]`): Implement Comprehensive Zero-Cloud Pytest Test Suite (`test_v3_platform.py`)**
   - **Target Files:** [app/backend-api/tests/test_v2_platform.py](file:///home/rutvej/Desktop/DAA/app/backend-api/tests/test_v2_platform.py), new `app/backend-api/tests/test_v3_platform.py`
   - **Exact Changes:** Create `test_v3_platform.py` using `pytest` fixtures with in-memory SQLite (`sqlite:///:memory:`), mock RabbitMQ (`unittest.mock.MagicMock` for `pika.BlockingConnection`), wiremocked Gemini API (`responses` or `respx`), and mock Git subprocess calls (`git.Repo.init`). Test:
     1. Authentication enforcement (`DAA_AUTH_ENABLED=true` rejecting unauthenticated requests with `401`).
