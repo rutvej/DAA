@@ -18,12 +18,6 @@
 
 ---
 
-<div align="center">
-  https://github.com/rutvej/DAA/blob/audit/comprehensive-10-phase-review/docs/assets/demo_video.mp4
-</div>
-
----
-
 ## How it works
 
 ```
