@@ -1,7 +1,6 @@
 import os
 import sys
 import shlex
-import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,10 +14,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from src.database import Base, get_db
 from src.main import app
 from src.routers.logs import get_current_user
+
 try:
-    from common.fingerprint import compute_canonical_fingerprint, normalize_error_content
+    from common.fingerprint import (
+        compute_canonical_fingerprint,
+    )
 except ImportError:
-    from app.common.fingerprint import compute_canonical_fingerprint, normalize_error_content
+    from app.common.fingerprint import compute_canonical_fingerprint
 
 DATABASE_URL = "sqlite:///:memory:"
 
@@ -97,7 +99,10 @@ def test_cors_allowlist_enforcement():
         },
     )
     assert res_allowed.status_code == 200
-    assert res_allowed.headers.get("access-control-allow-origin") == "http://localhost:3000"
+    assert (
+        res_allowed.headers.get("access-control-allow-origin")
+        == "http://localhost:3000"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +124,9 @@ def test_cryptographic_fingerprint_deduplication(mock_pika):
 
     fp1 = compute_canonical_fingerprint("payment-api", "DBError", log_content_1)
     fp2 = compute_canonical_fingerprint("payment-api", "DBError", log_content_2)
-    assert fp1 == fp2, "Cryptographic fingerprint deduplication failed to canonicalize dynamic addresses/timestamps!"
+    assert (
+        fp1 == fp2
+    ), "Cryptographic fingerprint deduplication failed to canonicalize dynamic addresses/timestamps!"
 
     res1 = client.post(
         "/logs/",
@@ -182,5 +189,6 @@ def test_safe_shlex_splitting_and_git_options():
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="success")
         import subprocess
+
         subprocess.run(tokenized, shell=False, check=False)
         mock_run.assert_called_once_with(tokenized, shell=False, check=False)

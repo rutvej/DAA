@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import os
@@ -36,7 +35,6 @@ class DAAInternalErrorReport(BaseModel):
     instance_id: str
 
 
-
 @router.post("/api/v1/self-report")
 def receive_self_report(
     request: Request,
@@ -57,9 +55,14 @@ def receive_self_report(
     # Enforce API key verification on self-report submissions if DAA_API_KEY is configured
     daa_api_key = os.environ.get("DAA_API_KEY")
     if daa_api_key:
-        api_key_header = request.headers.get("X-API-Key") or request.headers.get("Authorization", "").replace("Bearer ", "")
+        api_key_header = request.headers.get("X-API-Key") or request.headers.get(
+            "Authorization", ""
+        ).replace("Bearer ", "")
         if api_key_header != daa_api_key:
-            raise HTTPException(status_code=401, detail="Unauthorized: Invalid DAA_API_KEY for self-report")
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Invalid DAA_API_KEY for self-report",
+            )
 
     # 1. Compute fingerprint (Canonical Utility)
     try:

@@ -38,6 +38,7 @@ def apply_v2_overrides():
     app.dependency_overrides[get_current_user] = override_get_current_user
     yield
 
+
 client = TestClient(app)
 
 

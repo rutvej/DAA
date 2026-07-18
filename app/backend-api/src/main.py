@@ -3,7 +3,6 @@ import os
 import uuid
 from contextvars import ContextVar
 from pathlib import Path
-from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -48,15 +47,13 @@ def setup_json_logging():
 
 setup_json_logging()
 
-from .database import (
+from .database import (  # noqa: E402
     DAA_DB_PROVIDER,
-    Application,
     Base,
-    SessionLocal,
     engine,
     run_db_migrations,
 )
-from .routers import (
+from .routers import (  # noqa: E402
     alerts,
     applications,
     auth,

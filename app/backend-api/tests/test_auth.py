@@ -84,7 +84,7 @@ def test_login_incorrect_password():
     teardown()
 
 
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: E402
 
 
 @patch("src.routers.auth.DAA_DB_PROVIDER", "none")
@@ -100,4 +100,3 @@ def test_stateless_auth_mode_disabled():
     )
     assert response_log.status_code == 503
     assert "stateless/serverless mode" in response_log.json()["detail"]
-

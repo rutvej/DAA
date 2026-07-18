@@ -1,9 +1,8 @@
 import asyncio
-import json
 import os
 import re
 import time
-from typing import Dict, List, Set
+from typing import Dict, Set
 
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
@@ -136,16 +135,19 @@ def _parse_step_to_json(block: str, start_time: float) -> dict:
     # Check for Tool Call / Action block (`🤖 **Thought:** ... \n🛠️ **Action:** ...`)
     if "🤖" in block and "🛠️" in block:
         thought_part = ""
-        action_part = ""
         tool_name = "unknown_tool"
         tool_input = ""
 
         parts = block.split("🛠️")
         if len(parts) >= 2:
-            thought_raw = parts[0].replace("🤖 **Thought:**", "").replace("🤖 Thought:", "").strip()
+            thought_raw = (
+                parts[0]
+                .replace("🤖 **Thought:**", "")
+                .replace("🤖 Thought:", "")
+                .strip()
+            )
             thought_part = thought_raw
             action_raw = parts[1].strip()
-            action_part = "🛠️ " + action_raw
 
             # Extract tool name (`tool` with input:)
             m_tool = re.search(r"\*\*Action:\*\*\s*`?([a_zA-Z0-9_]+)`?", action_raw)
@@ -171,7 +173,9 @@ def _parse_step_to_json(block: str, start_time: float) -> dict:
 
     # Check for Observation block (`👁️ **Observation:**`)
     elif "👁️" in block or block.startswith("Observation:"):
-        obs_text = block.replace("👁️ **Observation:**", "").replace("Observation:", "").strip()
+        obs_text = (
+            block.replace("👁️ **Observation:**", "").replace("Observation:", "").strip()
+        )
         m_code = re.search(r"```(?:json)?\s*(.*?)\s*```", obs_text, re.DOTALL)
         if m_code:
             obs_text = m_code.group(1).strip()
@@ -208,7 +212,9 @@ def _parse_step_to_json(block: str, start_time: float) -> dict:
 @router.websocket("/incidents/{id}/stream")
 @router.websocket("/api/v1/incidents/{id}/stream")
 @router.websocket("/{id}/stream")
-async def stream_incident_thoughts(websocket: WebSocket, id: str, db: Session = Depends(get_db)):
+async def stream_incident_thoughts(
+    websocket: WebSocket, id: str, db: Session = Depends(get_db)
+):
     """
     WebSocket endpoint (`WS /api/v1/incidents/{id}/stream` or `/status/incidents/{id}/stream`).
     Streams real-time ReAct step updates (`[Thought] -> [Tool Call] -> [Observation]`)
@@ -256,7 +262,9 @@ async def stream_incident_thoughts(websocket: WebSocket, id: str, db: Session = 
             except asyncio.TimeoutError:
                 # Fallback poll database if queue was silent (handles out-of-process workers)
                 db.expire_all()
-                fix = db.query(DBFix).filter(DBFix.logId.in_(list(ids_to_check))).first()
+                fix = (
+                    db.query(DBFix).filter(DBFix.logId.in_(list(ids_to_check))).first()
+                )
                 if fix and fix.postmortem and len(fix.postmortem) > sent_chars:
                     new_chunk = fix.postmortem[sent_chars:].strip()
                     if new_chunk:
@@ -269,7 +277,12 @@ async def stream_incident_thoughts(websocket: WebSocket, id: str, db: Session = 
                         sent_chars = len(fix.postmortem)
 
                 # Send lightweight ping/heartbeat if still open
-                await websocket.send_json({"type": "heartbeat", "elapsed_ms": int((time.time() - start_time) * 1000)})
+                await websocket.send_json(
+                    {
+                        "type": "heartbeat",
+                        "elapsed_ms": int((time.time() - start_time) * 1000),
+                    }
+                )
     except WebSocketDisconnect:
         pass
     except Exception as e:
@@ -280,4 +293,3 @@ async def stream_incident_thoughts(websocket: WebSocket, id: str, db: Session = 
     finally:
         for lid in ids_to_check:
             thought_broadcaster.unsubscribe(lid, queue)
-

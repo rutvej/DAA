@@ -1,6 +1,5 @@
 import asyncio
 import hmac
-import json
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -50,7 +49,11 @@ def _verify_mutating_access(
         return  # Read-only inspection tools allowed
 
     # If auth is enabled and user is authenticated Admin, allow access
-    if DAA_AUTH_ENABLED and current_user and current_user.get("role") in ("Admin", "admin"):
+    if (
+        DAA_AUTH_ENABLED
+        and current_user
+        and current_user.get("role") in ("Admin", "admin")
+    ):
         return
 
     # Check for HMAC token in arguments or query param
@@ -66,7 +69,9 @@ def _verify_mutating_access(
         )
 
     # Validate HMAC signature using constant-time comparison against configured secrets
-    secret = os.environ.get("DAA_OUTBOUND_WEBHOOK_SECRET") or os.environ.get("SECRET_KEY", "a_secret_key")
+    secret = os.environ.get("DAA_OUTBOUND_WEBHOOK_SECRET") or os.environ.get(
+        "SECRET_KEY", "a_secret_key"
+    )
     # For action tokens, verify against expected HMAC or allow test/action tokens signed with secret
     expected_digest = hmac.new(
         secret.encode("utf-8"),
@@ -88,7 +93,9 @@ def _verify_mutating_access(
 @router.post("/message")
 async def handle_mcp_message(
     request: Request,
-    hmac: Optional[str] = Query(None, description="HMAC action token for mutating calls"),
+    hmac: Optional[str] = Query(
+        None, description="HMAC action token for mutating calls"
+    ),
     current_user: dict = Depends(get_current_user),
 ):
     """
@@ -107,7 +114,9 @@ async def handle_mcp_message(
     if method == "tools/call":
         tool_name = params.get("name", "")
         tool_args = params.get("arguments", {})
-        _verify_mutating_access(tool_name, tool_args, hmac_query=hmac, current_user=current_user)
+        _verify_mutating_access(
+            tool_name, tool_args, hmac_query=hmac, current_user=current_user
+        )
 
     try:
         from app.daa_mcp_server import handle_request
@@ -133,14 +142,15 @@ async def handle_mcp_sse(request: Request):
     Server-Sent Events (SSE) bridge endpoint for Serverless (Cloud Run) and Full-Stack modes.
     External agents connect over standard GET /api/v1/mcp/sse and send tool calls to POST /api/v1/mcp/message.
     """
+
     async def event_generator():
-        yield f"event: endpoint\ndata: /api/v1/mcp/message\n\n"
+        yield "event: endpoint\ndata: /api/v1/mcp/message\n\n"
         try:
             while True:
                 if await request.is_disconnected():
                     break
                 await asyncio.sleep(15)
-                yield f"event: ping\ndata: {{\"time\": {asyncio.get_event_loop().time()}}}\n\n"
+                yield f'event: ping\ndata: {{"time": {asyncio.get_event_loop().time()}}}\n\n'
         except asyncio.CancelledError:
             pass
 
@@ -172,7 +182,9 @@ def collaborate_comment(
     )
 
     if _NO_DB or db is None:
-        logger.info(f"[Serverless Mode] PR review comment added for {payload.pr_url}: {payload.comments}")
+        logger.info(
+            f"[Serverless Mode] PR review comment added for {payload.pr_url}: {payload.comments}"
+        )
         return {
             "status": "success",
             "mode": "serverless",
@@ -185,11 +197,15 @@ def collaborate_comment(
         # Check if PR URL is on any fix
         fix = db.query(DBFix).filter(DBFix.pull_request_url == payload.pr_url).first()
         if fix and fix.logId:
-            inc = db.query(DBIncident).filter(DBIncident.fingerprint == fix.logId).first()
+            inc = (
+                db.query(DBIncident).filter(DBIncident.fingerprint == fix.logId).first()
+            )
 
     if inc:
         existing = inc.root_cause_summary or ""
-        inc.root_cause_summary = f"{existing}\n[External PR Review Feedback]: {payload.comments}"
+        inc.root_cause_summary = (
+            f"{existing}\n[External PR Review Feedback]: {payload.comments}"
+        )
         inc.status = "investigating"
         db.commit()
         return {
@@ -230,7 +246,9 @@ def collaborate_reinvestigate(
     )
 
     if _NO_DB or db is None:
-        logger.info(f"[Serverless Mode] Reinvestigation triggered for {payload.pr_url}: {payload.additional_context}")
+        logger.info(
+            f"[Serverless Mode] Reinvestigation triggered for {payload.pr_url}: {payload.additional_context}"
+        )
         return {
             "status": "success",
             "mode": "serverless",
@@ -242,11 +260,15 @@ def collaborate_reinvestigate(
     if not inc:
         fix = db.query(DBFix).filter(DBFix.pull_request_url == payload.pr_url).first()
         if fix and fix.logId:
-            inc = db.query(DBIncident).filter(DBIncident.fingerprint == fix.logId).first()
+            inc = (
+                db.query(DBIncident).filter(DBIncident.fingerprint == fix.logId).first()
+            )
 
     if inc:
         existing = inc.root_cause_summary or ""
-        inc.root_cause_summary = f"{existing}\n[Reinvestigation Context]: {payload.additional_context}"
+        inc.root_cause_summary = (
+            f"{existing}\n[Reinvestigation Context]: {payload.additional_context}"
+        )
         inc.status = "investigating"
         inc.agent_attempts = (inc.agent_attempts or 0) + 1
         db.commit()

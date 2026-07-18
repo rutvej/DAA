@@ -11,7 +11,6 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
-    create_engine,
     event,
 )
 from sqlalchemy.ext.declarative import declarative_base
@@ -35,13 +34,31 @@ else:
 default_policy = (
     "true"
     if DAA_DB_PROVIDER
-    in ("sqlite", "postgres", "internal-postgres", "external-postgres", "redis", "internal-redis", "external-redis", "upstash")
+    in (
+        "sqlite",
+        "postgres",
+        "internal-postgres",
+        "external-postgres",
+        "redis",
+        "internal-redis",
+        "external-redis",
+        "upstash",
+    )
     else "false"
 )
 default_auth = (
     "true"
     if DAA_DB_PROVIDER
-    in ("sqlite", "postgres", "internal-postgres", "external-postgres", "redis", "internal-redis", "external-redis", "upstash")
+    in (
+        "sqlite",
+        "postgres",
+        "internal-postgres",
+        "external-postgres",
+        "redis",
+        "internal-redis",
+        "external-redis",
+        "upstash",
+    )
     else "false"
 )
 
@@ -142,7 +159,10 @@ elif DAA_DB_PROVIDER in ("redis", "internal-redis", "external-redis", "upstash")
         from redis_storage import StatelessRedisSession
     except ImportError:
         import sys
-        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
+        _repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
         if _repo_root not in sys.path:
             sys.path.insert(0, _repo_root)
         from app.backend_api.src.redis_storage import StatelessRedisSession
@@ -164,7 +184,10 @@ elif DAA_DB_PROVIDER == "sqlite":
         from common.db_factory import create_unified_engine
     except ImportError:
         import sys
-        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
+        _repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
         if _repo_root not in sys.path:
             sys.path.insert(0, _repo_root)
         from app.common.db_factory import create_unified_engine
@@ -185,7 +208,12 @@ elif DAA_DB_PROVIDER == "sqlite":
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.close()
 
-elif DAA_DB_PROVIDER in ("postgres", "postgresql", "internal-postgres", "external-postgres"):
+elif DAA_DB_PROVIDER in (
+    "postgres",
+    "postgresql",
+    "internal-postgres",
+    "external-postgres",
+):
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db"
     )
@@ -193,7 +221,10 @@ elif DAA_DB_PROVIDER in ("postgres", "postgresql", "internal-postgres", "externa
         from common.db_factory import create_unified_engine
     except ImportError:
         import sys
-        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+
+        _repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..")
+        )
         if _repo_root not in sys.path:
             sys.path.insert(0, _repo_root)
         from app.common.db_factory import create_unified_engine
@@ -358,7 +389,9 @@ def on_incident_status_change(target, value, oldvalue, initiator):
 
 def get_db():
     if SessionLocal is None:
-        raise RuntimeError("Valid database provider required (sqlite, postgres, redis, upstash, or none for stateless mode)")
+        raise RuntimeError(
+            "Valid database provider required (sqlite, postgres, redis, upstash, or none for stateless mode)"
+        )
     db = SessionLocal()
     try:
         yield db

@@ -391,6 +391,7 @@ def append_log(
     db.commit()
     try:
         from .status import thought_broadcaster
+
         thought_broadcaster.publish(log_id, payload.log_line)
     except Exception:
         pass

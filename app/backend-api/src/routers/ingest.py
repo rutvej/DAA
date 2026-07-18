@@ -14,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Incident
+from ..database import DAA_DB_PROVIDER, Incident
 from ..database import Log as DBLog
 from ..database import ProjectConnection, get_db
 
@@ -159,7 +159,9 @@ async def dispatch_investigation(
         branch_name = f"fix/{fingerprint[:12]}"
         try:
             parsed = urlparse(repo_url)
-            clean_url = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")).geturl()
+            clean_url = parsed._replace(
+                netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+            ).geturl()
 
             cmd = ["git"]
             if token:
@@ -296,7 +298,6 @@ async def dispatch_investigation(
         logger.info(
             f"Published investigation job {job_id} to RabbitMQ queue '{rabbitmq_queue}'"
         )
-
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from langchain.tools import tool
 from pydantic.v1 import BaseModel, Field
-from sqlalchemy import Column, DateTime, String, Text, create_engine
+from sqlalchemy import Column, DateTime, String, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,10 @@ else:
         from common.db_factory import create_unified_engine
     except ImportError:
         import sys
-        _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+
+        _repo_root = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+        )
         if _repo_root not in sys.path:
             sys.path.insert(0, _repo_root)
         from app.common.db_factory import create_unified_engine

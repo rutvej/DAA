@@ -2,7 +2,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-def create_unified_engine(database_url: str = None, pool_size: int = 20, max_overflow: int = 40):
+
+def create_unified_engine(
+    database_url: str = None, pool_size: int = 20, max_overflow: int = 40
+):
     """
     Creates a unified SQLAlchemy engine with standardized pooling and resilience settings:
     - pool_pre_ping=True: Verifies connections before check-out, preventing InterfaceErrors when DB restarts.
@@ -31,6 +34,7 @@ def create_unified_engine(database_url: str = None, pool_size: int = 20, max_ove
             pool_pre_ping=True,
             pool_recycle=3600,
         )
+
 
 def get_session_maker(engine):
     """

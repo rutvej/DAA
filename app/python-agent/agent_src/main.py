@@ -30,10 +30,10 @@ except ImportError:
     from orchestrator import setup_json_logging, trace_id_ctx
 
 setup_json_logging()
-from .tools.llm_tool import get_instructions
-from .tools.log_query_tool import query_correlated_logs
-from .tools.search_tool import search_repo
-from .tools.ticket_tool import create_incident_ticket
+from .tools.llm_tool import get_instructions  # noqa: E402
+from .tools.log_query_tool import query_correlated_logs  # noqa: E402
+from .tools.search_tool import search_repo  # noqa: E402
+from .tools.ticket_tool import create_incident_ticket  # noqa: E402
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
@@ -249,7 +249,9 @@ def load_mcp_tools() -> list:
             client.close()
 
             if not res or "result" not in res:
-                print(f"[MCP Verification] Server '{server_name}' failed health check or returned invalid result; excluding tools to prevent token waste.")
+                print(
+                    f"[MCP Verification] Server '{server_name}' failed health check or returned invalid result; excluding tools to prevent token waste."
+                )
                 continue
 
             tools_list = res["result"].get("tools", [])
@@ -880,10 +882,17 @@ def process_job(job: Job):
                 {"input": question}, config={"callbacks": [callback_handler]}
             )
     except Exception as e:
-        logging.error(f"Agent core failed after retries ({e}). Triggering Serverless Fallback Postmortem...", exc_info=True)
+        logging.error(
+            f"Agent core failed after retries ({e}). Triggering Serverless Fallback Postmortem...",
+            exc_info=True,
+        )
         report_daa_internal_error(e, "agent_core_fallback")
 
-        partial_logs = callback_handler.logs if callback_handler.logs else ["No agent tool steps executed before failure."]
+        partial_logs = (
+            callback_handler.logs
+            if callback_handler.logs
+            else ["No agent tool steps executed before failure."]
+        )
         traces_formatted = "\n\n".join(partial_logs)
 
         fallback_postmortem = (
@@ -900,7 +909,9 @@ def process_job(job: Job):
 
             repo_cache_mgr = RepoCacheManager()
             postflight = PostflightOrchestrator(
-                backend_url=backend_url, token=daa_token, repo_cache_manager=repo_cache_mgr
+                backend_url=backend_url,
+                token=daa_token,
+                repo_cache_manager=repo_cache_mgr,
             )
             try:
                 fallback_parsed = {
@@ -921,7 +932,9 @@ def process_job(job: Job):
                 logging.error(f"Postflight fallback error: {pf_e}")
             finally:
                 try:
-                    repo_cache_mgr.cleanup_worktree(str(getattr(job, "incident_id", None) or job.id))
+                    repo_cache_mgr.cleanup_worktree(
+                        str(getattr(job, "incident_id", None) or job.id)
+                    )
                 except Exception:
                     pass
 

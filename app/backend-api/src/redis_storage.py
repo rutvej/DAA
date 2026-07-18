@@ -86,11 +86,14 @@ class RedisBackend:
                 self.client = UpstashRestClient(upstash_url, upstash_token)
                 return
             else:
-                logger.warning("Upstash provider specified but UPSTASH_REDIS_REST_URL/TOKEN not set.")
+                logger.warning(
+                    "Upstash provider specified but UPSTASH_REDIS_REST_URL/TOKEN not set."
+                )
 
         # Attempt standard redis-py client
         try:
             import redis
+
             if redis_url:
                 self.client = redis.Redis.from_url(redis_url, decode_responses=True)
             else:
@@ -101,7 +104,9 @@ class RedisBackend:
             self.client.ping()
             logger.info("Connected to Redis storage backend successfully.")
         except Exception as e:
-            logger.warning(f"Could not connect to Redis server ({e}). Falling back to in-memory store for session.")
+            logger.warning(
+                f"Could not connect to Redis server ({e}). Falling back to in-memory store for session."
+            )
             self.client = None
             self.is_memory_fallback = True
 
@@ -170,7 +175,9 @@ def _serialize_value(val: Any) -> Any:
 
 
 def _deserialize_value(val: Any, target_type: Optional[Type] = None) -> Any:
-    if isinstance(val, str) and (target_type == datetime or (val.count("-") == 2 and "T" in val)):
+    if isinstance(val, str) and (
+        target_type == datetime or (val.count("-") == 2 and "T" in val)
+    ):
         try:
             return datetime.fromisoformat(val)
         except ValueError:
@@ -181,10 +188,17 @@ def _deserialize_value(val: Any, target_type: Optional[Type] = None) -> Any:
 class RedisQuery:
     """ORM-compatible query adapter that executes lookups against Redis/Upstash hashes and sets."""
 
-    def __init__(self, model_class: Type, backend: RedisBackend, pending_instances: Optional[List[Any]] = None):
+    def __init__(
+        self,
+        model_class: Type,
+        backend: RedisBackend,
+        pending_instances: Optional[List[Any]] = None,
+    ):
         self.model_class = model_class
         self.backend = backend
-        self.table_name = getattr(model_class, "__tablename__", model_class.__name__.lower())
+        self.table_name = getattr(
+            model_class, "__tablename__", model_class.__name__.lower()
+        )
         self._filters_args: List[Any] = []
         self._filters_kwargs: Dict[str, Any] = {}
         self._order_by_attr = None
@@ -211,7 +225,9 @@ class RedisQuery:
             if hasattr(attr, "element") and hasattr(attr, "modifier"):
                 # e.g., Model.timestamp.desc()
                 self._order_by_attr = getattr(attr.element, "key", str(attr.element))
-                self._order_desc = (attr.modifier == "desc" or "desc" in str(attr).lower())
+                self._order_desc = (
+                    attr.modifier == "desc" or "desc" in str(attr).lower()
+                )
             elif hasattr(attr, "key"):
                 self._order_by_attr = attr.key
                 self._order_desc = False
@@ -238,12 +254,16 @@ class RedisQuery:
         for arg in self._filters_args:
             # Handle SQLAlchemy binary expression (e.g. Model.attr == val)
             if hasattr(arg, "left") and hasattr(arg, "right"):
-                left_key = getattr(arg.left, "key", None) or getattr(arg.left, "name", None)
+                left_key = getattr(arg.left, "key", None) or getattr(
+                    arg.left, "name", None
+                )
                 right_val = getattr(arg.right, "value", arg.right)
                 if hasattr(right_val, "value"):
                     right_val = right_val.value
-                
-                op_str = str(arg.operator.__name__) if hasattr(arg, "operator") else "eq"
+
+                op_str = (
+                    str(arg.operator.__name__) if hasattr(arg, "operator") else "eq"
+                )
                 actual = getattr(instance, left_key, None) if left_key else None
 
                 if op_str in ("eq", "__eq__", "eq_"):
@@ -263,13 +283,17 @@ class RedisQuery:
     def _load_instance_from_data(self, data_json: str) -> Any:
         raw_dict = json.loads(data_json)
         instance = self.model_class()
-        table_cols = getattr(getattr(self.model_class, "__table__", None), "columns", {})
+        table_cols = getattr(
+            getattr(self.model_class, "__table__", None), "columns", {}
+        )
         for col_name, val in raw_dict.items():
             if hasattr(self.model_class, col_name):
                 col_type = None
                 if col_name in table_cols:
                     col_obj = table_cols[col_name]
-                    if hasattr(col_obj, "type") and hasattr(col_obj.type, "python_type"):
+                    if hasattr(col_obj, "type") and hasattr(
+                        col_obj.type, "python_type"
+                    ):
                         try:
                             col_type = col_obj.type.python_type
                         except Exception:
@@ -313,7 +337,10 @@ class RedisQuery:
         else:
             # Default ordering by id or timestamp for stable ordering
             if hasattr(self.model_class, "timestamp"):
-                matched.sort(key=lambda x: getattr(x, "timestamp", datetime.min) or datetime.min, reverse=True)
+                matched.sort(
+                    key=lambda x: getattr(x, "timestamp", datetime.min) or datetime.min,
+                    reverse=True,
+                )
 
         return matched
 
@@ -346,7 +373,9 @@ class StatelessRedisSession:
         self.deleted_instances: List[Any] = []
 
     def query(self, model_class: Type) -> RedisQuery:
-        return RedisQuery(model_class, self.backend, pending_instances=self.dirty_instances)
+        return RedisQuery(
+            model_class, self.backend, pending_instances=self.dirty_instances
+        )
 
     def add(self, instance: Any):
         if hasattr(instance, "id") and not getattr(instance, "id"):
@@ -355,7 +384,9 @@ class StatelessRedisSession:
             instance.timestamp = datetime.utcnow()
         if hasattr(instance, "created_at") and not getattr(instance, "created_at"):
             instance.created_at = datetime.utcnow()
-        if hasattr(instance, "first_seen_at") and not getattr(instance, "first_seen_at"):
+        if hasattr(instance, "first_seen_at") and not getattr(
+            instance, "first_seen_at"
+        ):
             instance.first_seen_at = datetime.utcnow()
         if hasattr(instance, "last_seen_at") and not getattr(instance, "last_seen_at"):
             instance.last_seen_at = datetime.utcnow()
@@ -399,7 +430,11 @@ class StatelessRedisSession:
                     payload[col.name] = _serialize_value(val)
             else:
                 for col_name in dir(inst):
-                    if col_name.startswith("_") or col_name in ("metadata", "registry") or callable(getattr(inst, col_name)):
+                    if (
+                        col_name.startswith("_")
+                        or col_name in ("metadata", "registry")
+                        or callable(getattr(inst, col_name))
+                    ):
                         continue
                     val = getattr(inst, col_name)
                     try:

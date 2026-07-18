@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import json
 import os
-import sqlite3
 import sys
 
 import requests
@@ -17,9 +16,16 @@ _engine_cache = {}
 
 
 def _is_serverless():
-    return os.environ.get("DAA_DB_PROVIDER") in ("none", "internal-redis", "external-redis") or (
-        os.environ.get("DAA_DB_PROVIDER") is None and not os.path.exists(
-            os.environ.get("DATABASE_URL", "sqlite:///test.db").replace("sqlite:///", "")
+    return os.environ.get("DAA_DB_PROVIDER") in (
+        "none",
+        "internal-redis",
+        "external-redis",
+    ) or (
+        os.environ.get("DAA_DB_PROVIDER") is None
+        and not os.path.exists(
+            os.environ.get("DATABASE_URL", "sqlite:///test.db").replace(
+                "sqlite:///", ""
+            )
         )
     )
 
@@ -27,14 +33,17 @@ def _is_serverless():
 def _fetch_git_prs(state="all"):
     try:
         from backend_api.src.routers.git_provider import fetch_prs
+
         return fetch_prs(state=state)
     except ImportError:
         try:
             import sys
+
             _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
             if _repo_root not in sys.path:
                 sys.path.insert(0, _repo_root)
             from app.backend_api.src.routers.git_provider import fetch_prs
+
             return fetch_prs(state=state)
         except Exception as e:
             log_info(f"Could not load git_provider directly: {e}")
@@ -75,7 +84,9 @@ def get_db():
                 sys.path.insert(0, _repo_root)
             from app.common.db_factory import create_unified_engine
 
-        _engine_cache[db_url] = create_unified_engine(db_url, pool_size=5, max_overflow=10)
+        _engine_cache[db_url] = create_unified_engine(
+            db_url, pool_size=5, max_overflow=10
+        )
 
     try:
         return _engine_cache[db_url].raw_connection()
@@ -153,7 +164,9 @@ def get_incident_postmortem(fix_id):
                 return {
                     "fix_id": p.get("id"),
                     "log_id": p.get("fingerprint"),
-                    "postmortem": p.get("postmortem_md") or p.get("root_cause_summary") or "",
+                    "postmortem": p.get("postmortem_md")
+                    or p.get("root_cause_summary")
+                    or "",
                     "status": p.get("status"),
                     "pull_request_url": p.get("pr_url") or "",
                 }
@@ -332,8 +345,16 @@ def list_registered_apps():
     Useful for configuration audits and onboarding new services.
     """
     if _is_serverless():
-        repo_url = os.environ.get("DAA_REPO_URL") or os.environ.get("GIT_REPO_URL") or os.environ.get("GITHUB_REPO", "serverless/app")
-        provider = "github" if os.environ.get("GITHUB_TOKEN") else ("gitlab" if os.environ.get("GITLAB_PRIVATE_TOKEN") else "git")
+        repo_url = (
+            os.environ.get("DAA_REPO_URL")
+            or os.environ.get("GIT_REPO_URL")
+            or os.environ.get("GITHUB_REPO", "serverless/app")
+        )
+        provider = (
+            "github"
+            if os.environ.get("GITHUB_TOKEN")
+            else ("gitlab" if os.environ.get("GITLAB_PRIVATE_TOKEN") else "git")
+        )
         return {
             "applications": [
                 {
@@ -425,7 +446,9 @@ def get_incident_context_for_pr(pr_url: str):
     if _is_serverless():
         prs = _fetch_git_prs("all")
         for p in prs:
-            if p.get("pr_url") == pr_url or (p.get("pr_url") and pr_url in p.get("pr_url")):
+            if p.get("pr_url") == pr_url or (
+                p.get("pr_url") and pr_url in p.get("pr_url")
+            ):
                 return {
                     "found": True,
                     "pr_url": pr_url,
@@ -441,7 +464,10 @@ def get_incident_context_for_pr(pr_url: str):
                     },
                     "source": "serverless-git",
                 }
-        return {"found": False, "error": f"No incident found in Git for PR URL: {pr_url}"}
+        return {
+            "found": False,
+            "error": f"No incident found in Git for PR URL: {pr_url}",
+        }
 
     conn = get_db()
     if not conn:
@@ -462,7 +488,10 @@ def get_incident_context_for_pr(pr_url: str):
         inc_row = cursor.fetchone()
 
         if not fix_row and not inc_row:
-            return {"found": False, "error": f"No incident or fix found associated with PR URL: {pr_url}"}
+            return {
+                "found": False,
+                "error": f"No incident or fix found associated with PR URL: {pr_url}",
+            }
 
         context = {"found": True, "pr_url": pr_url}
         if fix_row:
@@ -499,7 +528,11 @@ def fetch_pull_request_diff(pr_url: str):
     try:
         if not pr_url or not pr_url.startswith("http"):
             return {"success": False, "error": "Invalid or missing pr_url URL."}
-        diff_url = pr_url if pr_url.endswith(".diff") or pr_url.endswith(".patch") else f"{pr_url}.diff"
+        diff_url = (
+            pr_url
+            if pr_url.endswith(".diff") or pr_url.endswith(".patch")
+            else f"{pr_url}.diff"
+        )
         headers = {}
         gh_token = os.environ.get("GITHUB_TOKEN") or os.environ.get("DAA_GIT_TOKEN")
         if gh_token and "github.com" in diff_url:
@@ -507,7 +540,10 @@ def fetch_pull_request_diff(pr_url: str):
         res = requests.get(diff_url, headers=headers, timeout=15)
         if res.status_code == 200:
             return {"success": True, "pr_url": pr_url, "diff": res.text[:20000]}
-        return {"success": False, "error": f"Failed to fetch diff (status {res.status_code}): {res.text[:200]}"}
+        return {
+            "success": False,
+            "error": f"Failed to fetch diff (status {res.status_code}): {res.text[:200]}",
+        }
     except Exception as e:
         return {"success": False, "error": f"Request error: {e}"}
 
@@ -544,7 +580,11 @@ def trigger_reinvestigation(pr_url: str, additional_context: str, hmac_token: st
     daa_token = os.environ.get("DAA_TOKEN")
     if daa_token:
         headers["Authorization"] = f"Bearer {daa_token}"
-    payload = {"pr_url": pr_url, "additional_context": additional_context, "hmac_token": hmac_token}
+    payload = {
+        "pr_url": pr_url,
+        "additional_context": additional_context,
+        "hmac_token": hmac_token,
+    }
     try:
         res = requests.post(endpoint, json=payload, headers=headers, timeout=15)
         if res.status_code == 200:
@@ -751,7 +791,9 @@ def handle_request(req):
                 file_path=tool_args.get("file_path", ""),
             )
         elif tool_name == "get_incident_context_for_pr":
-            result_data = get_incident_context_for_pr(pr_url=tool_args.get("pr_url", ""))
+            result_data = get_incident_context_for_pr(
+                pr_url=tool_args.get("pr_url", "")
+            )
         elif tool_name == "fetch_pull_request_diff":
             result_data = fetch_pull_request_diff(pr_url=tool_args.get("pr_url", ""))
         elif tool_name == "submit_pr_review_comments":

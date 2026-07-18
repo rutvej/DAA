@@ -6,7 +6,12 @@ from typing import Optional
 from urllib.parse import quote, urlparse
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 logger = logging.getLogger(__name__)
 

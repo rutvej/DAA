@@ -5,7 +5,6 @@
 # and postmortem generation.
 
 import base64
-import hashlib
 import logging
 import os
 import re
@@ -175,7 +174,11 @@ class RepoCacheManager:
         """Thin wrapper around subprocess.run with unified logging."""
         cmd_str = " ".join(str(c) for c in cmd)
         cmd_str = re.sub(r"https://[^@]+@", "https://***@", cmd_str)
-        cmd_str = re.sub(r"http\.extraHeader=[^\s]+", "http.extraHeader=Authorization: Basic ***", cmd_str)
+        cmd_str = re.sub(
+            r"http\.extraHeader=[^\s]+",
+            "http.extraHeader=Authorization: Basic ***",
+            cmd_str,
+        )
         logger.debug("Running: %s (cwd=%s)", cmd_str, cwd)
         return subprocess.run(
             cmd,
@@ -189,7 +192,9 @@ class RepoCacheManager:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_worktree(self, app_name: str, repo_url: str, incident_id: str, token: str = None) -> str:
+    def get_worktree(
+        self, app_name: str, repo_url: str, incident_id: str, token: str = None
+    ) -> str:
         """
         Ensure a fresh, isolated git worktree exists for *incident_id*.
 
@@ -1193,7 +1198,8 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
         exception_type=exception_type,
         error_file=error_file,
         line_number=line_number,
-        content_or_top_frame=job.get("stack_trace", "") or str(job.get("error_log", {}).get("content", "")),
+        content_or_top_frame=job.get("stack_trace", "")
+        or str(job.get("error_log", {}).get("content", "")),
     )
     logger.info("Fingerprint: %s", fingerprint)
 
@@ -1310,7 +1316,9 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 if not token_val and token and not token.startswith("eyJ"):
                     token_val = token
                 parsed = urlparse(repo_url)
-                clean_url = parsed._replace(netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")).geturl()
+                clean_url = parsed._replace(
+                    netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+                ).geturl()
                 worktree_path = cache_manager.get_worktree(
                     app_name=app_name,
                     repo_url=clean_url,
@@ -1320,10 +1328,18 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 try:
                     push_cmd = ["git"]
                     if token_val:
-                        token_str = token_val if ":" in token_val else f"x-access-token:{token_val}"
+                        token_str = (
+                            token_val
+                            if ":" in token_val
+                            else f"x-access-token:{token_val}"
+                        )
                         b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
-                        push_cmd.extend(["-c", f"http.extraHeader=Authorization: Basic {b64_token}"])
-                    push_cmd.extend(["push", "origin", "--", f"HEAD:refs/heads/{branch_name}"])
+                        push_cmd.extend(
+                            ["-c", f"http.extraHeader=Authorization: Basic {b64_token}"]
+                        )
+                    push_cmd.extend(
+                        ["push", "origin", "--", f"HEAD:refs/heads/{branch_name}"]
+                    )
 
                     subprocess.run(
                         push_cmd,

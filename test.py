@@ -45,7 +45,7 @@ DAA_URL = "http://localhost:8000"
 DEMO_POSTGRES_URL = "postgresql://payflow:payflow_secret@postgres/payflow"
 
 # Gitea (lightweight self-hosted Git server)
-GITEA_URL  = "http://localhost:3000"
+GITEA_URL = "http://localhost:3000"
 GITEA_USER = "daa-admin"
 GITEA_PASS = "DaaDemo123!"
 
@@ -58,68 +58,63 @@ COMBINATIONS = [
     # No DB, no queue — the simplest possible DAA deployment.
     # DAA processes a single pre-qualified Prometheus webhook and raises a PR.
     {
-        "staging": "Image",    # run as a single Docker container (not compose)
-        "db":      "none",     # no persistent database → MockSession in memory
-        "queue":   "sync",     # no RabbitMQ; fix jobs run inline / synchronously
-        "git":     "api",      # clone/push via Git HTTP API (not local filesystem)
-        "auth":    "false",    # JWT auth disabled → no Bearer token required
-        "policy":  "false",    # escalation-policy engine disabled
-        "_label":  "True Serverless (stateless webhook ingest)",
+        "staging": "Image",  # run as a single Docker container (not compose)
+        "db": "none",  # no persistent database → MockSession in memory
+        "queue": "sync",  # no RabbitMQ; fix jobs run inline / synchronously
+        "git": "api",  # clone/push via Git HTTP API (not local filesystem)
+        "auth": "false",  # JWT auth disabled → no Bearer token required
+        "policy": "false",  # escalation-policy engine disabled
+        "_label": "True Serverless (stateless webhook ingest)",
     },
-
     # ── 2a. Serverless + Postgres + Auth ────────────────────────────────────
     {
         "staging": "Image",
-        "db":      "postgres", # PostgreSQL for incident/fix persistence
-        "queue":   "sync",     # still synchronous — no RabbitMQ container needed
-        "git":     "api",
-        "auth":    "true",     # JWT auth ON → every SDK call needs a Bearer token
-        "policy":  "true",     # escalation policy enforced → human must approve fix
-        "_label":  "Serverless + Postgres + Auth + Policy",
+        "db": "postgres",  # PostgreSQL for incident/fix persistence
+        "queue": "sync",  # still synchronous — no RabbitMQ container needed
+        "git": "api",
+        "auth": "true",  # JWT auth ON → every SDK call needs a Bearer token
+        "policy": "true",  # escalation policy enforced → human must approve fix
+        "_label": "Serverless + Postgres + Auth + Policy",
     },
-
     # ── 2b. Serverless + Postgres, no Auth ──────────────────────────────────
     {
         "staging": "Image",
-        "db":      "postgres",
-        "queue":   "sync",
-        "git":     "api",
-        "auth":    "false",    # auth OFF — open endpoints for easy local dev/demo
-        "policy":  "false",
-        "_label":  "Serverless + Postgres (no auth)",
+        "db": "postgres",
+        "queue": "sync",
+        "git": "api",
+        "auth": "false",  # auth OFF — open endpoints for easy local dev/demo
+        "policy": "false",
+        "_label": "Serverless + Postgres (no auth)",
     },
-
     # ── 3. Async Serverless (RabbitMQ) ──────────────────────────────────────
     {
         "staging": "Image",
-        "db":      "postgres",
-        "queue":   "rabbitmq", # fix jobs pushed to RabbitMQ queue for async processing
-        "git":     "api",
-        "auth":    "true",
-        "policy":  "true",
-        "_label":  "Async Serverless (Postgres + RabbitMQ + Auth + Policy)",
+        "db": "postgres",
+        "queue": "rabbitmq",  # fix jobs pushed to RabbitMQ queue for async processing
+        "git": "api",
+        "auth": "true",
+        "policy": "true",
+        "_label": "Async Serverless (Postgres + RabbitMQ + Auth + Policy)",
     },
-
     # ── 4a. Full Docker-Compose stack + Auth ────────────────────────────────
     {
         "staging": "Compose",  # multi-container compose (backend-api + python-agent)
-        "db":      "postgres",
-        "queue":   "rabbitmq",
-        "git":     "local",    # git clone to local filesystem volume (not HTTP API)
-        "auth":    "true",
-        "policy":  "true",
-        "_label":  "Fullstack Compose (auth + policy)",
+        "db": "postgres",
+        "queue": "rabbitmq",
+        "git": "local",  # git clone to local filesystem volume (not HTTP API)
+        "auth": "true",
+        "policy": "true",
+        "_label": "Fullstack Compose (auth + policy)",
     },
-
     # ── 4b. Full Docker-Compose stack, no Auth ──────────────────────────────
     {
         "staging": "Compose",
-        "db":      "postgres",
-        "queue":   "rabbitmq",
-        "git":     "local",
-        "auth":    "false",
-        "policy":  "false",
-        "_label":  "Fullstack Compose (no auth)",
+        "db": "postgres",
+        "queue": "rabbitmq",
+        "git": "local",
+        "auth": "false",
+        "policy": "false",
+        "_label": "Fullstack Compose (no auth)",
     },
 ]
 
@@ -127,18 +122,20 @@ COMBINATIONS = [
 # TERMINAL HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
-RESET   = "\033[0m"
-BOLD    = "\033[1m"
-GREEN   = "\033[92m"
-YELLOW  = "\033[93m"
-CYAN    = "\033[96m"
-RED     = "\033[91m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+RED = "\033[91m"
 MAGENTA = "\033[95m"
-BLUE    = "\033[94m"
-DIM     = "\033[2m"
+BLUE = "\033[94m"
+DIM = "\033[2m"
+
 
 def c(color, text):
     return f"{color}{text}{RESET}"
+
 
 def banner(text, color=CYAN):
     width = 74
@@ -150,9 +147,11 @@ def banner(text, color=CYAN):
     print(c(color, "╚" + "═" * width + "╝"))
     print()
 
+
 def section(title):
     print()
     print(c(CYAN, f"┌─── {title} " + "─" * max(0, 68 - len(title)) + "┐"))
+
 
 def explain(text):
     """Print a ℹ️  explanation block in yellow."""
@@ -161,21 +160,27 @@ def explain(text):
         print(c(YELLOW, "  ℹ  ") + line)
     print()
 
+
 def step(num, title):
     print()
     print(c(BOLD, c(BLUE, f"  ▶  Step {num}: {title}")))
 
+
 def ok(msg):
     print(c(GREEN, f"  ✓  {msg}"))
+
 
 def warn(msg):
     print(c(YELLOW, f"  ⚠  {msg}"))
 
+
 def fail(msg):
     print(c(RED, f"  ✗  {msg}"))
 
+
 def info(msg):
     print(c(DIM, f"     {msg}"))
+
 
 def wait_for_user(prompt="Press ENTER to continue..."):
     """Block until the user presses ENTER — core tutorial mechanic."""
@@ -191,6 +196,7 @@ def wait_for_user(prompt="Press ENTER to continue..."):
 # ─────────────────────────────────────────────────────────────────────────────
 # SUBPROCESS HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def run(cmd, cwd=None, check=True):
     """Print and execute a shell command."""
@@ -208,6 +214,7 @@ def run_capture(cmd, cwd=None):
 # WAIT HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def wait_for_http(url, label, retries=30, interval=3):
     print(c(DIM, f"     [waiting] {label} @ {url} ..."), flush=True)
     for attempt in range(retries):
@@ -219,7 +226,7 @@ def wait_for_http(url, label, retries=30, interval=3):
             pass
         time.sleep(interval)
         if attempt % 5 == 4:
-            info(f"  Still waiting … ({(attempt+1)*interval}s elapsed)")
+            info(f"  Still waiting … ({(attempt + 1) * interval}s elapsed)")
     warn(f"{label} not ready after {retries * interval}s — continuing anyway")
     return False
 
@@ -229,7 +236,9 @@ def wait_for_postgres(cwd, user):
     for _ in range(30):
         r = subprocess.run(
             f"docker-compose exec -T postgres pg_isready -U {user}",
-            shell=True, cwd=cwd, capture_output=True
+            shell=True,
+            cwd=cwd,
+            capture_output=True,
         )
         if r.returncode == 0:
             ok("Postgres ready")
@@ -243,22 +252,27 @@ def wait_for_postgres(cwd, user):
 # GITEA SEEDING
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def seed_gitea() -> str:
     """
     Create Gitea admin, generate scoped token, create repos, push source code.
     Returns the raw token string.
     """
-    import uuid, tempfile, shutil
+    import uuid
+    import tempfile
+    import shutil
 
     section("Seeding Gitea")
     info("Creating admin user (ignored if already exists) …")
     subprocess.run(
         f"docker-compose exec -T --user git gitea gitea admin user create "
         f"--admin --username {GITEA_USER} --password '{GITEA_PASS}' --email admin@payflow.dev",
-        shell=True, cwd=DEMO_PATH, capture_output=True
+        shell=True,
+        cwd=DEMO_PATH,
+        capture_output=True,
     )
 
-    token_name  = f"daa-token-{uuid.uuid4().hex[:8]}"
+    token_name = f"daa-token-{uuid.uuid4().hex[:8]}"
     gitea_token = ""
 
     info("Requesting scoped API token (write:repository + write:issue) …")
@@ -266,7 +280,10 @@ def seed_gitea() -> str:
         r = requests.post(
             f"{GITEA_URL}/api/v1/users/{GITEA_USER}/tokens",
             auth=(GITEA_USER, GITEA_PASS),
-            json={"name": token_name, "scopes": ["write:repository", "write:issue", "read:user"]},
+            json={
+                "name": token_name,
+                "scopes": ["write:repository", "write:issue", "read:user"],
+            },
             timeout=10,
         )
         if r.status_code == 201:
@@ -282,7 +299,10 @@ def seed_gitea() -> str:
         res = subprocess.run(
             f"docker-compose exec -T --user git gitea gitea admin user generate-access-token "
             f"-u {GITEA_USER} -t {token_name}-cli --raw",
-            shell=True, cwd=DEMO_PATH, capture_output=True, text=True
+            shell=True,
+            cwd=DEMO_PATH,
+            capture_output=True,
+            text=True,
         )
         gitea_token = res.stdout.strip().split("\n")[-1].strip()
         ok(f"CLI token: {gitea_token[:6]}…")
@@ -304,8 +324,12 @@ def seed_gitea() -> str:
             warn(f"Source dir {src_dir} not found, skipping push")
             continue
         with tempfile.TemporaryDirectory() as tmpdir:
-            shutil.copytree(src_dir, tmpdir, dirs_exist_ok=True,
-                            ignore=shutil.ignore_patterns('.git'))
+            shutil.copytree(
+                src_dir,
+                tmpdir,
+                dirs_exist_ok=True,
+                ignore=shutil.ignore_patterns(".git"),
+            )
             push_url = f"http://{GITEA_USER}:{GITEA_PASS}@localhost:3000/{GITEA_USER}/{repo}.git"
             push_cmd = (
                 f"git -C {tmpdir} init -b main && "
@@ -314,7 +338,9 @@ def seed_gitea() -> str:
                 f"-c user.name='DAA Demo' commit -m 'Initial commit' && "
                 f"git -C {tmpdir} push --force {push_url} main"
             )
-            result = subprocess.run(push_cmd, shell=True, capture_output=True, text=True)
+            result = subprocess.run(
+                push_cmd, shell=True, capture_output=True, text=True
+            )
             if result.returncode == 0:
                 ok(f"Source code pushed → {repo}")
             else:
@@ -341,7 +367,9 @@ def reset_state():
     info("Starting infrastructure (Gitea, Redis, Postgres, RabbitMQ) …")
     run("docker-compose up -d gitea redis postgres rabbitmq", cwd=DEMO_PATH)
 
-    wait_for_http("http://localhost:3000/api/v1/version", "Gitea", retries=30, interval=3)
+    wait_for_http(
+        "http://localhost:3000/api/v1/version", "Gitea", retries=30, interval=3
+    )
     wait_for_postgres(DEMO_PATH, "payflow")
 
     _state["gitea_token"] = seed_gitea()
@@ -356,12 +384,13 @@ def reset_state():
 # AUTH HELPERS
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def register_admin():
     try:
         requests.post(
             f"{DAA_URL}/auth/register",
             json={"username": "testuser", "password": "testpassword"},
-            timeout=5
+            timeout=5,
         )
     except Exception:
         pass
@@ -372,7 +401,7 @@ def login():
         res = requests.post(
             f"{DAA_URL}/auth/login",
             json={"username": "testuser", "password": "testpassword"},
-            timeout=5
+            timeout=5,
         )
         if res.status_code == 200:
             return res.json().get("token")
@@ -385,8 +414,12 @@ def provision_app_token(app_name: str) -> str:
     try:
         requests.post(
             f"{DAA_URL}/auth/register",
-            json={"username": app_name, "password": f"{app_name}-secret", "role": "application"},
-            timeout=5
+            json={
+                "username": app_name,
+                "password": f"{app_name}-secret",
+                "role": "application",
+            },
+            timeout=5,
         )
     except Exception:
         pass
@@ -394,7 +427,7 @@ def provision_app_token(app_name: str) -> str:
         res = requests.post(
             f"{DAA_URL}/auth/login",
             json={"username": app_name, "password": f"{app_name}-secret"},
-            timeout=5
+            timeout=5,
         )
         if res.status_code == 200:
             return res.json().get("token", "")
@@ -407,18 +440,19 @@ def provision_app_token(app_name: str) -> str:
 # TUTORIAL COMBO RUNNER
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
     """
     Walk through one combination of the matrix with per-step explanations
     and user-controlled pauses.
     """
-    label    = combo.get("_label", str(combo))
-    staging  = combo["staging"]
-    db       = combo["db"]
-    queue    = combo["queue"]
+    label = combo.get("_label", str(combo))
+    staging = combo["staging"]
+    db = combo["db"]
+    queue = combo["queue"]
     git_mode = combo["git"]
-    auth     = combo["auth"]
-    policy   = combo["policy"]
+    auth = combo["auth"]
+    policy = combo["policy"]
 
     # ── COMBO HEADER ─────────────────────────────────────────────────────────
     banner(
@@ -426,7 +460,7 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
         f"{label}\n"
         f"\n"
         f"staging={staging}  db={db}  queue={queue}  git={git_mode}  auth={auth}  policy={policy}",
-        color=MAGENTA
+        color=MAGENTA,
     )
 
     explain(
@@ -491,7 +525,7 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
 
     # ── STEP 2: PULL IMAGE ───────────────────────────────────────────────────
     if staging == "Image":
-        step(2, f"Pull the DAA standalone image from Docker Hub")
+        step(2, "Pull the DAA standalone image from Docker Hub")
         explain(
             f"Image: {DAA_IMAGE}\n"
             f"\n"
@@ -512,17 +546,17 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
     # ── STEP 3: BUILD .env ───────────────────────────────────────────────────
     step(3, "Build the DAA .env configuration")
 
-    git_token   = _state["gitea_token"] or os.environ.get("DAA_GIT_TOKEN", "")
+    git_token = _state["gitea_token"] or os.environ.get("DAA_GIT_TOKEN", "")
     git_repo_url = f"http://192.168.1.41:3000/{GITEA_USER}/payment-api.git"
 
     if staging == "Image":
-        db_url          = DEMO_POSTGRES_URL if db == "postgres" else ""
-        network         = "daa-e2e-demo_default"
+        db_url = DEMO_POSTGRES_URL if db == "postgres" else ""
+        network = "daa-e2e-demo_default"
         backend_api_url = "http://localhost:8080"
     else:
         # Compose mode: DAA brings up its own internal Postgres
-        db_url          = "postgresql://youruser:demo_postgres_password@postgres/yourdb"
-        network         = "daa_default"
+        db_url = "postgresql://youruser:demo_postgres_password@postgres/yourdb"
+        network = "daa_default"
         backend_api_url = "http://backend-api:80"
 
     env_content = (
@@ -678,8 +712,11 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
             "      The docker-compose.yml in that directory defines both services."
         )
         daa_path = os.path.expanduser("~/Desktop/DAA")
-        wait_for_user("Press ENTER to run docker-compose up for backend-api + python-agent →")
+        wait_for_user(
+            "Press ENTER to run docker-compose up for backend-api + python-agent →"
+        )
         import shutil
+
         shutil.copy(env_path, os.path.join(daa_path, ".env"))
         ok(f".env copied to {daa_path}/.env")
         run("docker-compose up -d --build backend-api python-agent", cwd=daa_path)
@@ -706,26 +743,29 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
         wait_for_user("Press ENTER to set up auth tokens →")
 
         register_admin()
-        token   = login()
+        token = login()
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
-        api_token    = provision_app_token("payment-api")
+        api_token = provision_app_token("payment-api")
         worker_token = provision_app_token("payment-worker")
         if api_token:
             ok(f"payment-api token: {api_token[:6]}…")
             subprocess.run(
                 f"DAA_TOKEN_PAYMENT_API={api_token} DAA_TOKEN_PAYMENT_WORKER={worker_token} "
                 "docker-compose up -d --no-deps payment-api payment-worker",
-                shell=True, cwd=DEMO_PATH, capture_output=True
+                shell=True,
+                cwd=DEMO_PATH,
+                capture_output=True,
             )
             time.sleep(3)
             ok("Demo containers restarted with fresh DAA tokens")
 
-        wait_for_user("Auth tokens provisioned ✓  Press ENTER to trigger the incident →")
+        wait_for_user(
+            "Auth tokens provisioned ✓  Press ENTER to trigger the incident →"
+        )
 
-    pr_url    = None
-    admin_url = None
-    success   = False
+    pr_url = None
+    success = False
 
     if db == "none":
         # ── Stateless path ────────────────────────────────────────────────────
@@ -745,19 +785,21 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
 
         alert_payload = {
             "version": "4",
-            "status":  "firing",
-            "alerts": [{
-                "status": "firing",
-                "labels": {
-                    "alertname": "HighErrorRate",
-                    "service":   "payment-api",
-                    "severity":  "critical"
-                },
-                "annotations": {
-                    "summary":     "payment-api error rate exceeded threshold",
-                    "description": "RedisConnectionError: max connections exceeded\n  at checkout() line 42"
+            "status": "firing",
+            "alerts": [
+                {
+                    "status": "firing",
+                    "labels": {
+                        "alertname": "HighErrorRate",
+                        "service": "payment-api",
+                        "severity": "critical",
+                    },
+                    "annotations": {
+                        "summary": "payment-api error rate exceeded threshold",
+                        "description": "RedisConnectionError: max connections exceeded\n  at checkout() line 42",
+                    },
                 }
-            }]
+            ],
         }
         try:
             res = requests.post(
@@ -801,7 +843,7 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
                     break
             except Exception:
                 pass
-            info(f"  Attempt {attempt+1}/20 — no PR yet …")
+            info(f"  Attempt {attempt + 1}/20 — no PR yet …")
 
         if not success:
             fail("No PR appeared within 60 s.")
@@ -830,19 +872,28 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
         ok("Load test complete — monitoring for incident resolution …")
         for poll_idx in range(45):
             try:
-                res     = requests.get(f"{DAA_URL}/incidents", headers=headers, timeout=5)
+                res = requests.get(f"{DAA_URL}/incidents", headers=headers, timeout=5)
                 incidents = res.json() if res.ok else []
                 if incidents:
-                    incident_id = incidents[0]['id']
-                    status      = incidents[0]['status']
-                    print(c(DIM, f"     [{poll_idx * 3}s] Incident {incident_id[:8]} → '{status}'"))
+                    incident_id = incidents[0]["id"]
+                    status = incidents[0]["status"]
+                    print(
+                        c(
+                            DIM,
+                            f"     [{poll_idx * 3}s] Incident {incident_id[:8]} → '{status}'",
+                        )
+                    )
 
-                    if policy == "true" and status in ("fix_proposed", "awaiting_approval"):
+                    if policy == "true" and status in (
+                        "fix_proposed",
+                        "awaiting_approval",
+                    ):
                         fix_id = incidents[0].get("fix_id")
                         if not fix_id:
                             by_log = requests.get(
                                 f"{DAA_URL}/fixes/by-log/{incident_id}",
-                                headers=headers, timeout=5
+                                headers=headers,
+                                timeout=5,
                             )
                             if by_log.ok:
                                 fix_id = by_log.json().get("id")
@@ -855,9 +906,12 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
                             wait_for_user("Press ENTER to APPROVE the fix →")
                             requests.post(
                                 f"{DAA_URL}/fixes/{fix_id}/approve",
-                                headers=headers, timeout=5
+                                headers=headers,
+                                timeout=5,
                             )
-                            ok(f"Fix {fix_id[:8]} approved — agent will now push the PR")
+                            ok(
+                                f"Fix {fix_id[:8]} approved — agent will now push the PR"
+                            )
                             time.sleep(2)
 
                     if status in ("resolved", "completed", "pr_open"):
@@ -869,7 +923,7 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
                                 f"{GITEA_URL}/api/v1/repos/{GITEA_USER}/payment-api/pulls",
                                 params={"state": "open"},
                                 auth=(GITEA_USER, GITEA_PASS),
-                                timeout=5
+                                timeout=5,
                             ).json()
                             if prs:
                                 pr_url = prs[0].get("html_url", "")
@@ -906,9 +960,8 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
             print(c(CYAN, f"  🔗  PR:           {pr_url}"))
 
         if staging == "Image":
-            admin_url = f"{DAA_URL}/docs"
-            print(c(CYAN, f"  🔗  DAA Internal Admin Panel (FastAPI Swagger UI):"))
-            print(c(BOLD, f"         http://localhost:8000/docs"))
+            print(c(CYAN, "  🔗  DAA Internal Admin Panel (FastAPI Swagger UI):"))
+            print(c(BOLD, "         http://localhost:8000/docs"))
             print()
             explain(
                 "The internal admin panel for Image mode is the FastAPI Swagger UI.\n"
@@ -929,7 +982,7 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
         else:
             # Compose mode has a separate frontend admin panel
             compose_admin = "http://localhost:3001"
-            print(c(CYAN, f"  🔗  DAA Frontend Admin Panel (Compose mode):"))
+            print(c(CYAN, "  🔗  DAA Frontend Admin Panel (Compose mode):"))
             print(c(BOLD, f"         {compose_admin}"))
             print()
             explain(
@@ -947,10 +1000,12 @@ def run_combo_tutorial(combo_idx: int, combo: dict, total: int):
                 "The Swagger UI is still available at http://localhost:8000/docs\n"
                 "for raw API access alongside the frontend."
             )
-            print(c(CYAN, f"  🔗  DAA Swagger UI (raw API):  http://localhost:8000/docs"))
+            print(
+                c(CYAN, "  🔗  DAA Swagger UI (raw API):  http://localhost:8000/docs")
+            )
 
         print(c(CYAN, f"  🔗  Gitea UI:      http://localhost:3000/{GITEA_USER}"))
-        print(c(CYAN, f"  🔗  RabbitMQ UI:   http://localhost:15673  (guest/guest)"))
+        print(c(CYAN, "  🔗  RabbitMQ UI:   http://localhost:15673  (guest/guest)"))
         print()
 
     else:
@@ -1005,6 +1060,7 @@ def _dump_logs(staging):
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def main():
     banner(
         "DAA  —  Run Matrix Interactive Tutorial\n"
@@ -1021,7 +1077,7 @@ def main():
         "  • The DAA admin panel (inspect incidents, fixes, metrics)\n"
         "\n"
         "Press ENTER at each pause to proceed.",
-        color=CYAN
+        color=CYAN,
     )
 
     if "--list" in sys.argv:
@@ -1057,8 +1113,10 @@ def main():
         print(c(BOLD, f"  ── Rolling Summary ({run_num + 1}/{len(selected)}) ──"))
         for c_, passed in results:
             status = c(GREEN, "✓ PASS") if passed else c(RED, "✗ FAIL")
-            tag = (f"staging={c_['staging']:7}  db={c_['db']:8}  "
-                   f"queue={c_['queue']:8}  auth={c_['auth']:5}  policy={c_['policy']}")
+            tag = (
+                f"staging={c_['staging']:7}  db={c_['db']:8}  "
+                f"queue={c_['queue']:8}  auth={c_['auth']:5}  policy={c_['policy']}"
+            )
             print(f"    {status}  {tag}")
         print()
 
@@ -1066,14 +1124,20 @@ def main():
     banner("MATRIX RESULTS", color=GREEN if all(p for _, p in results) else RED)
     for combo, ok_flag in results:
         status = c(GREEN, "✓ PASS") if ok_flag else c(RED, "✗ FAIL")
-        tag = (f"staging={combo['staging']:7}  db={combo['db']:8}  "
-               f"queue={combo['queue']:8}  auth={combo['auth']:5}  policy={combo['policy']}")
+        tag = (
+            f"staging={combo['staging']:7}  db={combo['db']:8}  "
+            f"queue={combo['queue']:8}  auth={combo['auth']:5}  policy={combo['policy']}"
+        )
         print(f"    {status}  {tag}")
 
     all_pass = all(p for _, p in results)
     print()
-    print(c(GREEN if all_pass else RED,
-            "  Overall: ALL PASS ✓" if all_pass else "  Overall: SOME FAILURES ✗"))
+    print(
+        c(
+            GREEN if all_pass else RED,
+            "  Overall: ALL PASS ✓" if all_pass else "  Overall: SOME FAILURES ✗",
+        )
+    )
     print()
     sys.exit(0 if all_pass else 1)
 
