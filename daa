@@ -127,21 +127,29 @@ def write_env_vars(env_map: Dict[str, str]):
 
 
 def get_admin_token(backend_url: str) -> str:
-    """Authenticates or registers default testuser admin account on the backend."""
-    admin_payload = {"username": "testuser", "password": "testpassword"}
-    # Register first (ignore if already exists)
+    """Gets an auth token using the DAA_TOKEN from config/env, or falls back to
+    the open-auth endpoint when DAA_AUTH_ENABLED=false (default).
+
+    The old testuser/testpassword default was removed — it created a backdoor
+    account on every DAA installation. Use `daa init` to configure proper credentials.
+    """
+    # 1. Use token from env/config if already available
+    existing_token = get_token()
+    if existing_token and existing_token not in ("open-auth", "dummy_token"):
+        return existing_token
+
+    # 2. Try open-auth login (works when DAA_AUTH_ENABLED=false)
     try:
-        requests.post(f"{backend_url}/auth/register", json=admin_payload, timeout=4)
-    except Exception:
-        pass
-    
-    # Login
-    try:
-        res = requests.post(f"{backend_url}/auth/login", json=admin_payload, timeout=4)
+        res = requests.post(
+            f"{backend_url}/auth/login",
+            json={"username": "anonymous", "password": ""},
+            timeout=4,
+        )
         if res.status_code == 200:
-            return res.json().get("token") or res.json().get("access_token")
+            token = res.json().get("token") or res.json().get("access_token", "")
+            return token
     except Exception as e:
-        warn(f"Unable to authenticate as admin on backend: {e}")
+        warn(f"Unable to reach backend for auth token: {e}")
     return ""
 
 

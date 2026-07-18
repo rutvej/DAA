@@ -12,7 +12,15 @@ from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Application, User, get
 
 router = APIRouter()
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "a_secret_key")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    import warnings
+    warnings.warn(
+        "SECRET_KEY environment variable is not set. Using an insecure default. "
+        "Set SECRET_KEY in your .env file or run `daa init` to configure it.",
+        stacklevel=1,
+    )
+    SECRET_KEY = "insecure-default-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -51,7 +59,9 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
     if not DAA_AUTH_ENABLED:
-        return {"token": "dummy_token"}
+        # Auth disabled — return an anonymous token so the client knows it succeeded
+        # but without granting any real session. Endpoints still enforce role checks.
+        return {"token": "open-auth", "message": "Auth disabled — anonymous access only"}
     if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
         raise HTTPException(
             status_code=503,

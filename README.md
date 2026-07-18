@@ -1,87 +1,148 @@
-# DAA — Deduplicated Autonomous SRE Platform (v3.0)
+# DAA — Debugging Autonomous Agent
 
-<Badges: Docker Hub, Python 3.11+, FastAPI, LangChain, License MIT>
-<Hero Graphic: ./docs/assets/daa_hero.jpg>
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
+[![LangChain](https://img.shields.io/badge/LangChain-agent-orange.svg)](https://python.langchain.com/)
 
-## 1. What is DAA?
-DAA is a platform designed to provide 30-60 minute triage automation by employing SHA-256 error deduplication, sliding-window policies, and a ReAct SRE agent.
+> **DAA watches your application errors, deduplicates them, and autonomously investigates root causes — then opens a pull request with a suggested fix.**
 
-### 4-Dimension Investigation
-- **Change Horizon**: Analyzes recent Git commits.
-- **Infrastructure**: Reviews logs and metrics.
-- **Correlated Traces**: Follows request paths.
-- **Surgical Code Nav**: Employs AST-based parsing to locate lines.
+---
 
-## 2. 60-Second Quickstart (Prebuilt Standalone Image)
-Quickly spin up the standalone image locally:
+## What DAA does in one diagram
 
-```bash
-docker run -d --name daa -p 8080:8080 --env-file .env daa-standalone:latest
-export DAA_BACKEND_API_URL="http://localhost:8080"
 ```
-*(Note: Internal PORT=8080 is used within the entrypoint.sh)*
-
-Verify health with an open-auth mode synthetic check:
-```bash
-daa test --app demo-service --error "ValueError: standalone test"
+Your App throws an error
+        ↓
+DAA SDK sends it to DAA  (one line of code in your app)
+        ↓
+SHA-256 deduplication   (same error twice? silent. new error? escalate.)
+        ↓
+AI Agent investigates   (reads your git commits, logs, and traces)
+        ↓
+Opens a Pull Request    (with a code fix + root-cause postmortem)
+        ↓
+You review & merge      (or auto-merge with HITL approval)
 ```
 
-## 3. Architecture & Operational Modes
+---
 
-DAA supports pluggable Single-Image execution vs Distributed 6-Container Compose Clusters.
+## 60-Second Quickstart
 
-| Profile | Database | Git Provider | Queue | Use Case |
-|---|---|---|---|---|
-| **Stateless Serverless** | `none` | `api` | `sync` | Cloud Run / Fargate |
-| **Self-Contained Edge** | `sqlite` | `api`/`local`| `sync` | Single VM / Raspberry Pi |
-| **Distributed Scale-Out**| `postgres` | `local` | `rabbitmq`| Datacenter / Kubernetes Compose |
+**Requirements:** Docker, an LLM API key (Gemini is free)
 
-## 4. Key Features
-- Zero Alert Fatigue (Deduplication & Cooldowns).
-- Circuit Breakers & Context Safety System (Hard 8-call budget cap).
-- Universal LLM Routing (Gemini, OpenAI, Claude, Vertex, Ollama).
-- Human-in-the-Loop (HITL) Dashboard Approval & Git Forge Automation (GitHub, GitLab, Gitea, Bitbucket).
-
-## 5. Local Setup & CLI Tool (`daa`)
-Installation:
 ```bash
-./install.sh
-source ~/.bashrc # Ensure daa CLI is on PATH
+# 1. Clone and configure
+git clone https://github.com/your-org/daa && cd daa
+./install.sh && source ~/.bashrc
+
+# 2. Run the guided setup (picks your LLM, git provider, deployment mode)
 daa init
+
+# 3. Start DAA
+daa redeploy
+
+# 4. Send a test error to verify the pipeline
+daa test
 ```
 
-### Essential CLI commands
-See `daa --help` for full usage:
-- `daa init`: Initialize the setup.
-- `daa test`: Send synthetic telemetry to trigger AI triage.
-- `daa status`: View system status.
-- `daa logs`: Stream incident logs in real-time.
-- `daa redeploy`: Redeploy the platform.
+Then open **http://localhost:8000/admin** to see the incident and the AI's investigation.
 
-## 6. Multi-Language SDK Ecosystem
+---
 
-| SDK | Integration Guide |
-|---|---|
-| **Python** | [Python SDK](./docs/sdk/python.md) |
-| **Node.js** | [Node.js SDK](./docs/sdk/nodejs.md) |
-| **Go** | [Go SDK](./docs/sdk/go.md) |
-| **Java** | [Java SDK](./docs/sdk/java.md) |
-| **Ruby** | [Ruby SDK](./docs/sdk/ruby.md) |
-| **.NET** | [.NET SDK](./docs/sdk/dotnet.md) |
+## How to connect your app
 
-## 7. Codebase Layout & Documentation Roadmap
+Add **one environment variable** to your service:
+
+```bash
+DAA_TOKEN=<token from `daa register`>
+DAA_LOGS_URL=http://your-daa-host:8000/logs/
+```
+
+Then send errors via HTTP — or use the SDK:
+
+```python
+# Python SDK
+from daa_sdk import DAAClient
+
+daa = DAAClient()  # reads DAA_TOKEN + DAA_LOGS_URL from env
+daa.report_exception(exception, app_name="my-service")
+```
+
+SDKs: [Python](./app/daa-sdk/daa_sdk/) · Node.js · Go · Java · Ruby · .NET *(community alpha)*
+
+---
+
+## Deployment Modes
+
+| Mode | Command | Best for |
+|------|---------|----------|
+| **Single container** *(default)* | `docker run -p 8000:8080 --env-file .env daa:latest` | Try it out, small teams |
+| **Docker Compose** | `daa redeploy` | Self-hosted, persistent data |
+| **Serverless** | Cloud Run / Fargate with `DAA_DB_PROVIDER=none` | Auto-scaling, zero-ops |
+
+---
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| 🔁 **Zero alert fatigue** | SHA-256 fingerprint deduplication + sliding-window cooldowns |
+| 🧠 **4-dimension investigation** | Git commits · Logs · Traces · AST code navigation |
+| 🔒 **Agent safety** | Hard 8-tool-call budget cap prevents runaway LLM costs |
+| 🔀 **Universal LLM routing** | Gemini · GPT-4o · Claude · Vertex · Ollama (local/air-gapped) |
+| 👤 **Human-in-the-Loop** | Approve AI fixes before the PR is merged |
+| 🔧 **Multi-forge** | GitHub · GitLab · Gitea · Bitbucket |
+
+---
+
+## CLI Commands
+
+```bash
+daa init              # Guided setup wizard
+daa register          # Register an application with DAA
+daa policy            # Configure escalation policies
+daa status            # Health check all services
+daa test              # Send a synthetic error to verify the pipeline
+daa logs              # View recent incidents
+daa redeploy          # Rebuild and restart DAA containers
+daa config set-model  # Switch LLM provider/model
+```
+
+---
+
+## Architecture
+
 ```
 DAA/
 ├── app/
-│   ├── backend-api/
-│   ├── python-agent/
-│   │   └── agent_src/
-│   ├── admin-panel/
-│   └── daa-sdk/
-├── docs/            <-- Authoritative documentation
-└── specs/           <-- Migrated to docs/
+│   ├── backend-api/      ← FastAPI — ingest, dedup, incident tracking
+│   ├── python-agent/     ← LangChain ReAct SRE agent
+│   ├── admin-panel/      ← React dashboard (or use baked-in /admin)
+│   └── daa-sdk/          ← Client SDKs
+├── docs/                 ← Documentation
+│   └── internal/         ← Internal audit reports & roadmaps
+└── daa                   ← CLI tool
 ```
-Please refer to [`/docs/index.md`](./docs/index.md) for deep-dive tutorials, architecture specs, and matrix combinations.
 
-## 8. Contributing & License
-See [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md), and [LICENSE](./LICENSE).
+Full architecture: [`docs/architecture.md`](./docs/architecture.md)
+
+---
+
+## Security
+
+DAA is designed for self-hosted or private cloud deployment.
+
+- Secrets are passed via environment variables only — never mounted as files
+- CORS is restricted to an explicit allowlist (`CORS_ALLOW_ORIGINS`)
+- Webhook endpoints verify `DAA_API_KEY` + HMAC-SHA256 for Sentry
+- Agent tool-call budget is hard-capped to prevent runaway LLM loops
+- See [`SECURITY.md`](./SECURITY.md) for full hardening guide
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [LICENSE](./LICENSE)
+
+PRs welcome. For major features, open an issue first to discuss the design.

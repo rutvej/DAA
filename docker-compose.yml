@@ -43,7 +43,7 @@ services:
       - DATABASE_URL=postgresql://youruser:${POSTGRES_PASSWORD:-demo_postgres_password}@postgres/yourdb
       - RABBITMQ_HOST=rabbitmq
       - CORS_ALLOW_ORIGINS=http://localhost:3000,http://localhost:5003,http://127.0.0.1:3000,http://127.0.0.1:5003,http://${LAN_HOST_IP:-192.168.1.41}:3000,http://${LAN_HOST_IP:-192.168.1.41}:5003
-      - CORS_ALLOW_ORIGIN_REGEX=^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$
+      # CORS_ALLOW_ORIGIN_REGEX removed — use explicit CORS_ALLOW_ORIGINS list above instead
       # Disable the baked-in /admin panel — the dedicated admin-panel container runs on :5003
       - DAA_SERVE_PANEL=false
     volumes:
@@ -77,8 +77,10 @@ services:
       - 1.1.1.1
     volumes:
       - secrets:/var/run/secrets
-      - ${DAA_GIT_DIR:-/home/rutvej/Desktop/DAA/.git}:/app/.git:ro
       - /tmp/daa:/tmp/daa
+      # NOTE: Do NOT mount host credential files here.
+      # Pass secrets via environment variables only (GEMINI_API_KEY, DAA_GIT_TOKEN, etc.)
+      # If you need git access, set DAA_GIT_MODE=api and configure GITHUB_TOKEN/GITLAB_PRIVATE_TOKEN.
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "gitlab:host-gateway"
