@@ -19,7 +19,7 @@
 ---
 
 <div align="center">
-  <video src="./docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
+  <video src="https://github.com/rutvej/DAA/raw/main/docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
 </div>
 
 ---
