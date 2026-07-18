@@ -19,9 +19,7 @@
 ---
 
 <div align="center">
-  <video controls="controls" muted="muted" style="max-height:640px;">
-    <source src="docs/assets/demo_video.mp4" type="video/mp4">
-  </video>
+  <video src="https://github.com/rutvej/DAA/raw/audit/comprehensive-10-phase-review/docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
 </div>
 
 ---
