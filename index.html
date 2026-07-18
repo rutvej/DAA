@@ -620,15 +620,15 @@
 
             <div class="code-tabs">
                 <div class="tab-headers">
-                    <button class="tab-btn active" onclick="switchTab(this, 'docker')">Docker Compose</button>
-                    <button class="tab-btn" onclick="switchTab(this, 'cli')">Docker CLI</button>
+                    <button class="tab-btn" onclick="switchTab(this, 'docker')">Docker Compose</button>
+                    <button class="tab-btn active" onclick="switchTab(this, 'cli')">Docker CLI</button>
                 </div>
-                <div class="tab-content active" id="docker">
+                <div class="tab-content" id="docker">
                     <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
                     <pre><code class="language-yaml">version: '3.8'
 services:
   daa:
-    image: rutvej1/daa-standalone:v3.0.0
+    image: rutvej1/daa-standalone:latest
     ports:
       - "8000:8080"
     environment:
@@ -637,14 +637,14 @@ services:
       - DAA_DB_PROVIDER=postgres
       - DAA_QUEUE_MODE=rabbitmq</code></pre>
                 </div>
-                <div class="tab-content" id="cli">
+                <div class="tab-content active" id="cli">
                     <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
                     <pre><code class="language-bash">docker run -d --name daa \
   -p 8000:8080 \
   -e LLM_PROVIDER=google \
   -e GEMINI_API_KEY=$GEMINI_API_KEY \
-  -e DAA_DB_PROVIDER=postgres \
-  rutvej1/daa-standalone:v3.0.0</code></pre>
+  -e DAA_DB_PROVIDER=none \
+  rutvej1/daa-standalone:latest</code></pre>
                 </div>
             </div>
 

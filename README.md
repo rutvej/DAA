@@ -68,22 +68,29 @@ Three built-in failure scenarios:
 
 ---
 
-## ⚡ Quickstart — up in 4 commands
+## ⚡ Quickstart — up in 1 command (Serverless Mode)
+
+The easiest way to run DAA is via the standalone Docker image. No databases or queues required.
+It runs statelessly, processing incoming webhooks and opening PRs directly.
 
 **Requirements:** Docker + a free [Gemini API key](https://aistudio.google.com/app/apikey)
 
 ```bash
-git clone https://github.com/rutvej/DAA && cd DAA
-./install.sh && source ~/.bashrc
-daa init        # guided wizard: pick your LLM, git provider, deployment mode
-daa redeploy    # starts everything
+docker run -p 8000:8080 \
+  -e LLM_PROVIDER=google \
+  -e GEMINI_API_KEY="your_api_key_here" \
+  -e DAA_DB_PROVIDER=none \
+  rutvej1/daa-standalone:latest
 ```
 
 Then trigger a test incident:
 ```bash
-daa test
-# → open http://localhost:8000/admin to watch the agent work
+curl -X POST http://localhost:8000/ingest/prometheus \
+  -d '{"status": "firing", "alerts": [{"labels": {"alertname": "TestCrash"}}]}'
+# → DAA immediately wakes up, queries the LLM, and prints the generated fix
 ```
+
+*Want the full persistent stack (Postgres + RabbitMQ + UI)? See [DEPLOYMENT.md](./DEPLOYMENT.md).*
 
 ---
 
