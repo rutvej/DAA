@@ -155,7 +155,7 @@ def clone_repo(app_name: str) -> str:
         repo = _get_repo(temp_dir)
         repo.remotes.origin.set_url(repo_url)
     else:
-        repo = git.Repo.clone_from(repo_url, temp_dir)
+        repo = git.Repo.clone_from(repo_url, temp_dir, multi_options=["--"])
     with repo.config_writer() as git_config:
         git_config.set_value("user", "email", "agent@example.com")
         git_config.set_value("user", "name", "Fix Agent")
@@ -194,7 +194,7 @@ def create_branch(repo_path_and_branch_name: str) -> None:
 
     # Delete the branch on the remote if it exists
     if f"origin/{branch_name}" in repo.remotes.origin.refs:
-        repo.git.push("origin", "--delete", branch_name)
+        repo.git.push("origin", "--delete", "--", branch_name)
 
     repo.git.checkout("-b", branch_name)
 
@@ -241,7 +241,7 @@ def push(repo_path_and_branch_name: str) -> None:
 
     repo_path, branch_name = _split_repo_input(repo_path_and_branch_name)
     repo = _get_repo(repo_path)
-    repo.git.push("--set-upstream", "--force", "origin", branch_name)
+    repo.git.push("--set-upstream", "--force", "origin", "--", branch_name)
 
 
 class CreatePullRequestInput(BaseModel):

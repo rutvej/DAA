@@ -82,3 +82,21 @@ def test_login_incorrect_password():
     assert response.status_code == 401
     assert response.json() == {"detail": "Incorrect username or password"}
     teardown()
+
+
+from unittest.mock import patch  # noqa: E402
+
+
+@patch("src.routers.auth.DAA_DB_PROVIDER", "none")
+def test_stateless_auth_mode_disabled():
+    response_reg = client.post(
+        "/auth/register", json={"username": "testuser", "password": "testpassword"}
+    )
+    assert response_reg.status_code == 503
+    assert "stateless/serverless mode" in response_reg.json()["detail"]
+
+    response_log = client.post(
+        "/auth/login", json={"username": "testuser", "password": "testpassword"}
+    )
+    assert response_log.status_code == 503
+    assert "stateless/serverless mode" in response_log.json()["detail"]

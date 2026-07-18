@@ -1,202 +1,197 @@
 <div align="center">
 
-![DAA — Autonomous SRE Platform](./docs/daa_hero.jpg)
+# DAA — Debugging Autonomous Agent
 
-<h1>DAA — Debugging Autonomous SRE Platform</h1>
+**Your app breaks at 3am. DAA investigates the root cause and opens a pull request — while you sleep.**
 
-<p><strong>Stop waking up engineers at 3AM. Let AI triage it first.</strong></p>
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
+[![LangChain](https://img.shields.io/badge/LangChain-ReAct%20Agent-orange.svg)](https://python.langchain.com/)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg)](./Dockerfile)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-6366f1.svg?style=flat-square)](./LICENSE)
-[![Docker Hub](https://img.shields.io/docker/v/rutvej1/daa-standalone?label=Docker%20Hub&color=06b6d4&style=flat-square&logo=docker)](https://hub.docker.com/r/rutvej1/daa-standalone)
-[![Python](https://img.shields.io/badge/Python-3.11+-a855f7.svg?style=flat-square&logo=python&logoColor=white)](https://www.python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-10b981.svg?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![LangChain](https://img.shields.io/badge/LangChain-ReAct-f59e0b.svg?style=flat-square)](https://www.langchain.com)
-[![GitHub Stars](https://img.shields.io/github/stars/rutvej/DAA?style=flat-square&color=f59e0b&label=Stars)](https://github.com/rutvej/DAA/stargazers)
+</div>
 
+<div align="center">
+  <img src="./docs/daa_hero.jpg" alt="DAA Hero Banner" width="800"/>
 </div>
 
 ---
 
-## What is DAA?
+## How it works
 
-**DAA** is a pluggable, open-source **Autonomous SRE Platform** that automates the first **30–60 minutes of manual triage toil** when production microservices break.
+```
+Error fires in your app at 3am
+          ↓
+DAA SDK catches it → sends to DAA (one line of code)
+          ↓
+SHA-256 deduplication — same error again? Suppressed silently.
+New pattern? Agent wakes up.
+          ↓
+AI Agent investigates across 4 dimensions:
+   • Git commits  →  what changed recently?
+   • App logs     →  what's the stack trace?
+   • Traces       →  which request triggered it?
+   • Source code  →  AST navigation to the exact line
+          ↓
+Opens a Pull Request with:
+   • A code fix
+   • Root-cause explanation
+   • Postmortem summary
+          ↓
+You wake up, review the PR, and merge.
+```
 
-It ingests exception logs (via client SDKs or Sentry/Prometheus webhooks), deduplicates them with **SHA-256 fingerprints**, matches them against **sliding-window escalation policies**, and dispatches a **LangChain SRE Agent** that runs a 4-dimension diagnostic investigation across:
 
-| Dimension | What it checks |
-|:---|:---|
-| **1. Change Horizon** | Recent git commits that could have caused the regression |
-| **2. Infrastructure** | Redis, PostgreSQL, RabbitMQ — OOM, timeouts, lock contention |
-| **3. Correlated Traces** | OpenTelemetry trace IDs across dependent microservices |
-| **4. Surgical Code Nav** | AST-level grep, file slicing, repo map to pinpoint the exact line |
-
-Then it **applies a fix**, runs **verification tests**, and opens a **Pull/Merge Request** with a generated postmortem — or creates a Jira ticket when human review is needed.
 
 ---
 
-## 🚀 30-Second Quickstart — Prebuilt Docker Image
+## ⚡ Quickstart — Serverless Mode (1 Command)
 
-Zero setup. Zero databases. Scales to zero on Cloud Run / Fargate.
+The easiest way to run DAA is as a stateless webhook receiver via the standalone Docker image. No databases or queues required. 
+It receives an alert, talks to the LLM, pushes a branch, and opens a PR.
+
+**Requirements:** Docker, a free [Gemini API key](https://aistudio.google.com/app/apikey), and a GitHub Personal Access Token.
 
 ```bash
-docker pull rutvej1/daa-standalone:latest
-
-docker run -d --name daa \
-  -p 8000:8080 \
+docker run -p 8000:8080 \
   -e LLM_PROVIDER=google \
-  -e GEMINI_API_KEY=your-gemini-key \
+  -e GEMINI_API_KEY="your_api_key_here" \
   -e DAA_DB_PROVIDER=none \
-  -e DAA_GIT_MODE=api \
-  -e DAA_QUEUE_MODE=sync \
-  -e DAA_AUTH_ENABLED=false \
-  -e DAA_POLICY_ENABLED=false \
-  -e GIT_HOST=https://github.com \
-  -e GIT_ORG=your-github-org \
-  -e GITHUB_TOKEN=ghp_xxxxxxxxxxxx \
+  -e DAA_GIT_TOKEN="github_pat_..." \
+  -e GIT_HOST="https://github.com" \
+  -e GIT_ORG="your-github-username" \
   rutvej1/daa-standalone:latest
-
-curl http://localhost:8000/health
-# → {"status": "ok"}
 ```
 
-Point your **Sentry** or **Prometheus** webhooks at `http://<host>:8000/ingest/sentry` and DAA starts triaging immediately. No code changes in your services.
-
-For all supported deployment profiles (with Postgres, with RabbitMQ, Compose vs. single image, auth on/off) → **[`DEPLOYMENT.md`](./DEPLOYMENT.md)**.
-
----
-
-## 🧩 Pluggable Architecture — One Image, All Modes
-
-The **same Docker image** runs from fully stateless serverless to distributed multi-container clusters — controlled by three environment variables:
-
-| Mode | `DAA_DB_PROVIDER` | `DAA_GIT_MODE` | `DAA_QUEUE_MODE` | Best For |
-|:---|:---|:---|:---|:---|
-| **Stateless Serverless** | `none` | `api` | `sync` | Cloud Run · Fargate · Lambda |
-| **Self-Contained Edge** | `sqlite` | `api` or `local` | `sync` | Single VM · Raspberry Pi |
-| **Distributed Scale-Out** | `postgres` | `local` | `rabbitmq` | Datacenter · Kubernetes |
-
-Full 6-combination tested matrix → **[`DEPLOYMENT.md §5`](./DEPLOYMENT.md#5-full-combination-matrix)**.
-
----
-
-## ✨ Key Features
-
-<table>
-<tr>
-<td width="50%">
-
-### 🛡️ Zero Alert Fatigue
-SHA-256 error fingerprinting + sliding-window escalation policies suppress duplicates before the agent even runs.
-
-### 🔄 Three-Phase Hybrid Flow
-**Pre-flight** (repo cache, log hydration, dedup) → **Agent Core** (free ReAct reasoning) → **Post-flight** (diff apply, PR creation, postmortem).
-
-### 🔒 Context Safety System
-Enforces a JSON planning step and a hard 8-call budget cap to prevent context explosion and costly hallucinations.
-
-### 🤖 Universal LLM Routing
-Gemini · OpenAI · Claude · Vertex AI · Ollama · LiteLLM proxy. Switch models without code changes.
-
-</td>
-<td width="50%">
-
-### 🎫 Git & Ticket Automation
-Auto-creates GitHub/GitLab/Gitea PRs and Jira tickets. Falls back to GitHub Issues when Jira isn't configured.
-
-### 🚦 Circuit Breakers
-Stops making commits and opens a Jira ticket if tests fail twice, or if deadlocks/race conditions are detected.
-
-### 👤 Human-in-the-Loop (HITL)
-Set `DAA_HITL_MODE=true` to defer PR creation. Review AI agent traces and postmortems in the dashboard, then approve with one click.
-
-### 🔌 MCP Integration
-Expose DAA SRE tools to Cursor, Claude Desktop, or any coding copilot via the stdio MCP Server. Or configure DAA to consume external MCP tools.
-
-</td>
-</tr>
-</table>
-
----
-
-## 🛠️ Local Installation & Setup
-
-### 1. Clone & Install
+Then trigger a test incident (simulating a webhook from Prometheus/Sentry):
 ```bash
-git clone https://github.com/rutvej/DAA.git
-cd DAA
-./install.sh
-sudo ln -sf $(pwd)/daa /usr/local/bin/daa
+curl -X POST http://localhost:8000/ingest/prometheus \
+  -d '{"status": "firing", "alerts": [{"labels": {"alertname": "TestCrash"}}]}'
+# → DAA immediately wakes up, clones the repo, queries the LLM, and opens a PR
 ```
 
-### 2. Configure with the Wizard
-```bash
-daa init
-```
-Configures Git tokens, LLM provider keys, and deployment profile. Populates `.env` and `.env.daa`.
-
-### 3. Deploy
-
-**Stateless (single image, built locally):**
-```bash
-docker build -t daa-stateless:latest .
-docker run -d --name daa-stateless -p 8080:8080 --env-file .env daa-stateless:latest
-```
-
-**Distributed / Stateful (Docker Compose):**
-```bash
-docker compose up -d --build
-```
-
-**Prebuilt image:** See the [Quick Start](#-30-second-quickstart--prebuilt-docker-image) above.
+*Want the full persistent stack (Postgres + RabbitMQ + UI)? See [DEPLOYMENT.md](./DEPLOYMENT.md).*
 
 ---
 
-## 🔑 Git Provider Minimum Scopes
+## 🔌 Two Ways to Integrate
 
-| Provider | Required Scopes |
-|:---|:---|
-| **GitHub** | Classic PAT: `repo` · Fine-grained: `Contents: R/W`, `Pull requests: R/W` |
-| **GitLab** | `api` (or `read_repository` + `write_repository`) |
-| **Gitea** | `write:repository`, `write:issue`, `read:user` |
-| **Bitbucket** | App Password: `Repositories: Write`, `Pull requests: Write` |
+DAA is flexible. You can plug it into your existing alerting stack, or instrument your code directly.
 
-Full detail + Gitea branch endpoint quirks → **[`DEPLOYMENT.md §4`](./DEPLOYMENT.md#4-git-provider-token-permissions)**.
+### 1. Existing Log Aggregators & Webhooks (Recommended for Serverless)
+You do **not** need to use our SDK or change your app code. You can just point your existing alerting tools (Sentry, Datadog, Prometheus, CloudWatch) to DAA's webhook endpoints.
+- **Auth:** Run DAA with `DAA_AUTH_ENABLED=false` and secure it behind your own API Gateway, AWS IAM, or Cloudflare Tunnel.
+- **Dedup:** Rely on your existing aggregator to group the errors, and let DAA handle the autonomous fixing.
+
+### 2. The DAA SDK (Recommended for Full-Stack)
+If you don't have centralized logging, use the DAA SDK. 
+- Requires deploying DAA with `DAA_AUTH_ENABLED=true` (usually via Docker Compose).
+- You register your app, get a `DAA_TOKEN`, and the SDK securely pushes exceptions to DAA.
+
+```python
+# pip install daa-sdk
+from daa_sdk import DAAClient
+
+daa = DAAClient() # reads DAA_TOKEN from env
+daa.report_exception(exception, app_name="my-service")
+```
 
 ---
 
-## 📂 Codebase Layout
+## What makes DAA different
+
+| | Traditional alerting | DAA |
+|--|--|--|
+| **When it fires** | Every time the error happens | Once per unique error pattern |
+| **What it tells you** | "Error occurred" | Root cause + code fix |
+| **What you do** | Investigate manually | Review a PR |
+| **3am pages** | Every time | Only for genuinely new problems |
+
+---
+
+## Features
+
+| | |
+|--|--|
+| 🔁 **Zero alert fatigue** | SHA-256 fingerprint dedup + sliding-window cooldowns |
+| 🧠 **4-dimension investigation** | Git history · Logs · Traces · AST code navigation |
+| 🔒 **Agent safety** | Hard 8-tool-call budget cap — no runaway LLM costs |
+| 🔀 **Any LLM** | Gemini · GPT-4o · Claude · Vertex · Ollama (air-gapped) |
+| 👤 **Human-in-the-Loop** | Approve AI fixes before the PR lands |
+| 🔧 **Any git forge** | GitHub · GitLab · Gitea · Bitbucket |
+| 🌐 **MCP compatible** | Use DAA as a tool inside Claude Desktop or Cursor |
+
+---
+
+## Deployment
+
+| Mode | Best for | How |
+|------|----------|-----|
+| **Single Docker container** | Try it out, small teams | `docker run -p 8000:8080 --env-file .env daa:latest` |
+| **Docker Compose** | Self-hosted, persistent | `daa redeploy` |
+| **Serverless** | Cloud Run / Fargate, zero-ops | `DAA_DB_PROVIDER=none DAA_GIT_MODE=api` |
+
+Full guide: [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+---
+
+## Architecture
+
+
 
 ```
 DAA/
-├── daa                          # Main CLI helper (daa init, daa register, daa policy…)
-├── entrypoint.sh                # Single-container entrypoint (stateless image)
-├── install.sh                   # Unified installer (venv + deps + CLI link)
-├── requirements.txt             # Root-level platform dependencies
-├── .env.example                 # Full environment variable reference
-├── DEPLOYMENT.md                # Env vars · deployment matrix · token permissions
 ├── app/
-│   ├── backend-api/             # FastAPI REST backend (ingest, dedup, escalation, auth)
-│   │   └── src/                 # Routers, DB session, models, mock Jira
-│   ├── python-agent/            # LangChain SRE Agent (Three-Phase orchestrator)
-│   │   └── agent_src/           # Worker, LLM config, ReAct tools, safety system
-│   ├── admin-panel/             # React dashboard (incidents, fixes, HITL approval)
-│   └── daa-sdk/                 # Multi-language telemetry SDKs (Python, Go, JS…)
-└── specs/                       # Per-module architecture specifications
+│   ├── backend-api/    ← FastAPI: ingest, dedup, incident tracking
+│   ├── python-agent/   ← LangChain ReAct SRE agent (the brain)
+│   ├── admin-panel/    ← React dashboard
+│   └── daa-sdk/        ← Python SDK (Node/Go/Java/Ruby/.NET community)
+├── daa                 ← CLI tool (daa init / register / test / logs)
+└── docs/               ← Documentation
 ```
 
 ---
 
+## CLI
 
-## 📄 License
+```bash
+daa init              # Guided setup: LLM key, git token, deployment mode
+daa register          # Register an app and get its DAA_TOKEN
+daa policy            # Set escalation threshold (e.g. 3 errors in 60s)
+daa test              # Fire a synthetic error and watch the pipeline
+daa logs              # View recent incidents
+daa status            # Health check all containers
+daa redeploy          # Rebuild and restart everything
+daa config set-model  # Switch LLM provider/model without restarting
+```
 
-MIT — See [`LICENSE`](./LICENSE).
+---
+
+## Security
+
+Self-hosted and private by design. See [SECURITY.md](./SECURITY.md) for the full hardening guide.
+
+- Credentials via environment variables only — never mounted as files into containers
+- CORS restricted to an explicit allowlist (`CORS_ALLOW_ORIGINS`)  
+- Webhook endpoints verify `DAA_API_KEY` + HMAC-SHA256 (Sentry)
+- LLM agent tool-call budget is hard-capped (no unbounded loops)
+- Report vulnerabilities: [GitHub Security Advisories](https://github.com/rutvej/DAA/security/advisories/new)
+
+---
+
+## Contributing
+
+[CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [LICENSE](./LICENSE)
+
+PRs welcome. For large changes, open an issue first to align on the approach.
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for on-call engineers who deserve to sleep.**
+**Built for engineers who are tired of being paged at 3am for the same error twice.**
 
-[⭐ Star on GitHub](https://github.com/rutvej/DAA) · [🐳 Docker Hub](https://hub.docker.com/r/rutvej1/daa-standalone) · [📖 Full Docs](./DEPLOYMENT.md)
+⭐ Star this repo if it's useful · [Report a bug](https://github.com/rutvej/DAA/issues) · [Request a feature](https://github.com/rutvej/DAA/issues)
 
 </div>

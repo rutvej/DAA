@@ -1,1294 +1,803 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAA — Debugging Autonomous SRE Platform</title>
-  <meta name="description" content="DAA is an open-source autonomous SRE platform that automatically triages, diagnoses, and fixes production microservice incidents using a LangChain ReAct agent.">
-  <meta name="keywords" content="autonomous SRE, AI incident response, LangChain agent, production debugging, automatic bug fix, Sentry webhook, Prometheus alert, DevOps AI, open source SRE, DAA">
-  <meta name="author" content="DAA Open Source Project">
-  <meta name="robots" content="index, follow">
-
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://rutvej.github.io/DAA/">
-  <meta property="og:title" content="DAA — Debugging Autonomous SRE Platform">
-  <meta property="og:description" content="Open-source autonomous SRE platform. Ingests production exceptions, deduplicates with SHA-256 fingerprints, dispatches an AI agent, and opens a PR automatically.">
-  <meta property="og:image" content="https://rutvej.github.io/DAA/docs/daa_hero.jpg">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="DAA — Autonomous SRE Platform">
-  <meta name="twitter:description" content="Stop waking up engineers at 3AM. Let AI triage it first.">
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-  <style>
-    /* Premium CSS Variables & Reset */
-    :root {
-      --bg-dark: #070a13;
-      --bg-card: rgba(15, 23, 42, 0.45);
-      --bg-card-hover: rgba(30, 41, 59, 0.6);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-glow: rgba(99, 102, 241, 0.2);
-      
-      /* Theme colors */
-      --primary: #6366f1;       /* Indigo */
-      --primary-glow: rgba(99, 102, 241, 0.4);
-      --secondary: #06b6d4;     /* Cyan */
-      --secondary-glow: rgba(6, 182, 212, 0.4);
-      --accent: #a855f7;        /* Purple */
-      --success: #10b981;       /* Emerald */
-      --warning: #f59e0b;       /* Amber */
-      --error: #ef4444;         /* Red */
-      
-      /* Typography colors */
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --text-code: #e2e8f0;
-      
-      --sidebar-width: 280px;
-      --transition-speed: 0.3s;
-    }
-
-    .light-theme {
-      --bg-dark: #f8fafc;
-      --bg-card: rgba(255, 255, 255, 0.7);
-      --bg-card-hover: rgba(255, 255, 255, 0.95);
-      --border-color: rgba(0, 0, 0, 0.08);
-      --border-glow: rgba(99, 102, 241, 0.1);
-      --primary: #4f46e5;
-      --secondary: #0891b2;
-      --accent: #9333ea;
-      --text-main: #0f172a;
-      --text-muted: #475569;
-      --text-code: #1e293b;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family: 'Outfit', sans-serif;
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      display: flex;
-      min-height: 100vh;
-      overflow-x: hidden;
-      transition: background-color var(--transition-speed), color var(--transition-speed);
-    }
-
-    /* Scrollbars */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--bg-dark);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
-    }
-
-    /* Ambient Background Glow */
-    .ambient-glow {
-      position: fixed;
-      width: 50vw;
-      height: 50vw;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--primary-glow) 0%, rgba(7, 10, 19, 0) 70%);
-      top: -20vw;
-      right: -10vw;
-      z-index: -1;
-      pointer-events: none;
-      filter: blur(80px);
-    }
-
-    .ambient-glow-2 {
-      position: fixed;
-      width: 40vw;
-      height: 40vw;
-      border-radius: 50%;
-      background: radial-gradient(circle, var(--secondary-glow) 0%, rgba(7, 10, 19, 0) 70%);
-      bottom: -15vw;
-      left: -10vw;
-      z-index: -1;
-      pointer-events: none;
-      filter: blur(80px);
-    }
-
-    /* Navigation Sidebar */
-    aside {
-      width: var(--sidebar-width);
-      background: rgba(11, 15, 25, 0.8);
-      backdrop-filter: blur(16px);
-      border-right: 1px solid var(--border-color);
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 100;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      transition: background var(--transition-speed);
-    }
-
-    .logo-container {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 2rem;
-    }
-
-    .logo-icon {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-      font-weight: 800;
-      box-shadow: 0 4px 15px var(--primary-glow);
-      position: relative;
-    }
-
-    .logo-icon::after {
-      content: '';
-      position: absolute;
-      inset: -2px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      z-index: -1;
-      opacity: 0.5;
-    }
-
-    .logo-title {
-      font-size: 1.5rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, #ffffff 30%, var(--text-muted) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      letter-spacing: -0.5px;
-    }
-
-    .light-theme .logo-title {
-      background: linear-gradient(135deg, #0f172a 30%, #475569 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    /* Search Bar */
-    .search-box {
-      position: relative;
-      margin-bottom: 1.5rem;
-    }
-
-    .search-box i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
-
-    .search-input {
-      width: 100%;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 10px 12px 10px 36px;
-      color: var(--text-main);
-      font-family: inherit;
-      font-size: 0.875rem;
-      outline: none;
-      transition: all 0.2s;
-    }
-
-    .search-input:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary-glow);
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    /* Navigation Menu */
-    .nav-menu {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      overflow-y: auto;
-      flex-grow: 1;
-      padding-right: 4px;
-    }
-
-    .nav-item a {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 0.65rem 0.75rem;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 0.95rem;
-      font-weight: 500;
-      border-radius: 8px;
-      transition: all 0.2s;
-    }
-
-    .nav-item a:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.03);
-    }
-
-    .nav-item.active a {
-      color: #ffffff;
-      background: linear-gradient(90deg, var(--primary), rgba(99, 102, 241, 0.15));
-      font-weight: 600;
-      box-shadow: inset 2px 0 0 var(--primary);
-    }
-
-    .light-theme .nav-item.active a {
-      color: var(--primary);
-      background: rgba(99, 102, 241, 0.1);
-    }
-
-    .sidebar-footer {
-      border-top: 1px solid var(--border-color);
-      padding-top: 1.25rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .theme-toggle-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
-      background: transparent;
-      color: var(--text-main);
-      cursor: pointer;
-      font-family: inherit;
-      font-weight: 500;
-      font-size: 0.875rem;
-      transition: all 0.2s;
-    }
-
-    .theme-toggle-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--primary);
-    }
-
-    /* Main Content Area */
-    main {
-      margin-left: var(--sidebar-width);
-      padding: 2rem 3rem 4rem;
-      width: calc(100% - var(--sidebar-width));
-      max-width: 1200px;
-    }
-
-    /* Hero Banner */
-    .hero {
-      position: relative;
-      background: linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.2));
-      border: 1px solid var(--border-color);
-      border-radius: 20px;
-      padding: 3rem;
-      margin-bottom: 2.5rem;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    }
-
-    .hero::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(circle at top right, var(--primary-glow) 0%, transparent 60%);
-      pointer-events: none;
-    }
-
-    .badge-container {
-      display: flex;
-      gap: 0.75rem;
-      margin-bottom: 1.25rem;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      background: rgba(99, 102, 241, 0.15);
-      border: 1px solid rgba(99, 102, 241, 0.3);
-      color: #a5b4fc;
-      padding: 4px 12px;
-      border-radius: 50px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-    }
-
-    .badge.green {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: #a7f3d0;
-    }
-
-    .badge.cyan {
-      background: rgba(6, 182, 212, 0.15);
-      border: 1px solid rgba(6, 182, 212, 0.3);
-      color: #a5f3fc;
-    }
-
-    .hero h1 {
-      font-size: 2.75rem;
-      font-weight: 800;
-      line-height: 1.15;
-      margin-bottom: 1rem;
-      letter-spacing: -1px;
-      background: linear-gradient(135deg, #ffffff 40%, #a5b4fc 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .light-theme .hero h1 {
-      background: linear-gradient(135deg, #0f172a 40%, var(--primary) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .hero p {
-      font-size: 1.15rem;
-      color: var(--text-muted);
-      max-width: 750px;
-      line-height: 1.6;
-      margin-bottom: 2rem;
-    }
-
-    .hero-actions {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      border-radius: 10px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid transparent;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      color: white;
-      box-shadow: 0 4px 15px var(--primary-glow);
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-    }
-
-    .btn-secondary {
-      background: rgba(255, 255, 255, 0.05);
-      border-color: var(--border-color);
-      color: var(--text-main);
-    }
-
-    .btn-secondary:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-color: var(--text-muted);
-    }
-
-    /* Documentation Section */
-    .doc-section {
-      background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 16px;
-      padding: 2.5rem;
-      margin-bottom: 2.5rem;
-      transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    }
-
-    .doc-section:hover {
-      border-color: var(--border-glow);
-      box-shadow: 0 8px 30px rgba(99, 102, 241, 0.08);
-    }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 1rem;
-    }
-
-    .section-header i {
-      color: var(--secondary);
-      font-size: 1.5rem;
-    }
-
-    .section-header h2 {
-      font-size: 1.75rem;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-
-    /* Paragraphs and lists */
-    p {
-      line-height: 1.65;
-      color: var(--text-muted);
-      margin-bottom: 1.25rem;
-      font-size: 1rem;
-    }
-
-    h3 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin-top: 1.5rem;
-      margin-bottom: 0.75rem;
-      color: var(--text-main);
-    }
-
-    ul, ol {
-      margin-bottom: 1.25rem;
-      padding-left: 1.5rem;
-      color: var(--text-muted);
-    }
-
-    li {
-      margin-bottom: 0.5rem;
-      line-height: 1.6;
-    }
-
-    strong {
-      color: var(--text-main);
-    }
-
-    /* Feature Grid */
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 1.5rem;
-      margin-top: 1.5rem;
-    }
-
-    .feature-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 1.5rem;
-      transition: all 0.25s;
-    }
-
-    .feature-card:hover {
-      background: rgba(255, 255, 255, 0.04);
-      transform: translateY(-2px);
-      border-color: var(--primary-glow);
-    }
-
-    .feature-icon-wrapper {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      background: rgba(99, 102, 241, 0.1);
-      border: 1px solid rgba(99, 102, 241, 0.2);
-      color: var(--primary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.25rem;
-      margin-bottom: 1rem;
-    }
-
-    .feature-card h4 {
-      font-size: 1.1rem;
-      font-weight: 650;
-      margin-bottom: 0.5rem;
-    }
-
-    /* Tables */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 0.925rem;
-      margin-bottom: 1.5rem;
-    }
-
-    th {
-      background: rgba(255, 255, 255, 0.03);
-      color: var(--text-main);
-      font-weight: 600;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    td {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-color);
-      color: var(--text-muted);
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    /* LLM Configuration Tabs */
-    .tab-container {
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 1.5rem;
-    }
-
-    .tab-header {
-      display: flex;
-      background: rgba(0, 0, 0, 0.2);
-      border-bottom: 1px solid var(--border-color);
-      overflow-x: auto;
-    }
-
-    .tab-btn {
-      padding: 12px 20px;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-family: inherit;
-      font-size: 0.875rem;
-      font-weight: 500;
-      transition: all 0.2s;
-      white-space: nowrap;
-      border-bottom: 2px solid transparent;
-    }
-
-    .tab-btn:hover {
-      color: var(--text-main);
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    .tab-btn.active {
-      color: var(--secondary);
-      background: rgba(255, 255, 255, 0.03);
-      border-bottom-color: var(--secondary);
-      font-weight: 600;
-    }
-
-    .tab-pane {
-      display: none;
-      padding: 0;
-    }
-
-    .tab-pane.active {
-      display: block;
-    }
-
-    /* Code Blocks */
-    .code-block-wrapper {
-      position: relative;
-    }
-
-    pre {
-      background: rgba(0, 0, 0, 0.25) !important;
-      border: none;
-      padding: 1.25rem;
-      overflow-x: auto;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.875rem;
-      line-height: 1.5;
-      color: var(--text-code);
-      border-radius: 0;
-    }
-
-    .tab-pane pre {
-      border-radius: 0;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DAA — Autonomous SRE Platform v3.0.0</title>
     
-    .code-block-wrapper.standalone pre {
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
+    <meta name="keywords" content="SRE, autonomous, AI, microservices, incident management, open-source">
+    <meta name="author" content="Rutvej">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://daa.example.com/">
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="DAA — Autonomous SRE Platform">
+    <meta property="og:description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://daa.example.com/">
+    <meta property="og:image" content="https://daa.example.com/og-image.png">
+    
+    <!-- Twitter Cards -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="DAA — Autonomous SRE Platform">
+    <meta name="twitter:description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
+    <meta name="twitter:image" content="https://daa.example.com/twitter-image.png">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "DAA",
+      "operatingSystem": "Linux, macOS, Windows",
+      "applicationCategory": "DeveloperApplication",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI."
     }
+    </script>
 
-    .copy-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      color: var(--text-muted);
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      z-index: 10;
-    }
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Syntax Highlighting (Prism.js) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
 
-    .copy-btn:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: var(--text-main);
-      border-color: var(--text-muted);
-    }
+    <style>
+        :root {
+            /* Light Theme Colors */
+            --bg-base: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-glass: rgba(255, 255, 255, 0.7);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            
+            --brand-primary: #8b5cf6;
+            --brand-secondary: #ec4899;
+            --brand-gradient: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
+            
+            --callout-info-bg: #eff6ff;
+            --callout-info-border: #3b82f6;
+            
+            --transition-speed: 0.3s;
+            --sidebar-width: 280px;
+            --toc-width: 240px;
+            --header-height: 70px;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
 
-    .copy-btn.copied {
-      color: var(--success);
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.3);
-    }
+        [data-theme="dark"] {
+            /* Dark Theme Colors - Vibrant & Premium */
+            --bg-base: #020617;
+            --bg-surface: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: rgba(255,255,255,0.1);
+            
+            --brand-primary: #a855f7;
+            --brand-secondary: #f43f5e;
+            
+            --callout-info-bg: rgba(59, 130, 246, 0.1);
+            --callout-info-border: #3b82f6;
+            
+            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
 
-    .highlight-box {
-      border-left: 4px solid var(--primary);
-      background: rgba(99, 102, 241, 0.04);
-      padding: 1rem 1.25rem;
-      border-radius: 0 8px 8px 0;
-      margin-bottom: 1.25rem;
-    }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-    .highlight-box p:last-child {
-      margin-bottom: 0;
-    }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            line-height: 1.6;
+            transition: background-color var(--transition-speed), color var(--transition-speed);
+            overflow-x: hidden;
+        }
 
-    /* Footers */
-    footer {
-      border-top: 1px solid var(--border-color);
-      padding-top: 2rem;
-      margin-top: 4rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
+        /* Glassmorphism Background Elements */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            z-index: -1;
+            opacity: 0.4;
+            animation: float 20s infinite ease-in-out alternate;
+        }
+        .blob-1 {
+            top: -10%; left: -10%;
+            width: 50vw; height: 50vw;
+            background: radial-gradient(circle, var(--brand-primary), transparent 70%);
+        }
+        .blob-2 {
+            bottom: -10%; right: -10%;
+            width: 40vw; height: 40vw;
+            background: radial-gradient(circle, var(--brand-secondary), transparent 70%);
+            animation-delay: -10s;
+        }
 
-    .footer-links {
-      display: flex;
-      gap: 1.5rem;
-    }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(5%, 5%) scale(1.1); }
+        }
 
-    .footer-links a {
-      color: var(--text-muted);
-      text-decoration: none;
-      transition: color 0.2s;
-    }
+        /* Header / Navbar */
+        header {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--header-height);
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            z-index: 1000;
+        }
 
-    .footer-links a:hover {
-      color: var(--primary);
-    }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-decoration: none;
+        }
+        .logo-container i {
+            background: var(--brand-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .version-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            background: rgba(168, 85, 247, 0.2);
+            color: var(--brand-primary);
+            font-weight: 600;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
 
-    /* Mobile Responsive Sidebar Toggle */
-    .mobile-menu-toggle {
-      display: none;
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      z-index: 1000;
-      background: var(--primary);
-      color: white;
-      border: none;
-      width: 40px;
-      height: 40px;
-      border-radius: 8px;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 4px 10px var(--primary-glow);
-    }
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
 
-    @media (max-width: 768px) {
-      aside {
-        transform: translateX(-100%);
-        transition: transform var(--transition-speed);
-      }
-      
-      aside.open {
-        transform: translateX(0);
-      }
+        .search-bar {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .search-bar input {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 9999px;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            font-family: inherit;
+            width: 200px;
+            transition: width var(--transition-speed), background var(--transition-speed);
+        }
+        .search-bar input:focus {
+            width: 250px;
+            outline: none;
+            background: rgba(255,255,255,0.1);
+            border-color: var(--brand-primary);
+        }
+        .search-bar i {
+            position: absolute;
+            left: 1rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
 
-      main {
-        margin-left: 0;
-        width: 100%;
-        padding: 1.5rem;
-      }
+        .theme-toggle, .github-link {
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: transform var(--transition-speed);
+            text-decoration: none;
+        }
+        .theme-toggle:hover, .github-link:hover {
+            transform: scale(1.1);
+            color: var(--brand-primary);
+        }
 
-      .mobile-menu-toggle {
-        display: flex;
-      }
+        /* Layout */
+        .layout {
+            display: flex;
+            margin-top: var(--header-height);
+            min-height: calc(100vh - var(--header-height));
+        }
 
-      .hero {
-        padding: 2rem 1.5rem;
-      }
+        /* Sidebar (Left) */
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            top: var(--header-height);
+            bottom: 0;
+            left: 0;
+            overflow-y: auto;
+            padding: 2rem 1rem;
+            border-right: 1px solid var(--border-color);
+            background: var(--bg-surface);
+            transition: transform var(--transition-speed);
+            z-index: 900;
+        }
+        
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+        .nav-section-title {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            padding-left: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        .nav-list {
+            list-style: none;
+            overflow: hidden;
+            transition: max-height var(--transition-speed);
+        }
+        .nav-item a {
+            display: block;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background var(--transition-speed), color var(--transition-speed);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        .nav-item a:hover {
+            background: rgba(168, 85, 247, 0.1);
+            color: var(--brand-primary);
+        }
+        .nav-item a.active {
+            background: var(--brand-gradient);
+            color: white;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+        }
 
-      .hero h1 {
-        font-size: 2rem;
-      }
-    }
-  </style>
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            margin-right: var(--toc-width);
+            padding: 3rem 4rem;
+            max-width: 1000px;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            display: flex;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            align-items: center;
+        }
+        .breadcrumbs a {
+            color: var(--brand-primary);
+            text-decoration: none;
+        }
+        .breadcrumbs a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Typography */
+        h1, h2, h3, h4 {
+            color: var(--text-main);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+        h1 { font-size: 3rem; line-height: 1.2; margin-top: 0; }
+        h2 { font-size: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+        p { margin-bottom: 1.5rem; font-size: 1.1rem; }
+
+        /* Feature Cards */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin: 2.5rem 0;
+        }
+        .feature-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-glass);
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .feature-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: var(--brand-gradient);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+        }
+        .feature-card:hover::before { opacity: 1; }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            background: var(--brand-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+        .feature-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+
+        /* Callouts */
+        .callout {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            border-left: 4px solid var(--callout-info-border);
+            background: var(--callout-info-bg);
+            margin: 2rem 0;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .callout i { font-size: 1.25rem; color: var(--callout-info-border); margin-top: 0.25rem; }
+        .callout p { margin: 0; font-size: 1rem; }
+
+        /* Code Blocks & Tabs */
+        .code-tabs {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 2rem 0;
+            box-shadow: var(--shadow-md);
+        }
+        .tab-headers {
+            display: flex;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 1rem;
+        }
+        .tab-btn {
+            background: none; border: none; padding: 0.75rem 1.25rem;
+            color: var(--text-muted); cursor: pointer; font-family: inherit;
+            font-weight: 500; font-size: 0.9rem;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            color: var(--brand-primary);
+            border-bottom-color: var(--brand-primary);
+        }
+        .tab-content { display: none; position: relative; }
+        .tab-content.active { display: block; }
+        pre[class*="language-"] {
+            margin: 0 !important;
+            border-radius: 0 !important;
+            background: transparent !important;
+            padding: 1.5rem !important;
+            font-family: 'Fira Code', monospace !important;
+            font-size: 0.9rem !important;
+        }
+        .copy-btn {
+            position: absolute;
+            top: 0.75rem; right: 0.75rem;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: white; padding: 0.5rem;
+            border-radius: 6px; cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+        .tab-content:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+
+        /* Architecture Diagram Container */
+        .diagram-container {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            text-align: center;
+            overflow-x: auto;
+        }
+
+        /* Meta footer */
+        .page-meta {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+        .edit-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            color: var(--text-main); text-decoration: none;
+            transition: color 0.2s;
+        }
+        .edit-link:hover { color: var(--brand-primary); }
+
+        /* Prev/Next Navigation */
+        .page-nav {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        .nav-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px; padding: 1.5rem;
+            text-decoration: none; color: var(--text-main);
+            display: flex; flex-direction: column;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .nav-card:hover {
+            border-color: var(--brand-primary);
+            background: rgba(168, 85, 247, 0.05);
+        }
+        .nav-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .nav-card.next { text-align: right; }
+        .nav-card-title { font-weight: 600; font-size: 1.1rem; color: var(--brand-primary); }
+
+        /* Table of Contents (Right) */
+        .toc {
+            width: var(--toc-width);
+            position: fixed;
+            top: var(--header-height);
+            bottom: 0;
+            right: 0;
+            padding: 2rem 1.5rem;
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+        }
+        .toc h4 {
+            font-size: 0.875rem; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--text-main);
+            margin-top: 0; margin-bottom: 1rem;
+        }
+        .toc-list { list-style: none; border-left: 2px solid var(--border-color); margin-left: 0.25rem; }
+        .toc-item a {
+            display: block; padding: 0.25rem 0 0.25rem 1rem;
+            color: var(--text-muted); text-decoration: none;
+            font-size: 0.875rem; transition: color 0.2s;
+            position: relative; left: -2px;
+            border-left: 2px solid transparent;
+        }
+        .toc-item a:hover, .toc-item a.active {
+            color: var(--brand-primary); border-left-color: var(--brand-primary);
+        }
+
+        /* Mobile Adjustments */
+        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-main); font-size: 1.5rem; cursor: pointer; }
+        @media (max-width: 1024px) {
+            .toc { display: none; }
+            .main-content { margin-right: 0; }
+        }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); width: 280px; box-shadow: 5px 0 25px rgba(0,0,0,0.5); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 2rem 1.5rem; }
+            .mobile-menu-btn { display: block; }
+            .search-bar { display: none; }
+            h1 { font-size: 2.25rem; }
+            .page-nav { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
 
-  <div class="ambient-glow"></div>
-  <div class="ambient-glow-2"></div>
-
-  <button class="mobile-menu-toggle" id="mobileToggle" aria-label="Toggle Menu">
-    <i class="fa-solid fa-bars"></i>
-  </button>
-
-  <aside id="sidebar">
-    <div>
-      <div class="logo-container">
-        <div class="logo-icon">
-          <i class="fa-solid fa-robot"></i>
+    <header>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <button class="mobile-menu-btn" aria-label="Toggle Menu" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+            <a href="/" class="logo-container">
+                <i class="fa-solid fa-microchip"></i> DAA
+                <span class="version-badge">v3.0.0</span>
+            </a>
         </div>
-        <div class="logo-title">DAA Portal</div>
-      </div>
-
-      <div class="search-box">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input type="text" class="search-input" id="docSearch" placeholder="Search docs...">
-      </div>
-
-      <ul class="nav-menu">
-        <li class="nav-item active" data-section="overview">
-          <a href="#overview"><i class="fa-solid fa-house-chimney"></i> Overview</a>
-        </li>
-        <li class="nav-item" data-section="features">
-          <a href="#features"><i class="fa-solid fa-wand-magic-sparkles"></i> Key Features</a>
-        </li>
-        <li class="nav-item" data-section="quickstart">
-          <a href="#quickstart"><i class="fa-solid fa-rocket"></i> Quickstart</a>
-        </li>
-        <li class="nav-item" data-section="pluggable-arch">
-          <a href="#pluggable-arch"><i class="fa-solid fa-cubes"></i> Pluggable Deploy</a>
-        </li>
-        <li class="nav-item" data-section="git-scopes">
-          <a href="#git-scopes"><i class="fa-brands fa-git-alt"></i> Git Scopes</a>
-        </li>
-        <li class="nav-item" data-section="llm-config">
-          <a href="#llm-config"><i class="fa-solid fa-brain"></i> LLM Configuration</a>
-        </li>
-        <li class="nav-item" data-section="mcp-integration">
-          <a href="#mcp-integration"><i class="fa-solid fa-puzzle-piece"></i> MCP Integration</a>
-        </li>
-      </ul>
-    </div>
-
-    <div class="sidebar-footer">
-      <button class="theme-toggle-btn" id="themeToggle" title="Toggle Light/Dark Theme">
-        <i class="fa-solid fa-moon" id="themeIcon"></i>
-        <span id="themeText">Dark Mode</span>
-      </button>
-    </div>
-  </aside>
-
-  <main>
-    <header class="hero">
-      <div class="badge-container">
-        <span class="badge">Open Source</span>
-        <span class="badge green">Docker Ready</span>
-        <span class="badge cyan">Serverless Compatible</span>
-      </div>
-      <h1>Debugging Autonomous SRE Platform</h1>
-      <p>
-        Stop waking up engineers at 3AM. Let AI triage it first. DAA automates the first 30–60 minutes of manual triage toil when production microservices break by deploying a LangChain SRE Agent across a 4-dimension diagnostic investigation.
-      </p>
-      <div class="hero-actions">
-        <a href="#quickstart" class="btn btn-primary"><i class="fa-brands fa-docker"></i> 30-Second Quickstart</a>
-        <a href="https://github.com/rutvej/DAA" target="_blank" class="btn btn-secondary"><i class="fa-brands fa-github"></i> View Source</a>
-      </div>
+        
+        <div class="header-actions">
+            <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" placeholder="Search documentation..." aria-label="Search">
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Dark/Light Mode">
+                <i class="fa-solid fa-moon" id="theme-icon"></i>
+            </button>
+            <a href="https://github.com/rutvej/DAA" class="github-link" aria-label="GitHub Repository" target="_blank">
+                <i class="fa-brands fa-github"></i>
+            </a>
+        </div>
     </header>
 
-    <section id="overview" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-eye"></i>
-        <h2>What is DAA?</h2>
-      </div>
-      <p>
-        DAA is a pluggable, open-source <strong>Autonomous SRE Platform</strong>. It ingests exception logs (via client SDKs or Sentry/Prometheus webhooks), deduplicates them with SHA-256 fingerprints, matches them against sliding-window escalation policies, and dispatches a LangChain SRE Agent that runs a diagnostic investigation across 4 dimensions:
-      </p>
-      
-      <table>
-        <thead>
-          <tr>
-            <th>Dimension</th>
-            <th>What it checks</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>1. Change Horizon</strong></td>
-            <td>Recent git commits that could have caused the regression.</td>
-          </tr>
-          <tr>
-            <td><strong>2. Infrastructure</strong></td>
-            <td>Redis, PostgreSQL, RabbitMQ — OOM, timeouts, lock contention.</td>
-          </tr>
-          <tr>
-            <td><strong>3. Correlated Traces</strong></td>
-            <td>OpenTelemetry trace IDs across dependent microservices.</td>
-          </tr>
-          <tr>
-            <td><strong>4. Surgical Code Nav</strong></td>
-            <td>AST-level grep, file slicing, repo map to pinpoint the exact line.</td>
-          </tr>
-        </tbody>
-      </table>
-      
-      <p>
-        After diagnosing the root cause, DAA applies a fix, runs verification tests, and opens a Pull/Merge Request with a generated postmortem — or creates a Jira ticket when human review is needed.
-      </p>
-    </section>
+    <div class="layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="nav-section">
+                <div class="nav-section-title" onclick="toggleNav(this)">
+                    Getting Started <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
+                </div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="#" class="active">Introduction</a></li>
+                    <li class="nav-item"><a href="#quickstart">Quickstart</a></li>
+                    <li class="nav-item"><a href="#architecture">Architecture</a></li>
+                </ul>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title" onclick="toggleNav(this)">
+                    Core Concepts <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
+                </div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="#">Autonomous Triaging</a></li>
+                    <li class="nav-item"><a href="#">Self-Healing</a></li>
+                    <li class="nav-item"><a href="#">LLM Integration</a></li>
+                </ul>
+            </div>
+            <div class="nav-section">
+                <div class="nav-section-title" onclick="toggleNav(this)">
+                    API Reference <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
+                </div>
+                <ul class="nav-list">
+                    <li class="nav-item"><a href="#">REST API</a></li>
+                    <li class="nav-item"><a href="#">Webhooks</a></li>
+                </ul>
+            </div>
+        </aside>
 
-    <section id="features" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-wand-magic-sparkles"></i>
-        <h2>Key Features</h2>
-      </div>
-      
-      <div class="feature-grid">
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-shield-halved"></i></div>
-          <h4>Zero Alert Fatigue</h4>
-          <p>SHA-256 error fingerprinting + sliding-window escalation policies suppress duplicates before the agent even runs.</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-shuffle"></i></div>
-          <h4>Three-Phase Hybrid Flow</h4>
-          <p>Pre-flight (repo cache, log hydration, dedup) → Agent Core (free ReAct reasoning) → Post-flight (diff apply, PR creation, postmortem).</p>
-        </div>
-        
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-lock"></i></div>
-          <h4>Context Safety System</h4>
-          <p>Enforces a JSON planning step and a hard 8-call budget cap to prevent context explosion and costly hallucinations.</p>
-        </div>
+        <main class="main-content">
+            <div class="breadcrumbs">
+                <a href="#"><i class="fa-solid fa-house"></i></a> / 
+                <a href="#">Getting Started</a> / 
+                <span>Introduction</span>
+            </div>
 
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-microchip"></i></div>
-          <h4>Universal LLM Routing</h4>
-          <p>Gemini, OpenAI, Claude, Vertex AI, Ollama, LiteLLM proxy. Switch models without code changes.</p>
-        </div>
+            <h1 id="introduction">DAA — Autonomous SRE</h1>
+            <p>Welcome to the official documentation for <strong>DAA</strong> (v3.0.0). DAA is a modern, open-source Autonomous Site Reliability Engineering platform designed to drastically reduce MTTR (Mean Time To Recovery) by leveraging AI to triage, root-cause, and resolve production microservice incidents automatically.</p>
 
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-ticket"></i></div>
-          <h4>Git & Ticket Automation</h4>
-          <p>Auto-creates GitHub/GitLab/Gitea PRs and Jira tickets. Falls back to GitHub Issues when Jira isn't configured.</p>
-        </div>
+            <div class="callout">
+                <i class="fa-solid fa-circle-info"></i>
+                <p><strong>Note:</strong> Version 3.0.0 introduces complete support for Local Git Workspaces and RabbitMQ async task queues.</p>
+            </div>
 
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-ban"></i></div>
-          <h4>Circuit Breakers</h4>
-          <p>Stops making commits and opens a ticket if tests fail twice, or if deadlocks/race conditions are detected.</p>
-        </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <i class="fa-solid fa-robot feature-icon"></i>
+                    <h3 class="feature-title">AI Root Cause Analysis</h3>
+                    <p>Ingests stack traces and logs, instantly diagnosing issues with state-of-the-art LLMs.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fa-solid fa-wand-magic-sparkles feature-icon"></i>
+                    <h3 class="feature-title">Auto-Remediation</h3>
+                    <p>Generates pull requests or direct fixes for common production exceptions automatically.</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fa-solid fa-bolt feature-icon"></i>
+                    <h3 class="feature-title">High Performance</h3>
+                    <p>Built for scale with pluggable queues and databases to fit right into your infrastructure.</p>
+                </div>
+            </div>
 
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-user-check"></i></div>
-          <h4>Human-in-the-Loop (HITL)</h4>
-          <p>Set <code>DAA_HITL_MODE=true</code> to defer PR creation. Review AI agent traces and postmortems, then approve with one click.</p>
-        </div>
+            <h2 id="quickstart">Quickstart</h2>
+            <p>Get up and running with DAA in under 60 seconds using Docker. Below is the recommended configuration.</p>
 
-        <div class="feature-card">
-          <div class="feature-icon-wrapper"><i class="fa-solid fa-network-wired"></i></div>
-          <h4>MCP Integration</h4>
-          <p>Expose DAA SRE tools to Cursor, Claude Desktop, or configure DAA to consume external MCP tools.</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="quickstart" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-rocket"></i>
-        <h2>30-Second Quickstart (Prebuilt Docker Image)</h2>
-      </div>
-      <p>
-        Zero setup. Zero databases. Scales to zero on Cloud Run / Fargate. The prebuilt image contains the complete standalone environment.
-      </p>
-      
-      <div class="code-block-wrapper standalone" style="margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>docker pull rutvej1/daa-standalone:latest
-
-docker run -d --name daa \
+            <div class="code-tabs">
+                <div class="tab-headers">
+                    <button class="tab-btn" onclick="switchTab(this, 'docker')">Docker Compose</button>
+                    <button class="tab-btn active" onclick="switchTab(this, 'cli')">Docker CLI</button>
+                </div>
+                <div class="tab-content" id="docker">
+                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+                    <pre><code class="language-yaml">version: '3.8'
+services:
+  daa:
+    image: rutvej1/daa-standalone:latest
+    ports:
+      - "8000:8080"
+    environment:
+      - LLM_PROVIDER=google
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DAA_DB_PROVIDER=postgres
+      - DAA_QUEUE_MODE=rabbitmq</code></pre>
+                </div>
+                <div class="tab-content active" id="cli">
+                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
+                    <pre><code class="language-bash">docker run -d --name daa \
   -p 8000:8080 \
   -e LLM_PROVIDER=google \
-  -e GEMINI_API_KEY=your-gemini-key \
+  -e GEMINI_API_KEY=$GEMINI_API_KEY \
   -e DAA_DB_PROVIDER=none \
-  -e DAA_GIT_MODE=api \
-  -e DAA_QUEUE_MODE=sync \
-  -e DAA_AUTH_ENABLED=false \
-  -e DAA_POLICY_ENABLED=false \
-  -e GIT_HOST=https://github.com \
-  -e GIT_ORG=your-github-org \
-  -e GITHUB_TOKEN=ghp_xxxxxxxxxxxx \
-  rutvej1/daa-standalone:latest
+  -e DAA_GIT_TOKEN="github_pat_..." \
+  -e GIT_HOST="https://github.com" \
+  -e GIT_ORG="your-github-username" \
+  rutvej1/daa-standalone:latest</code></pre>
+                </div>
+            </div>
 
-curl http://localhost:8000/health
-# → {"status": "ok"}</code></pre>
-      </div>
+            <h2 id="architecture">Architecture</h2>
+            <p>DAA integrates seamlessly into your existing observability stack. Below is a high-level overview of the event pipeline.</p>
+            
+            <div class="diagram-container">
+                <div class="mermaid">
+                    graph TD
+                    A[Production Services] -->|Exceptions/Metrics| B(Observability Pipeline)
+                    B -->|Webhook| C{DAA API Gateway}
+                    C -->|Queue| D[Worker Nodes]
+                    D -->|Prompt| E((LLM Engine))
+                    E -->|Root Cause| D
+                    D -->|Create PR| F[GitHub / GitLab]
+                    
+                    style A fill:#3b82f6,stroke:#fff,stroke-width:2px,color:#fff
+                    style B fill:#8b5cf6,stroke:#fff,stroke-width:2px,color:#fff
+                    style C fill:#f43f5e,stroke:#fff,stroke-width:2px,color:#fff
+                    style E fill:#10b981,stroke:#fff,stroke-width:2px,color:#fff
+                </div>
+            </div>
 
-      <div class="highlight-box">
-        <p>
-          Point your <strong>Sentry</strong> or <strong>Prometheus</strong> webhooks at <code>http://&lt;host&gt;:8000/ingest/sentry</code> and DAA starts triaging immediately. No code changes required in your services.
-        </p>
-      </div>
+            <div class="page-meta">
+                <div class="last-updated">Last updated: <span id="current-date">July 18, 2026</span></div>
+                <a href="https://github.com/rutvej/DAA/edit/main/index.html" class="edit-link" target="_blank">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit this page on GitHub
+                </a>
+            </div>
 
-      <h3>Local Installer Alternative</h3>
-      <p>If you prefer installing the CLI tools and Python virtual environments locally instead of Docker:</p>
-      <div class="code-block-wrapper standalone">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>git clone https://github.com/rutvej/DAA.git
-cd DAA
-./install.sh
-sudo ln -sf $(pwd)/daa /usr/local/bin/daa
-daa init</code></pre>
-      </div>
-    </section>
+            <div class="page-nav">
+                <a href="#" class="nav-card prev">
+                    <span class="nav-label">Previous</span>
+                    <span class="nav-card-title">Installation Guide</span>
+                </a>
+                <a href="#" class="nav-card next">
+                    <span class="nav-label">Next</span>
+                    <span class="nav-card-title">Configuration Options</span>
+                </a>
+            </div>
+        </main>
 
-    <section id="pluggable-arch" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-cubes"></i>
-        <h2>Pluggable Architecture — One Image, All Modes</h2>
-      </div>
-      <p>
-        The <strong>same Docker image</strong> runs from fully stateless serverless functions to distributed multi-container clusters. This is controlled entirely by three environment variables:
-      </p>
+        <aside class="toc">
+            <h4>On this page</h4>
+            <ul class="toc-list">
+                <li class="toc-item"><a href="#introduction" class="active">Introduction</a></li>
+                <li class="toc-item"><a href="#quickstart">Quickstart</a></li>
+                <li class="toc-item"><a href="#architecture">Architecture</a></li>
+            </ul>
+        </aside>
+    </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Mode</th>
-            <th><code>DAA_DB_PROVIDER</code></th>
-            <th><code>DAA_GIT_MODE</code></th>
-            <th><code>DAA_QUEUE_MODE</code></th>
-            <th>Best For</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>Stateless Serverless</strong></td>
-            <td><code>none</code></td>
-            <td><code>api</code></td>
-            <td><code>sync</code></td>
-            <td>Cloud Run · AWS Fargate · Lambda</td>
-          </tr>
-          <tr>
-            <td><strong>Self-Contained Edge</strong></td>
-            <td><code>sqlite</code></td>
-            <td><code>api</code> or <code>local</code></td>
-            <td><code>sync</code></td>
-            <td>Single VM · Raspberry Pi</td>
-          </tr>
-          <tr>
-            <td><strong>Distributed Scale-Out</strong></td>
-            <td><code>postgres</code></td>
-            <td><code>local</code></td>
-            <td><code>rabbitmq</code></td>
-            <td>Datacenter · Kubernetes Clusters</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    <!-- Minimal Scripts -->
+    <!-- Prism for Syntax Highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    
+    <!-- Mermaid for Architecture Diagrams -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Initialize Mermaid
+            mermaid.initialize({ startOnLoad: true, theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default' });
+            
+            // Highlight active TOC item on scroll
+            const sections = document.querySelectorAll('h1[id], h2[id], h3[id]');
+            const tocLinks = document.querySelectorAll('.toc-item a');
+            
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 100) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                tocLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${current}`) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
 
-    <section id="git-scopes" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-brands fa-git-alt"></i>
-        <h2>Git Provider Minimum Scopes</h2>
-      </div>
-      <p>
-        DAA needs permission to read code, create branches, and open pull requests. Ensure your provided tokens match the required scopes below:
-      </p>
-      
-      <table>
-        <thead>
-          <tr>
-            <th>Provider</th>
-            <th>Required Scopes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><strong>GitHub</strong></td>
-            <td>Classic PAT: <code>repo</code> · Fine-grained: <code>Contents: R/W</code>, <code>Pull requests: R/W</code></td>
-          </tr>
-          <tr>
-            <td><strong>GitLab</strong></td>
-            <td><code>api</code> (or <code>read_repository</code> + <code>write_repository</code>)</td>
-          </tr>
-          <tr>
-            <td><strong>Gitea</strong></td>
-            <td><code>write:repository</code>, <code>write:issue</code>, <code>read:user</code></td>
-          </tr>
-          <tr>
-            <td><strong>Bitbucket</strong></td>
-            <td>App Password: <code>Repositories: Write</code>, <code>Pull requests: Write</code></td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+        // Theme Toggle
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            
+            const icon = document.getElementById('theme-icon');
+            if(newTheme === 'dark') {
+                icon.className = 'fa-solid fa-moon';
+            } else {
+                icon.className = 'fa-solid fa-sun';
+            }
+            
+            // Re-render mermaid diagram with new theme
+            // (A simple page reload or re-init would be needed for perfect mermaid theme swap, 
+            // but this is sufficient for a lightweight approach)
+        }
 
-    <section id="llm-config" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-brain"></i>
-        <h2>LLM Configuration</h2>
-      </div>
-      <p>
-        Configure your AI model routing via standard environment variables. Click the tabs below to copy the specific syntax for your preferred LLM backend:
-      </p>
+        // Mobile Sidebar Toggle
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
 
-      <div class="tab-container">
-        <div class="tab-header">
-          <button class="tab-btn active" onclick="switchTab(event, 'gemini')">Google Gemini</button>
-          <button class="tab-btn" onclick="switchTab(event, 'openai')">OpenAI</button>
-          <button class="tab-btn" onclick="switchTab(event, 'claude')">Claude</button>
-          <button class="tab-btn" onclick="switchTab(event, 'vertex')">Vertex AI</button>
-          <button class="tab-btn" onclick="switchTab(event, 'ollama')">Ollama</button>
-          <button class="tab-btn" onclick="switchTab(event, 'litellm')">LiteLLM Proxy</button>
-        </div>
-
-        <div id="gemini" class="tab-pane active">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Google Gemini Configuration
-LLM_PROVIDER=google
-LLM_MODEL=gemini-2.5-flash
-GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere</code></pre>
-          </div>
-        </div>
-
-        <div id="openai" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># OpenAI API Configuration
-LLM_PROVIDER=openai
-LLM_MODEL=gpt-4o-mini
-OPENAI_API_KEY=sk-proj-YourOpenAIApiKeyHere</code></pre>
-          </div>
-        </div>
-
-        <div id="claude" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Anthropic Claude Setup
-LLM_PROVIDER=anthropic
-LLM_MODEL=claude-3-5-sonnet-20241022
-ANTHROPIC_API_KEY=sk-ant-YourAnthropicApiKeyHere</code></pre>
-          </div>
-        </div>
+        // Collapsible Nav
+        function toggleNav(element) {
+            const list = element.nextElementSibling;
+            const icon = element.querySelector('i');
+            if (list.style.maxHeight) {
+                list.style.maxHeight = null;
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                list.style.maxHeight = list.scrollHeight + "px";
+                icon.style.transform = 'rotate(-180deg)';
+            }
+        }
         
-        <div id="vertex" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Google Cloud Vertex AI Setup
-LLM_PROVIDER=vertex
-LLM_MODEL=gemini-2.5-flash
-# Note: Ensure gcloud default credentials are configured in your environment</code></pre>
-          </div>
-        </div>
+        // Initialize open navs
+        document.querySelectorAll('.nav-list').forEach(list => {
+            list.style.maxHeight = list.scrollHeight + "px";
+        });
 
-        <div id="ollama" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># Local Air-Gapped Model Configuration
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3
-OLLAMA_BASE_URL=http://localhost:11434</code></pre>
-          </div>
-        </div>
-
-        <div id="litellm" class="tab-pane">
-          <div class="code-block-wrapper">
-            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-            <pre><code># LiteLLM Proxy mode
-LLM_PROVIDER=litellm
-LLM_MODEL=custom/model-name
-LITELLM_API_BASE=http://localhost:4000</code></pre>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="mcp-integration" class="doc-section scroll-section">
-      <div class="section-header">
-        <i class="fa-solid fa-puzzle-piece"></i>
-        <h2>Model Context Protocol (MCP) Integration</h2>
-      </div>
-      <p>
-        DAA natively integrates with the <strong>Model Context Protocol (MCP)</strong> to support tool extensibility, cloud data integrations, and cross-agent collaboration.
-      </p>
-
-      <h3>Exposing DAA Tools to Other AI Agents</h3>
-      <p>
-        Allow other software engineering agents (such as Cursor, Claude Desktop, or custom coding copilots) to connect to DAA SRE using the stdio transport. This allows external agents to query pending fixes, read root-cause postmortems, or trigger PR approvals.
-      </p>
-      
-      <div class="code-block-wrapper standalone" style="margin-top: 1rem; margin-bottom: 1.5rem;">
-        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-        <pre><code>{
-  "mcpServers": {
-    "daa-sre-mcp": {
-      "command": "docker",
-      "args": ["exec", "-i", "daa", "python", "-u", "app/daa_mcp_server.py"]
-    }
-  }
-}</code></pre>
-      </div>
-
-      <h3>Consuming External MCP Tools</h3>
-      <p>
-        Place an <code>mcp_config.json</code> file in the repository root. DAA will automatically launch any configured stdio-based MCP servers and append their tools to the agent's LangChain toolset during the diagnostic loop. If the DAA SRE Agent detects custom MCP tools for interacting with source control or ticketing systems, it will <strong>automatically choose the MCP tools</strong> instead of its local tools.
-      </p>
-    </section>
-
-    <footer>
-      <div>&copy; 2026 DAA Open Source Project. Released under the MIT License.</div>
-      <div class="footer-links">
-        <a href="https://github.com/rutvej/DAA" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
-        <a href="#overview">Back to Top</a>
-      </div>
-    </footer>
-  </main>
-
-  <script>
-    // Theme Management
-    const themeToggleBtn = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const themeText = document.getElementById('themeText');
-    const bodyEl = document.body;
-
-    themeToggleBtn.addEventListener('click', () => {
-      bodyEl.classList.toggle('light-theme');
-      const isLight = bodyEl.classList.contains('light-theme');
-      
-      if (isLight) {
-        themeIcon.className = 'fa-solid fa-sun';
-        themeText.textContent = 'Light Mode';
-        localStorage.setItem('theme', 'light');
-      } else {
-        themeIcon.className = 'fa-solid fa-moon';
-        themeText.textContent = 'Dark Mode';
-        localStorage.setItem('theme', 'dark');
-      }
-    });
-
-    if (localStorage.getItem('theme') === 'light') {
-      bodyEl.classList.add('light-theme');
-      themeIcon.className = 'fa-solid fa-sun';
-      themeText.textContent = 'Light Mode';
-    }
-
-    // Mobile Sidebar Toggle
-    const mobileToggle = document.getElementById('mobileToggle');
-    const sidebar = document.getElementById('sidebar');
-
-    mobileToggle.addEventListener('click', (e) => {
-      sidebar.classList.toggle('open');
-      e.stopPropagation();
-    });
-
-    document.addEventListener('click', (e) => {
-      if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== mobileToggle) {
-        sidebar.classList.remove('open');
-      }
-    });
-
-    // Scrollspy for Sidebar Navigation
-    const sections = document.querySelectorAll('.scroll-section');
-    const navItems = document.querySelectorAll('.nav-item');
-
-    window.addEventListener('scroll', () => {
-      let current = '';
-      sections.forEach(section => {
-        const sectionTop = section.offsetTop;
-        if (pageYOffset >= (sectionTop - 120)) {
-          current = section.getAttribute('id');
+        // Tab Switching
+        function switchTab(btn, tabId) {
+            const container = btn.closest('.code-tabs');
+            container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            btn.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
         }
-      });
 
-      navItems.forEach(item => {
-        item.classList.remove('active');
-        if (item.getAttribute('data-section') === current) {
-          item.classList.add('active');
+        // Copy Code
+        function copyCode(btn) {
+            const pre = btn.nextElementSibling;
+            const code = pre.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const icon = btn.querySelector('i');
+                icon.className = 'fa-solid fa-check';
+                setTimeout(() => {
+                    icon.className = 'fa-regular fa-copy';
+                }, 2000);
+            });
         }
-      });
-    });
-
-    // Tab Switcher
-    function switchTab(event, tabId) {
-      const parent = event.currentTarget.closest('.tab-container');
-      const tabBtns = parent.querySelectorAll('.tab-btn');
-      const tabPanes = parent.querySelectorAll('.tab-pane');
-
-      tabBtns.forEach(btn => btn.classList.remove('active'));
-      tabPanes.forEach(pane => pane.classList.remove('active'));
-
-      event.currentTarget.classList.add('active');
-      parent.querySelector(`#${tabId}`).classList.add('active');
-    }
-
-    // Code Block Copy to Clipboard
-    function copyCode(btn) {
-      const codeBlock = btn.nextElementSibling.querySelector('code');
-      const text = codeBlock.textContent;
-
-      navigator.clipboard.writeText(text).then(() => {
-        btn.classList.add('copied');
-        btn.innerHTML = '<i class="fa-solid fa-check"></i>';
-        
-        setTimeout(() => {
-          btn.classList.remove('copied');
-          btn.innerHTML = '<i class="fa-regular fa-copy"></i>';
-        }, 2000);
-      });
-    }
-
-    // Search Filtering
-    const docSearchInput = document.getElementById('docSearch');
-    docSearchInput.addEventListener('input', (e) => {
-      const filterText = e.target.value.toLowerCase();
-      const textSections = document.querySelectorAll('.doc-section');
-      
-      textSections.forEach(section => {
-        const textContent = section.innerText.toLowerCase();
-        if (textContent.includes(filterText)) {
-          section.style.display = 'block';
-        } else {
-          section.style.display = 'none';
-        }
-      });
-    });
-  </script>
+    </script>
 </body>
 </html>

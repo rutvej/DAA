@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -13,7 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Incident
+from ..database import DAA_DB_PROVIDER, Incident
 from ..database import Log as DBLog
 from ..database import ProjectConnection, get_db
 
@@ -50,8 +51,6 @@ def resolve_jsonpath(data: dict, path: str):
 
 async def verify_webhook_auth(request: Request):
     """Verifies DAA_API_KEY if configured in environment."""
-    if not DAA_AUTH_ENABLED:
-        return
     daa_api_key = os.environ.get("DAA_API_KEY")
     if daa_api_key:
         api_key_header = request.headers.get("X-API-Key")
@@ -76,8 +75,6 @@ async def verify_webhook_auth(request: Request):
 
 async def verify_sentry_signature(request: Request):
     """Verifies X-Sentry-Signature if SENTRY_WEBHOOK_SECRET is configured."""
-    if not DAA_AUTH_ENABLED:
-        return
     sentry_secret = os.environ.get("SENTRY_WEBHOOK_SECRET")
     if sentry_secret:
         signature = request.headers.get("X-Sentry-Signature")
@@ -104,15 +101,24 @@ async def dispatch_investigation(
     db: Session,
     background_tasks: BackgroundTasks,
     error_file: str = None,
+    trace_id: str = None,
 ):
     """Computes fingerprint, runs deduplication check, records database state, and dispatches the job."""
+    trace_id = trace_id or str(uuid.uuid4())
     # [Item 1] Explicit note: Webhook/log-app-sourced errors (Sentry, Prometheus, generic log ingestion)
     # have no policy check; they escalate immediately on ingestion (upstream system already thresholded it).
 
-    # 1. Compute fingerprint
-    top_frame = stack_trace[:200]
-    raw_fp = f"{app_name}:{exception_type}:{top_frame}"
-    fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:16]
+    # 1. Compute fingerprint (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name=app_name,
+        exception_type=exception_type,
+        content_or_top_frame=stack_trace,
+    )
 
     # 2. Check Deduplication in Database
     active_incident = (
@@ -152,14 +158,20 @@ async def dispatch_investigation(
     if repo_url:
         branch_name = f"fix/{fingerprint[:12]}"
         try:
-            auth_url = repo_url
+            parsed = urlparse(repo_url)
+            clean_url = parsed._replace(
+                netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+            ).geturl()
+
+            cmd = ["git"]
             if token:
-                parsed = urlparse(repo_url)
-                netloc = f"{token}@{parsed.hostname}"
-                auth_url = parsed._replace(netloc=netloc).geturl()
+                token_str = token if ":" in token else f"x-access-token:{token}"
+                b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+                cmd.extend(["-c", f"http.extraHeader=Authorization: Basic {b64_token}"])
+            cmd.extend(["ls-remote", "--heads", clean_url, f"refs/heads/{branch_name}"])
 
             res = subprocess.run(
-                ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -179,6 +191,7 @@ async def dispatch_investigation(
         content=stack_trace,
         status="Escalated to Agent",
         exception_type=exception_type,
+        trace_id=trace_id,
         timestamp=datetime.utcnow(),
     )
     db.add(db_log)
@@ -230,6 +243,7 @@ async def dispatch_investigation(
         "fingerprint": fingerprint,
         "app_name": db_log.app_name,
         "status": "pending",
+        "trace_id": trace_id,
         "created_at": db_log.timestamp.isoformat(),
         "updated_at": db_log.timestamp.isoformat(),
         "error_log": {
@@ -238,6 +252,7 @@ async def dispatch_investigation(
             "content": db_log.content,
             "stack_trace": stack_trace,
             "exception_type": exception_type,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -265,15 +280,23 @@ async def dispatch_investigation(
         import pika
 
         rabbitmq_host = os.environ.get("RABBITMQ_HOST", "localhost")
+        rabbitmq_queue = os.environ.get(
+            "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+        )
         connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
         channel = connection.channel()
-        channel.queue_declare(queue="fix_jobs", durable=True)
+        channel.queue_declare(queue=rabbitmq_queue, durable=True)
         channel.basic_publish(
-            exchange="", routing_key="fix_jobs", body=json.dumps(job_data)
+            exchange="",
+            routing_key=rabbitmq_queue,
+            body=json.dumps(job_data),
+            properties=pika.BasicProperties(
+                headers={"trace_id": trace_id}, delivery_mode=2
+            ),
         )
         connection.close()
         logger.info(
-            f"Published investigation job {job_id} to RabbitMQ queue 'fix_jobs'"
+            f"Published investigation job {job_id} to RabbitMQ queue '{rabbitmq_queue}'"
         )
 
 
@@ -308,6 +331,12 @@ async def ingest_prometheus(
         stack_trace = annotations.get("description") or annotations.get("summary") or ""
         severity = labels.get("severity", "error")
 
+        tid = (
+            request.headers.get("trace_id")
+            or request.headers.get("x-trace-id")
+            or alert.get("trace_id")
+            or str(uuid.uuid4())
+        )
         await dispatch_investigation(
             app_name=app_name,
             exception_type=exception_type,
@@ -315,6 +344,7 @@ async def ingest_prometheus(
             severity=severity,
             db=db,
             background_tasks=background_tasks,
+            trace_id=tid,
         )
         jobs_dispatched += 1
 
@@ -347,6 +377,12 @@ async def ingest_sentry(
     error_file = metadata.get("filename") or issue.get("culprit")
     severity = issue.get("level", "error")
 
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or issue.get("trace_id")
+        or str(uuid.uuid4())
+    )
     await dispatch_investigation(
         app_name=app_name,
         exception_type=exception_type,
@@ -355,6 +391,7 @@ async def ingest_sentry(
         db=db,
         background_tasks=background_tasks,
         error_file=error_file,
+        trace_id=tid,
     )
 
     return {"status": "accepted"}
@@ -401,6 +438,12 @@ async def ingest_custom(
     severity = resolve_jsonpath(payload, mapping.get("severity", "")) or "error"
     error_file = resolve_jsonpath(payload, mapping.get("error_file", ""))
 
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or payload.get("trace_id")
+        or str(uuid.uuid4())
+    )
     await dispatch_investigation(
         app_name=app_name,
         exception_type=exception_type,
@@ -409,6 +452,7 @@ async def ingest_custom(
         db=db,
         background_tasks=background_tasks,
         error_file=error_file,
+        trace_id=tid,
     )
 
     return {"status": "accepted"}

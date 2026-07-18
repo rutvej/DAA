@@ -1,11 +1,12 @@
-import hashlib
 import json
 import os
+import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional
 
 import pika
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
+                     status)
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -20,7 +21,9 @@ from .auth import get_current_user
 router = APIRouter()
 
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
-RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+RABBITMQ_QUEUE = os.environ.get(
+    "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+)
 
 
 class LogCreate(BaseModel):
@@ -77,11 +80,17 @@ def submit_log(
     db.commit()
     db.refresh(db_log)
 
-    # 2. Calculate SHA256 Error Fingerprint for Deduplication
-    exc_type = log.exception_type or "UnknownError"
-    top_frame = log.content[:200]
-    raw_fp = f"{log.app_name}:{exc_type}:{top_frame}"
-    fingerprint = hashlib.sha256(raw_fp.encode("utf-8")).hexdigest()[:16]
+    # 2. Calculate SHA256 Error Fingerprint for Deduplication (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name=log.app_name,
+        exception_type=log.exception_type or "UnknownError",
+        content_or_top_frame=log.content,
+    )
 
     # 3. Check Deduplication: Is there already an active incident for this fingerprint?
     active_incident = (
@@ -202,12 +211,13 @@ def submit_log(
             # Fallback if somehow there's no active incident after a collision
             raise
 
+    trace_id = log.trace_id or str(uuid.uuid4())
     job_data = {
         "id": str(db_log.id),
         "log_id": str(db_log.id),
         "incident_id": str(new_incident.id),
         "fingerprint": fingerprint,
-        "trace_id": log.trace_id,
+        "trace_id": trace_id,
         "app_name": db_log.app_name,
         "status": "pending",
         "created_at": db_log.timestamp.isoformat(),
@@ -218,7 +228,7 @@ def submit_log(
             "content": db_log.content,
             "stack_trace": log.content,
             "exception_type": log.exception_type,
-            "trace_id": log.trace_id,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -264,7 +274,7 @@ def submit_log(
 
             try:
                 channel.queue_declare(
-                    queue="fix_jobs", durable=True, arguments=arguments
+                    queue=RABBITMQ_QUEUE, durable=True, arguments=arguments
                 )
             except Exception:
                 try:
@@ -272,18 +282,23 @@ def submit_log(
                         pika.ConnectionParameters(RABBITMQ_HOST)
                     )
                     channel = connection.channel()
-                    channel.queue_delete(queue="fix_jobs")
+                    channel.queue_delete(queue=RABBITMQ_QUEUE)
                     channel.queue_declare(
-                        queue="fix_jobs", durable=True, arguments=arguments
+                        queue=RABBITMQ_QUEUE, durable=True, arguments=arguments
                     )
                 except Exception:
                     connection = pika.BlockingConnection(
                         pika.ConnectionParameters(RABBITMQ_HOST)
                     )
                     channel = connection.channel()
-                    channel.queue_declare(queue="fix_jobs", durable=True)
+                    channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
             channel.basic_publish(
-                exchange="", routing_key="fix_jobs", body=json.dumps(job_data)
+                exchange="",
+                routing_key=RABBITMQ_QUEUE,
+                body=json.dumps(job_data),
+                properties=pika.BasicProperties(
+                    headers={"trace_id": trace_id}, delivery_mode=2
+                ),
             )
             connection.close()
         except pika.exceptions.AMQPConnectionError:

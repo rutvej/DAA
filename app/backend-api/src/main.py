@@ -1,32 +1,57 @@
+import logging
 import os
+import uuid
+from contextvars import ContextVar
 from pathlib import Path
-from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
-from .database import (
-    DAA_DB_PROVIDER,
-    Application,
-    Base,
-    SessionLocal,
-    engine,
-    run_db_migrations,
-)
-from .routers import (
-    alerts,
-    applications,
-    auth,
-    dashboard,
-    fixes,
-    incidents,
-    ingest,
-    logs,
-    projects,
-    status,
-    telemetry,
-)
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
+
+
+class TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not getattr(record, "trace_id", None):
+            ctx_tid = trace_id_ctx.get()
+            if ctx_tid:
+                record.trace_id = ctx_tid
+            else:
+                record.trace_id = ""
+        return True
+
+
+def setup_json_logging():
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            "%(asctime)s %(name)s %(levelname)s %(message)s %(trace_id)s"
+        )
+        handler.setFormatter(formatter)
+        handler.addFilter(TraceIdFilter())
+        logger.addHandler(handler)
+        logger.addFilter(TraceIdFilter())
+        logger.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+setup_json_logging()
+
+from .database import (DAA_DB_PROVIDER, Base, engine,  # noqa: E402
+                       run_db_migrations)
+from .routers import (alerts, applications, auth, dashboard,  # noqa: E402
+                      fixes, incidents, ingest, logs, mcp_gateway, projects,
+                      status, telemetry)
 
 _DB_ACTIVE = DAA_DB_PROVIDER not in ("none", "internal-redis", "external-redis")
 
@@ -35,21 +60,23 @@ if engine is not None:
     run_db_migrations(engine)
 
 app = FastAPI(
-    title="DAA v2.0 — Autonomous SRE Platform",
+    title="DAA v3.0 — Autonomous SRE Platform",
     description="Open-source autonomous SRE incident diagnosis and remediation platform.",
-    version="2.0.0",
+    version="3.0.0",
 )
 
-# Startup validation for Cloud Run constraints
-if (
-    os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
-    and "K_SERVICE" in os.environ
-):
-    raise RuntimeError(
-        "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run. "
-        "Cloud Run request-scoped containers suspend CPU, which breaks long-running RabbitMQ consumers. "
-        "Please use DAA_QUEUE_MODE=sync or deploy to a standard container environment."
-    )
+# Startup validation for Cloud Run / Serverless constraints
+if "K_SERVICE" in os.environ:
+    queue_mode = os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower()
+    always_on_cpu = os.environ.get("DAA_ALWAYS_ON_CPU", "false").lower() == "true"
+    if queue_mode != "sync" and not always_on_cpu:
+        raise RuntimeError(
+            f"Invalid configuration: DAA_QUEUE_MODE={queue_mode} is not supported on Google Cloud Run "
+            "without always-on CPU allocation (DAA_ALWAYS_ON_CPU=true). "
+            "Cloud Run request-scoped containers suspend CPU between requests, which breaks persistent "
+            "background worker threads ('python -m agent_src.main &') and long-running consumers. "
+            "Please set DAA_QUEUE_MODE=sync, enable always-on CPU (DAA_ALWAYS_ON_CPU=true), or deploy to a standard container environment."
+        )
 
 cors_origins = [
     origin.strip()
@@ -60,16 +87,9 @@ cors_origins = [
     if origin.strip()
 ]
 
-# Allow LAN access from devices on private 192.168.x.x addresses when the UI is opened remotely.
-cors_origin_regex = os.environ.get(
-    "CORS_ALLOW_ORIGIN_REGEX",
-    r"^https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3})(:\d+)?$",
-)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -77,48 +97,19 @@ app.add_middleware(
 
 
 @app.middleware("http")
-async def dynamic_cors_middleware(request: Request, call_next):
-    # Skip DB lookup in no-DB mode — MockSession can't do real queries.
-    if not _DB_ACTIVE:
-        return await call_next(request)
-
-    origin = request.headers.get("origin")
-    if origin:
-        try:
-            parsed = urlparse(origin)
-            origin_host = parsed.hostname
-            if origin_host:
-                db = SessionLocal()
-                try:
-                    matched = (
-                        db.query(Application)
-                        .filter(Application.allowed_ip == origin_host)
-                        .first()
-                    )
-                    if matched:
-                        if request.method == "OPTIONS":
-                            from fastapi.responses import Response
-
-                            response = Response()
-                            response.headers["Access-Control-Allow-Origin"] = origin
-                            response.headers["Access-Control-Allow-Credentials"] = (
-                                "true"
-                            )
-                            response.headers["Access-Control-Allow-Methods"] = "*"
-                            response.headers["Access-Control-Allow-Headers"] = "*"
-                            return response
-
-                        response = await call_next(request)
-                        response.headers["Access-Control-Allow-Origin"] = origin
-                        response.headers["Access-Control-Allow-Credentials"] = "true"
-                        response.headers["Access-Control-Allow-Methods"] = "*"
-                        response.headers["Access-Control-Allow-Headers"] = "*"
-                        return response
-                finally:
-                    db.close()
-        except Exception:
-            pass
-    return await call_next(request)
+async def trace_id_middleware(request: Request, call_next):
+    tid = (
+        request.headers.get("trace_id")
+        or request.headers.get("x-trace-id")
+        or str(uuid.uuid4())
+    )
+    token = trace_id_ctx.set(tid)
+    try:
+        response = await call_next(request)
+        response.headers["trace_id"] = tid
+        return response
+    finally:
+        trace_id_ctx.reset(token)
 
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -133,6 +124,7 @@ app.include_router(incidents.router, prefix="/incidents", tags=["incidents"])
 app.include_router(dashboard.router, tags=["dashboard"])
 app.include_router(ingest.router, tags=["ingest"])
 app.include_router(telemetry.router, tags=["telemetry"])
+app.include_router(mcp_gateway.router, prefix="/api/v1/mcp", tags=["mcp"])
 
 
 @app.get("/")

@@ -23,14 +23,23 @@ from .tools.database_tool import AnalysisUpdater
 from .tools.execution_tool import run_tests
 from .tools.file_system_tool import list_files, read_file, write_file
 from .tools.git_tool import clone_repo, commit, create_branch, create_pull_request, push
-from .tools.llm_tool import get_instructions
-from .tools.log_query_tool import query_correlated_logs
-from .tools.search_tool import search_repo
-from .tools.ticket_tool import create_incident_ticket
+
+try:
+    from .orchestrator import setup_json_logging, trace_id_ctx
+except ImportError:
+    from orchestrator import setup_json_logging, trace_id_ctx
+
+setup_json_logging()
+from .tools.llm_tool import get_instructions  # noqa: E402
+from .tools.log_query_tool import query_correlated_logs  # noqa: E402
+from .tools.search_tool import search_repo  # noqa: E402
+from .tools.ticket_tool import create_incident_ticket  # noqa: E402
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
-RABBITMQ_QUEUE = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+RABBITMQ_QUEUE = os.environ.get(
+    "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+)
 
 
 MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
@@ -161,17 +170,40 @@ class SimpleMcpClient:
             text=True,
             bufsize=1,
         )
+        if self.proc.stdin and self.proc.stdout:
+            init_req = {
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "daa-python-agent", "version": "3.0.0"},
+                },
+                "id": 0,
+            }
+            self.proc.stdin.write(json.dumps(init_req) + "\n")
+            self.proc.stdin.flush()
+            _init_resp = self.proc.stdout.readline()
+            init_notif = {
+                "jsonrpc": "2.0",
+                "method": "notifications/initialized",
+                "params": {},
+            }
+            self.proc.stdin.write(json.dumps(init_notif) + "\n")
+            self.proc.stdin.flush()
 
     def send_request(self, method, params=None, id=1):
         if not self.proc:
             self.start()
         req = {"jsonrpc": "2.0", "method": method, "params": params or {}, "id": id}
-        self.proc.stdin.write(json.dumps(req) + "\n")
-        self.proc.stdin.flush()
-        line = self.proc.stdout.readline()
-        if not line:
-            return None
-        return json.loads(line)
+        if self.proc and self.proc.stdin and self.proc.stdout:
+            self.proc.stdin.write(json.dumps(req) + "\n")
+            self.proc.stdin.flush()
+            line = self.proc.stdout.readline()
+            if not line:
+                return None
+            return json.loads(line)
+        return None
 
     def close(self):
         if self.proc:
@@ -180,17 +212,25 @@ class SimpleMcpClient:
 
 
 def load_mcp_tools() -> list:
-    """Loads tools from external MCP servers configured in mcp_config.json."""
-    config_path = "mcp_config.json"
-    if not os.path.exists(config_path):
-        return []
+    """Loads tools from external MCP servers configured in mcp_config.json or DAA_MCP_CONFIG_JSON."""
+    config = None
+    env_json = os.getenv("DAA_MCP_CONFIG_JSON")
+    if env_json:
+        try:
+            config = json.loads(env_json)
+        except Exception as e:
+            print(f"Failed to parse DAA_MCP_CONFIG_JSON: {e}")
 
-    try:
-        with open(config_path, "r") as f:
-            config = json.load(f)
-    except Exception as e:
-        print(f"Failed to read mcp_config.json: {e}")
-        return []
+    if not config:
+        config_path = os.getenv("DAA_MCP_CONFIG_PATH", "mcp_config.json")
+        if not os.path.exists(config_path):
+            return []
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        except Exception as e:
+            print(f"Failed to read {config_path}: {e}")
+            return []
 
     mcp_tools = []
     servers = config.get("mcpServers", {})
@@ -209,6 +249,9 @@ def load_mcp_tools() -> list:
             client.close()
 
             if not res or "result" not in res:
+                print(
+                    f"[MCP Verification] Server '{server_name}' failed health check or returned invalid result; excluding tools to prevent token waste."
+                )
                 continue
 
             tools_list = res["result"].get("tools", [])
@@ -235,9 +278,9 @@ def load_mcp_tools() -> list:
                                 return "\n".join(
                                     [c.get("text", "") for c in content_list]
                                 )
-                            return f"Error calling tool {t_name}: {call_res}"
+                            return f"Error calling MCP tool {t_name}: {call_res}. Note: If this MCP server is unavailable, fall back to native Git or local diagnostic tools."
                         except Exception as wrapper_ex:
-                            return f"Error executing tool {t_name}: {wrapper_ex}"
+                            return f"Error executing MCP tool {t_name}: {wrapper_ex}. Note: If this MCP server is unavailable, fall back to native Git or local diagnostic tools."
                         finally:
                             wrapper_client.close()
 
@@ -256,9 +299,10 @@ def load_mcp_tools() -> list:
 
 
 class ExecutionLogCallbackHandler(BaseCallbackHandler):
-    def __init__(self, log_id):
+    def __init__(self, log_id, trace_id: str = None):
         super().__init__()
         self.log_id = str(log_id)
+        self.trace_id = trace_id or trace_id_ctx.get() or ""
         self.logs = []
 
     def _send_log_line(self, line: str):
@@ -280,6 +324,15 @@ class ExecutionLogCallbackHandler(BaseCallbackHandler):
         tool_input_str = scrub_secrets(tool_input_str)
         line = f"🤖 **Thought:** {action.log.strip()}\n🛠️ **Action:** `{action.tool}` with input:\n```json\n{tool_input_str}\n```"
         self.logs.append(line)
+        logging.getLogger("ReActThought").info(
+            "ReActThought",
+            extra={
+                "trace_id": self.trace_id or trace_id_ctx.get() or "",
+                "thought": action.log.strip(),
+                "tool": action.tool,
+                "tool_input": tool_input_str,
+            },
+        )
         self._send_log_line(line)
 
     def on_tool_end(self, output, **kwargs):
@@ -566,7 +619,18 @@ def main():
         print(f" [x] Received {body}")
         try:
             job_data = json.loads(body)
+            header_tid = None
+            if (
+                properties
+                and getattr(properties, "headers", None)
+                and isinstance(properties.headers, dict)
+            ):
+                header_tid = properties.headers.get("trace_id")
+            if header_tid and not job_data.get("trace_id"):
+                job_data["trace_id"] = header_tid
             job = Job(**job_data)
+            if header_tid and not job.trace_id:
+                job.trace_id = header_tid
             process_job(job)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             print(f" [x] Done processing job {job.id}")
@@ -598,9 +662,13 @@ def process_job(job: Job):
     # [Item 5] Enforce Multi-Repo Access Boundary
     os.environ["DAA_TARGET_APP"] = job.app_name
 
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    tid = (
+        job.trace_id
+        or (job.error_log.trace_id if job.error_log else None)
+        or str(job.id)
     )
+    trace_id_ctx.set(tid)
+    setup_json_logging()
     logging.info(f"Processing job {job.id} for app {job.app_name}")
 
     analysis_updater = AnalysisUpdater(job.log_id)
@@ -792,7 +860,7 @@ def process_job(job: Job):
         handle_parsing_errors=True,
     )
 
-    callback_handler = ExecutionLogCallbackHandler(job.log_id)
+    callback_handler = ExecutionLogCallbackHandler(job.log_id, trace_id=job.trace_id)
 
     try:
         if daa30_available:
@@ -814,9 +882,66 @@ def process_job(job: Job):
                 {"input": question}, config={"callbacks": [callback_handler]}
             )
     except Exception as e:
-        logging.error(f"Agent core failed: {e}", exc_info=True)
-        report_daa_internal_error(e, "agent_core")
-        raise e
+        logging.error(
+            f"Agent core failed after retries ({e}). Triggering Serverless Fallback Postmortem...",
+            exc_info=True,
+        )
+        report_daa_internal_error(e, "agent_core_fallback")
+
+        partial_logs = (
+            callback_handler.logs
+            if callback_handler.logs
+            else ["No agent tool steps executed before failure."]
+        )
+        traces_formatted = "\n\n".join(partial_logs)
+
+        fallback_postmortem = (
+            f"# ⚠️ DAA Investigation Interrupted: LLM Circuit Breaker Tripped\n\n"
+            f"**Reason for Interruption:** The LLM provider API failed after exhausting exponential backoff (`{type(e).__name__}: {e}`).\n\n"
+            f"## Partial Investigation Findings & Traces So Far\n"
+            f"To save developer triage time and avoid re-running from scratch, below is the exact step-by-step investigation completed right up until the API interruption:\n\n"
+            f"```\n{traces_formatted}\n```\n"
+        )
+
+        pull_request_url = None
+        if daa30_available:
+            from .orchestrator import PostflightOrchestrator, RepoCacheManager
+
+            repo_cache_mgr = RepoCacheManager()
+            postflight = PostflightOrchestrator(
+                backend_url=backend_url,
+                token=daa_token,
+                repo_cache_manager=repo_cache_mgr,
+            )
+            try:
+                fallback_parsed = {
+                    "status": "escalated",
+                    "reason": f"LLM Circuit Breaker Tripped: {type(e).__name__}",
+                    "partial_diagnosis": f"LLM failed mid-investigation. Completed {len(partial_logs)} investigation steps.",
+                    "raw_output": fallback_postmortem,
+                }
+                pf_result = postflight.run(
+                    incident_id=str(getattr(job, "incident_id", None) or job.id),
+                    fingerprint=fingerprint,
+                    app_name=job.app_name,
+                    worktree_path=worktree_path,
+                    agent_output=fallback_parsed,
+                )
+                pull_request_url = pf_result.get("pr_url")
+            except Exception as pf_e:
+                logging.error(f"Postflight fallback error: {pf_e}")
+            finally:
+                try:
+                    repo_cache_mgr.cleanup_worktree(
+                        str(getattr(job, "incident_id", None) or job.id)
+                    )
+                except Exception:
+                    pass
+
+        analysis_updater.set_pull_request_url(pull_request_url)
+        analysis_updater.set_postmortem(fallback_postmortem)
+        analysis_updater.update_analysis_completed()
+        return
 
     output_text = result.get("output", "")
 

@@ -37,19 +37,29 @@ except Exception:
         return default
 
 
-ROOT_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
+WORKSPACE_DIR = os.environ.get("DAA_ROOT_DIR", "/app")
+ROOT_DIR = WORKSPACE_DIR
 
 
 def get_full_path(file_path: str) -> str:
-    """Returns the full path of a file."""
+    """Returns the full path of a file while strictly enforcing boundary checks against path traversal."""
     file_path = file_path.strip().strip("'\"")
-    if file_path.startswith("/tmp") or file_path.startswith("/home"):
-        return file_path
-    if os.path.isabs(file_path):
-        if file_path.startswith(ROOT_DIR):
-            return file_path
-        return os.path.join(ROOT_DIR, file_path[1:])
-    return os.path.join(ROOT_DIR, file_path)
+    if not os.path.isabs(file_path):
+        candidate = os.path.join(WORKSPACE_DIR, file_path)
+    else:
+        if file_path.startswith(WORKSPACE_DIR) or file_path.startswith("/tmp"):
+            candidate = file_path
+        else:
+            candidate = os.path.join(WORKSPACE_DIR, file_path.lstrip("/"))
+
+    real_path = os.path.realpath(candidate)
+    allowed_bases = [os.path.realpath(WORKSPACE_DIR), os.path.realpath("/tmp")]
+    if not any(
+        real_path == base or real_path.startswith(base + os.sep)
+        for base in allowed_bases
+    ):
+        raise PermissionError("Path traversal denied")
+    return real_path
 
 
 def parse_api_path(file_path: str) -> tuple[str, str]:
@@ -97,6 +107,8 @@ def read_file(file_path: str) -> str:
         full_path = get_full_path(file_path)
         with open(full_path, "r") as f:
             return f.read()
+    except PermissionError as e:
+        return f"Error: {e}"
     except FileNotFoundError:
         return f"File not found: {file_path}"
 

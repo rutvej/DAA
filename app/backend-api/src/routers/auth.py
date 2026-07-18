@@ -8,11 +8,21 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, Application, User, get_db
+from ..database import (DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Application, User,
+                        get_db)
 
 router = APIRouter()
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "a_secret_key")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    import warnings
+
+    warnings.warn(
+        "SECRET_KEY environment variable is not set. Using an insecure default. "
+        "Set SECRET_KEY in your .env file or run `daa init` to configure it.",
+        stacklevel=1,
+    )
+    SECRET_KEY = "insecure-default-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -31,6 +41,11 @@ class UserLogin(BaseModel):
 
 @router.post("/register")
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+        raise HTTPException(
+            status_code=503,
+            detail="Registration is disabled: DAA is operating in stateless/serverless mode (DAA_DB_PROVIDER=none). To enable user registration and persistent DB entries, configure DAA_DB_PROVIDER=sqlite or postgres.",
+        )
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -46,7 +61,17 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login")
 def login_user(user: UserLogin, db: Session = Depends(get_db)):
     if not DAA_AUTH_ENABLED:
-        return {"token": "dummy_token"}
+        # Auth disabled — return an anonymous token so the client knows it succeeded
+        # but without granting any real session. Endpoints still enforce role checks.
+        return {
+            "token": "open-auth",
+            "message": "Auth disabled — anonymous access only",
+        }
+    if DAA_DB_PROVIDER in ("none", "internal-redis", "external-redis"):
+        raise HTTPException(
+            status_code=503,
+            detail="Login with persistent accounts is disabled: DAA is operating in stateless/serverless mode (DAA_DB_PROVIDER=none). To enable persistent accounts, configure DAA_DB_PROVIDER=sqlite or postgres.",
+        )
     db_user = db.query(User).filter(User.username == user.username).first()
     if not db_user or not pwd_context.verify(user.password, db_user.passwordHash):
         raise HTTPException(status_code=401, detail="Incorrect username or password")
@@ -67,7 +92,24 @@ def get_current_user(
     request: Request, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     if not DAA_AUTH_ENABLED:
-        return {"username": "admin", "id": "admin-id", "role": "admin"}
+        iam_user = request.headers.get("X-Forwarded-User") or request.headers.get(
+            "X-DAA-User"
+        )
+        iam_role = request.headers.get("X-Forwarded-Role") or request.headers.get(
+            "X-DAA-Role"
+        )
+        if iam_user:
+            return {
+                "username": iam_user,
+                "id": f"iam-{iam_user}",
+                "role": (
+                    iam_role
+                    if iam_role in ("admin", "user", "readonly")
+                    else os.getenv("DAA_DEFAULT_ROLE", "user")
+                ),
+            }
+        default_role = os.getenv("DAA_DEFAULT_ROLE_WHEN_NO_AUTH", "readonly")
+        return {"username": "anonymous", "id": "anonymous-id", "role": default_role}
 
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")

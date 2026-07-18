@@ -1,14 +1,14 @@
-import hashlib
 import json
 import logging
 import os
+import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import Application, Fix, Incident, Log, SessionLocal
+from ..database import Application, Fix, Incident, Log, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +35,9 @@ class DAAInternalErrorReport(BaseModel):
     instance_id: str
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
 @router.post("/api/v1/self-report")
 def receive_self_report(
+    request: Request,
     report: DAAInternalErrorReport,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -59,11 +52,30 @@ def receive_self_report(
             detail="Self-reporting endpoint is disabled on this DAA instance.",
         )
 
-    # 1. Compute fingerprint
-    fingerprint_input = (
-        f"DAA|{report.exception_type}|{report.daa_file}|{report.daa_line}"
+    # Enforce API key verification on self-report submissions if DAA_API_KEY is configured
+    daa_api_key = os.environ.get("DAA_API_KEY")
+    if daa_api_key:
+        api_key_header = request.headers.get("X-API-Key") or request.headers.get(
+            "Authorization", ""
+        ).replace("Bearer ", "")
+        if api_key_header != daa_api_key:
+            raise HTTPException(
+                status_code=401,
+                detail="Unauthorized: Invalid DAA_API_KEY for self-report",
+            )
+
+    # 1. Compute fingerprint (Canonical Utility)
+    try:
+        from common.fingerprint import compute_canonical_fingerprint
+    except ImportError:
+        from app.common.fingerprint import compute_canonical_fingerprint
+
+    fingerprint = compute_canonical_fingerprint(
+        app_name="DAA",
+        exception_type=report.exception_type,
+        error_file=report.daa_file,
+        line_number=str(report.daa_line),
     )
-    fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()
 
     # 2. Check for duplicate incident in DB
     existing_incident = (
@@ -152,12 +164,13 @@ def receive_self_report(
     db.refresh(db_fix)
 
     # Create job metadata to trigger investigation
+    trace_id = report.instance_id or str(uuid.uuid4())
     job_data = {
         "id": str(db_fix.id),
         "log_id": str(db_log.id),
         "incident_id": str(new_incident.id),
         "fingerprint": fingerprint,
-        "trace_id": report.instance_id,
+        "trace_id": trace_id,
         "app_name": "DAA",
         "status": "pending",
         "created_at": db_log.timestamp.isoformat(),
@@ -168,7 +181,7 @@ def receive_self_report(
             "content": db_log.content,
             "stack_trace": report.traceback,
             "exception_type": report.exception_type,
-            "trace_id": report.instance_id,
+            "trace_id": trace_id,
             "timestamp": db_log.timestamp.isoformat(),
         },
     }
@@ -184,17 +197,22 @@ def receive_self_report(
         import pika
 
         rabbitmq_host = os.environ.get("RABBITMQ_HOST", "rabbitmq")
+        rabbitmq_queue = os.environ.get(
+            "DAA_RABBITMQ_QUEUE", os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
+        )
         try:
             connection = pika.BlockingConnection(
                 pika.ConnectionParameters(host=rabbitmq_host)
             )
             channel = connection.channel()
-            channel.queue_declare(queue="fix_jobs", durable=True)
+            channel.queue_declare(queue=rabbitmq_queue, durable=True)
             channel.basic_publish(
                 exchange="",
-                routing_key="fix_jobs",
+                routing_key=rabbitmq_queue,
                 body=json.dumps(job_data),
-                properties=pika.BasicProperties(delivery_mode=2),
+                properties=pika.BasicProperties(
+                    headers={"trace_id": trace_id}, delivery_mode=2
+                ),
             )
             connection.close()
         except Exception as e:

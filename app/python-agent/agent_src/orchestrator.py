@@ -4,17 +4,59 @@
 # context packaging, diff application, branch/PR idempotent management,
 # and postmortem generation.
 
-import hashlib
+import base64
 import logging
 import os
+import re
 import shutil
 import subprocess
 import time
+import uuid
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import unquote, urlparse
 
 import requests
+
+trace_id_ctx: ContextVar[str] = ContextVar("trace_id", default="")
+
+
+class TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not getattr(record, "trace_id", None):
+            ctx_tid = trace_id_ctx.get()
+            if ctx_tid:
+                record.trace_id = ctx_tid
+            else:
+                record.trace_id = ""
+        return True
+
+
+def setup_json_logging():
+    try:
+        from pythonjsonlogger import jsonlogger
+
+        logger = logging.getLogger()
+        for handler in logger.handlers[:]:
+            logger.removeHandler(handler)
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            "%(asctime)s %(name)s %(levelname)s %(message)s %(trace_id)s"
+        )
+        handler.setFormatter(formatter)
+        handler.addFilter(TraceIdFilter())
+        logger.addHandler(handler)
+        logger.addFilter(TraceIdFilter())
+        logger.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+setup_json_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +172,14 @@ class RepoCacheManager:
         self, cmd: list, cwd: str = None, check: bool = True
     ) -> subprocess.CompletedProcess:
         """Thin wrapper around subprocess.run with unified logging."""
-        logger.debug("Running: %s (cwd=%s)", " ".join(cmd), cwd)
+        cmd_str = " ".join(str(c) for c in cmd)
+        cmd_str = re.sub(r"https://[^@]+@", "https://***@", cmd_str)
+        cmd_str = re.sub(
+            r"http\.extraHeader=[^\s]+",
+            "http.extraHeader=Authorization: Basic ***",
+            cmd_str,
+        )
+        logger.debug("Running: %s (cwd=%s)", cmd_str, cwd)
         return subprocess.run(
             cmd,
             cwd=cwd,
@@ -143,7 +192,9 @@ class RepoCacheManager:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_worktree(self, app_name: str, repo_url: str, incident_id: str) -> str:
+    def get_worktree(
+        self, app_name: str, repo_url: str, incident_id: str, token: str = None
+    ) -> str:
         """
         Ensure a fresh, isolated git worktree exists for *incident_id*.
 
@@ -156,17 +207,23 @@ class RepoCacheManager:
         git_dir = os.path.join(cache_dir, ".git")
         worktree_path = f"/tmp/daa/{incident_id}"
 
+        git_auth_args = []
+        if token:
+            token_str = token if ":" in token else f"x-access-token:{token}"
+            b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+            git_auth_args = ["-c", f"http.extraHeader=Authorization: Basic {b64_token}"]
+
         # ---- 1. Clone or refresh -------------------------------------------
         if os.path.isdir(git_dir):
             self._run(
-                ["git", "remote", "set-url", "origin", repo_url],
+                ["git", "remote", "set-url", "origin", "--", repo_url],
                 cwd=cache_dir,
                 check=False,
             )
             age = time.time() - self._read_last_fetch(app_name)
             if age >= self.FETCH_TTL_SECONDS:
                 logger.info("Cache stale (%.0fs old), refreshing %s", age, app_name)
-                self._run(["git", "fetch", "origin"], cwd=cache_dir)
+                self._run(["git"] + git_auth_args + ["fetch", "origin"], cwd=cache_dir)
                 self._run(["git", "reset", "--hard", "origin/main"], cwd=cache_dir)
                 self._write_last_fetch(app_name)
             else:
@@ -175,7 +232,7 @@ class RepoCacheManager:
                 )
         else:
             logger.info("No cache found, cloning %s -> %s", repo_url, cache_dir)
-            self._run(["git", "clone", repo_url, cache_dir])
+            self._run(["git"] + git_auth_args + ["clone", "--", repo_url, cache_dir])
             self._write_last_fetch(app_name)
 
         # ---- 2. Create worktree --------------------------------------------
@@ -190,7 +247,7 @@ class RepoCacheManager:
 
         try:
             self._run(
-                ["git", "worktree", "add", "--force", worktree_path, "main"],
+                ["git", "worktree", "add", "--force", "--", worktree_path, "main"],
                 cwd=cache_dir,
             )
         except subprocess.CalledProcessError:
@@ -198,7 +255,7 @@ class RepoCacheManager:
                 "Failed to add worktree for branch 'main', trying 'master' fallback"
             )
             self._run(
-                ["git", "worktree", "add", "--force", worktree_path, "master"],
+                ["git", "worktree", "add", "--force", "--", worktree_path, "master"],
                 cwd=cache_dir,
             )
         # Index repo for codebase search tool (DAA 3.1)
@@ -254,13 +311,23 @@ class FingerprintDedup:
         exception_type: str,
         error_file: str,
         line_number: str,
+        content_or_top_frame: str = "",
     ) -> str:
         """
-        Return a deterministic SHA-256 hex string derived from the four
-        incident fields.  Same inputs => same fingerprint across runs.
+        Return a deterministic canonical SHA-256 fingerprint using common.fingerprint.
         """
-        raw = "|".join([app_name, exception_type, error_file, str(line_number)])
-        return hashlib.sha256(raw.encode()).hexdigest()
+        try:
+            from common.fingerprint import compute_canonical_fingerprint
+        except ImportError:
+            from app.common.fingerprint import compute_canonical_fingerprint
+
+        return compute_canonical_fingerprint(
+            app_name=app_name,
+            exception_type=exception_type,
+            content_or_top_frame=content_or_top_frame,
+            error_file=error_file,
+            line_number=str(line_number),
+        )
 
     def check(self, fingerprint: str) -> dict:
         """
@@ -645,6 +712,8 @@ class PostflightOrchestrator:
             {"pr_url": str|None, "postmortem": str, "status": "fixed"|"escalated"}
         """
         output_type = agent_output.get("type")
+        tid = agent_output.get("trace_id") or trace_id_ctx.get() or str(uuid.uuid4())
+        trace_id_ctx.set(tid)
 
         if output_type == "diff":
             return self._apply_and_push_fix(
@@ -1118,14 +1187,19 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     error_file = job.get("error_file", "")
     line_number = str(job.get("line_number", ""))
     incident_id = job.get("incident_id", f"{app_name}-{int(time.time())}")
+    tid = job.get("trace_id") or str(uuid.uuid4())
+    job["trace_id"] = tid
+    trace_id_ctx.set(tid)
 
     # ---- 1. Compute fingerprint ------------------------------------------
     dedup = FingerprintDedup(backend_url=backend_url, token=token)
-    fingerprint = dedup.compute(
+    fingerprint = job.get("fingerprint") or dedup.compute(
         app_name=app_name,
         exception_type=exception_type,
         error_file=error_file,
         line_number=line_number,
+        content_or_top_frame=job.get("stack_trace", "")
+        or str(job.get("error_log", {}).get("content", "")),
     )
     logger.info("Fingerprint: %s", fingerprint)
 
@@ -1159,6 +1233,7 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                         "git",
                         "ls-remote",
                         "--heads",
+                        "--",
                         auth_url,
                         f"refs/heads/{branch_name}",
                     ],
@@ -1240,22 +1315,34 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
                 token_val = os.environ.get("DAA_GIT_TOKEN")
                 if not token_val and token and not token.startswith("eyJ"):
                     token_val = token
-                auth_url = repo_url
-                if token_val:
-                    parsed = urlparse(repo_url)
-                    auth_url = (
-                        parsed._replace(netloc=f"{token_val}@{parsed.netloc}").geturl()
-                        if "@" not in parsed.netloc
-                        else repo_url
-                    )
+                parsed = urlparse(repo_url)
+                clean_url = parsed._replace(
+                    netloc=parsed.hostname + (f":{parsed.port}" if parsed.port else "")
+                ).geturl()
                 worktree_path = cache_manager.get_worktree(
                     app_name=app_name,
-                    repo_url=auth_url,
+                    repo_url=clean_url,
                     incident_id=incident_id,
+                    token=token_val,
                 )
                 try:
+                    push_cmd = ["git"]
+                    if token_val:
+                        token_str = (
+                            token_val
+                            if ":" in token_val
+                            else f"x-access-token:{token_val}"
+                        )
+                        b64_token = base64.b64encode(token_str.encode()).decode("utf-8")
+                        push_cmd.extend(
+                            ["-c", f"http.extraHeader=Authorization: Basic {b64_token}"]
+                        )
+                    push_cmd.extend(
+                        ["push", "origin", "--", f"HEAD:refs/heads/{branch_name}"]
+                    )
+
                     subprocess.run(
-                        ["git", "push", "origin", f"HEAD:refs/heads/{branch_name}"],
+                        push_cmd,
                         cwd=worktree_path,
                         check=True,
                         capture_output=True,
