@@ -18,13 +18,8 @@
 
 ---
 
-<!-- 🎥 HOW TO ADD YOUR 30s DEMO VIDEO 🎥
-1. Drag and drop your .mp4 or .mov file directly into the GitHub web editor for this README.
-2. GitHub will automatically upload it and generate a video link (e.g. https://github.com/user-attachments/assets/...).
-3. Replace the placeholder below with that generated link!
--->
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/YOUR-VIDEO-LINK.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
+  <h3><a href="https://photos.app.goo.gl/wGwjTE1odRu5QmT86" target="_blank">▶️ Watch the 30-Second Demo</a></h3>
 </div>
 
 ---
