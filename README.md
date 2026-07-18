@@ -13,7 +13,7 @@
 </div>
 
 <div align="center">
-  <img src="./docs/assets/daa_hero.jpg" alt="DAA Hero Banner" width="800"/>
+  <img src="./docs/daa_hero.jpg" alt="DAA Hero Banner" width="800"/>
 </div>
 
 ---
@@ -152,9 +152,7 @@ Full guide: [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ## Architecture
 
-<div align="center">
-  <img src="./docs/assets/daa_architecture.jpg" alt="DAA Architecture Diagram" width="800"/>
-</div>
+
 
 ```
 DAA/
