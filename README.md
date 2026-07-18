@@ -19,7 +19,9 @@
 ---
 
 <div align="center">
-  <video src="https://github.com/rutvej/DAA/raw/main/docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
+  <video controls="controls" muted="muted" style="max-height:640px;">
+    <source src="docs/assets/demo_video.mp4" type="video/mp4">
+  </video>
 </div>
 
 ---
