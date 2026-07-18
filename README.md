@@ -27,6 +27,24 @@ You review & merge      (or auto-merge with HITL approval)
 
 ---
 
+## 🎬 See It In Action — E2E Demo
+
+The [`daa-e2e-demo`](https://github.com/your-org/daa-e2e-demo) repo contains a full realistic scenario:
+
+- **PayFlow** — a Python (FastAPI) payment API + Go worker, backed by Redis, Postgres, RabbitMQ
+- Redis is intentionally capped at **50MB** to trigger an OOM crash under load
+- `run_demo.py` orchestrates the entire flow end-to-end: spins up infrastructure, registers services with DAA, runs a load test that triggers the crash, then polls for the AI-generated PR fix
+
+```bash
+git clone https://github.com/your-org/daa-e2e-demo
+cd daa-e2e-demo
+python run_demo.py   # Sit back and watch the agent fix it
+```
+
+> The demo also includes Scenario B (schema break) and Scenario C (cache TTL tuning) for additional failure modes.
+
+---
+
 ## 60-Second Quickstart
 
 **Requirements:** Docker, an LLM API key (Gemini is free)
