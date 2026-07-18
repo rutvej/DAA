@@ -75,9 +75,9 @@ if engine is not None:
     run_db_migrations(engine)
 
 app = FastAPI(
-    title="DAA v2.0 — Autonomous SRE Platform",
+    title="DAA v3.0 — Autonomous SRE Platform",
     description="Open-source autonomous SRE incident diagnosis and remediation platform.",
-    version="2.0.0",
+    version="3.0.0",
 )
 
 # Startup validation for Cloud Run / Serverless constraints

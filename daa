@@ -438,7 +438,7 @@ def cmd_init(_args):
     if deploy_choice.startswith("Stateless"):
         print(f"\n  To build and run DAA as a single unified stateless Docker container, run:")
         print(f"    {CYAN}docker build -t daa:latest .{RESET}")
-        print(f"    {CYAN}docker run -d -p 8000:80 --env-file .env daa:latest{RESET}")
+        print(f"    {CYAN}docker run -d -p 8080:8080 --env-file .env daa:latest{RESET}")
     else:
         print(f"\n  To apply LLM configurations and deploy DAA services, run:")
         print(f"    {CYAN}daa redeploy{RESET}")
