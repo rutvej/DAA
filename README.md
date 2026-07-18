@@ -19,7 +19,7 @@
 ---
 
 <div align="center">
-  <h3><a href="https://photos.app.goo.gl/wGwjTE1odRu5QmT86" target="_blank">▶️ Watch the 30-Second Demo</a></h3>
+  <video src="./docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
 </div>
 
 ---
