@@ -4,7 +4,7 @@
 This project currently supports the latest `main` and `audit/*` branches (`v3.0+`).
 
 ## Reporting a Vulnerability
-Please report security issues privately by emailing maintainers@example.com.
+Please report security issues **privately** via [GitHub Security Advisories](https://github.com/rutvej/DAA/security/advisories/new) — do not open a public issue.
 
 Include:
 - A detailed description of the issue

@@ -29,14 +29,14 @@ You review & merge      (or auto-merge with HITL approval)
 
 ## 🎬 See It In Action — E2E Demo
 
-The [`daa-e2e-demo`](https://github.com/your-org/daa-e2e-demo) repo contains a full realistic scenario:
+The [`daa-e2e-demo`](https://github.com/rutvej/daa_e2e_demo) repo contains a full realistic scenario:
 
 - **PayFlow** — a Python (FastAPI) payment API + Go worker, backed by Redis, Postgres, RabbitMQ
 - Redis is intentionally capped at **50MB** to trigger an OOM crash under load
 - `run_demo.py` orchestrates the entire flow end-to-end: spins up infrastructure, registers services with DAA, runs a load test that triggers the crash, then polls for the AI-generated PR fix
 
 ```bash
-git clone https://github.com/your-org/daa-e2e-demo
+git clone https://github.com/rutvej/daa_e2e_demo
 cd daa-e2e-demo
 python run_demo.py   # Sit back and watch the agent fix it
 ```
@@ -51,7 +51,7 @@ python run_demo.py   # Sit back and watch the agent fix it
 
 ```bash
 # 1. Clone and configure
-git clone https://github.com/your-org/daa && cd daa
+git clone https://github.com/rutvej/DAA && cd DAA
 ./install.sh && source ~/.bashrc
 
 # 2. Run the guided setup (picks your LLM, git provider, deployment mode)
