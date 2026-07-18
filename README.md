@@ -19,7 +19,7 @@
 ---
 
 <div align="center">
-  <video src="https://github.com/rutvej/DAA/raw/audit/comprehensive-10-phase-review/docs/assets/demo_video.mp4" controls="controls" muted="muted" style="max-height:640px;"></video>
+  https://github.com/rutvej/DAA/blob/audit/comprehensive-10-phase-review/docs/assets/demo_video.mp4
 </div>
 
 ---
