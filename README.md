@@ -50,65 +50,55 @@ You wake up, review the PR, and merge.
 
 ---
 
-## 🎬 See it live — E2E Demo
+## ⚡ Quickstart — Serverless Mode (1 Command)
 
-> A Python + Go payment system. Redis is deliberately capped at 50MB to OOM under load.  
-> Watch DAA catch the crash, investigate it, and open the fix as a PR — fully automatically.
+The easiest way to run DAA is as a stateless webhook receiver via the standalone Docker image. No databases or queues required. 
+It receives an alert, talks to the LLM, pushes a branch, and opens a PR.
 
-```bash
-git clone https://github.com/rutvej/daa_e2e_demo
-cd daa_e2e_demo
-python run_demo.py
-```
-
-Three built-in failure scenarios:
-- **Scenario A** — Redis OOM (cache exhaustion under load)
-- **Scenario B** — Schema break (Go consumer crashes after Python API change)
-- **Scenario C** — Cache TTL misconfiguration (high eviction warnings)
-
----
-
-## ⚡ Quickstart — up in 1 command (Serverless Mode)
-
-The easiest way to run DAA is via the standalone Docker image. No databases or queues required.
-It runs statelessly, processing incoming webhooks and opening PRs directly.
-
-**Requirements:** Docker + a free [Gemini API key](https://aistudio.google.com/app/apikey)
+**Requirements:** Docker, a free [Gemini API key](https://aistudio.google.com/app/apikey), and a GitHub Personal Access Token.
 
 ```bash
 docker run -p 8000:8080 \
   -e LLM_PROVIDER=google \
   -e GEMINI_API_KEY="your_api_key_here" \
   -e DAA_DB_PROVIDER=none \
+  -e DAA_GIT_TOKEN="github_pat_..." \
+  -e GIT_HOST="https://github.com" \
+  -e GIT_ORG="your-github-username" \
   rutvej1/daa-standalone:latest
 ```
 
-Then trigger a test incident:
+Then trigger a test incident (simulating a webhook from Prometheus/Sentry):
 ```bash
 curl -X POST http://localhost:8000/ingest/prometheus \
   -d '{"status": "firing", "alerts": [{"labels": {"alertname": "TestCrash"}}]}'
-# → DAA immediately wakes up, queries the LLM, and prints the generated fix
+# → DAA immediately wakes up, clones the repo, queries the LLM, and opens a PR
 ```
 
 *Want the full persistent stack (Postgres + RabbitMQ + UI)? See [DEPLOYMENT.md](./DEPLOYMENT.md).*
 
 ---
 
-## Connect your app — one line
+## 🔌 Two Ways to Integrate
+
+DAA is flexible. You can plug it into your existing alerting stack, or instrument your code directly.
+
+### 1. Existing Log Aggregators & Webhooks (Recommended for Serverless)
+You do **not** need to use our SDK or change your app code. You can just point your existing alerting tools (Sentry, Datadog, Prometheus, CloudWatch) to DAA's webhook endpoints.
+- **Auth:** Run DAA with `DAA_AUTH_ENABLED=false` and secure it behind your own API Gateway, AWS IAM, or Cloudflare Tunnel.
+- **Dedup:** Rely on your existing aggregator to group the errors, and let DAA handle the autonomous fixing.
+
+### 2. The DAA SDK (Recommended for Full-Stack)
+If you don't have centralized logging, use the DAA SDK. 
+- Requires deploying DAA with `DAA_AUTH_ENABLED=true` (usually via Docker Compose).
+- You register your app, get a `DAA_TOKEN`, and the SDK securely pushes exceptions to DAA.
 
 ```python
 # pip install daa-sdk
 from daa_sdk import DAAClient
 
-daa = DAAClient()  # reads DAA_TOKEN + DAA_LOGS_URL from env
+daa = DAAClient() # reads DAA_TOKEN from env
 daa.report_exception(exception, app_name="my-service")
-```
-
-Or send errors directly over HTTP — no SDK required:
-```bash
-curl -X POST http://your-daa-host:8000/logs/ \
-  -H "Authorization: Bearer $DAA_TOKEN" \
-  -d '{"app_name": "my-service", "content": "...", "exception_type": "RedisTimeoutError"}'
 ```
 
 ---
