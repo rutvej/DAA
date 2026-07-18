@@ -2,9 +2,14 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agent_src.tools.git_tool import (clone_repo, commit, create_branch,
-                                      create_pull_request,
-                                      get_project_connection, push)
+from agent_src.tools.git_tool import (
+    clone_repo,
+    commit,
+    create_branch,
+    create_pull_request,
+    get_project_connection,
+    push,
+)
 
 
 class TestGitTool(unittest.TestCase):
@@ -52,7 +57,9 @@ class TestGitTool(unittest.TestCase):
         # Assert
         self.assertEqual(result, expected_path)
         mock_repo.clone_from.assert_called_once_with(
-            "http://root:None@gitlab:80/root/test-app.git", expected_path
+            "http://root:None@gitlab:80/root/test-app.git",
+            expected_path,
+            multi_options=["--"],
         )
         mock_repo_instance.config_writer.assert_called_once()
 
@@ -116,7 +123,7 @@ class TestGitTool(unittest.TestCase):
         # Assert
         mock_get_repo.assert_called_once_with(repo_path)
         mock_repo.git.push.assert_called_once_with(
-            "--set-upstream", "--force", "origin", branch_name
+            "--set-upstream", "--force", "origin", "--", branch_name
         )
 
     @patch.dict("os.environ", {"DAA_GIT_MODE": "api"}, clear=False)
