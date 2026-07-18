@@ -4,7 +4,8 @@ import re
 import time
 from typing import Dict, Set
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (APIRouter, Depends, HTTPException, WebSocket,
+                     WebSocketDisconnect)
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 

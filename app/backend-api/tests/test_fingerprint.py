@@ -1,13 +1,9 @@
 try:
-    from common.fingerprint import (
-        compute_canonical_fingerprint,
-        normalize_error_content,
-    )
+    from common.fingerprint import (compute_canonical_fingerprint,
+                                    normalize_error_content)
 except ImportError:
-    from app.common.fingerprint import (
-        compute_canonical_fingerprint,
-        normalize_error_content,
-    )
+    from app.common.fingerprint import (compute_canonical_fingerprint,
+                                        normalize_error_content)
 
 
 def test_normalize_error_content():

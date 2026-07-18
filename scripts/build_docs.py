@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
+import ast
 import os
 import sys
-import ast
 
 # Add the root directory to sys.path so we can import from generate_matrix
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))

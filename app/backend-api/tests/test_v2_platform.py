@@ -1,14 +1,13 @@
 from unittest.mock import patch
-import pytest
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from src.database import get_db
 from src.main import app
 from src.routers.logs import get_current_user
-
-from sqlalchemy.pool import StaticPool
 
 DATABASE_URL = "sqlite:///:memory:"
 

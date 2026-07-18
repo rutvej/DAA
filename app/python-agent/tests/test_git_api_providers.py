@@ -1,12 +1,10 @@
 import unittest
 from unittest.mock import patch
 
-from agent_src.tools.git_api_providers import (
-    BitbucketProvider,
-    GitLabProvider,
-    build_project_connection,
-    create_provider_client,
-)
+from agent_src.tools.git_api_providers import (BitbucketProvider,
+                                               GitLabProvider,
+                                               build_project_connection,
+                                               create_provider_client)
 
 
 class FakeResponse:

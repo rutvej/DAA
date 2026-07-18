@@ -1,19 +1,12 @@
 import os
-import shutil
 import re
+import shutil
 
 root_dir = "/home/rutvej/Desktop/DAA"
 docs_dir = os.path.join(root_dir, "docs")
 
 # 1. Create Docs Hierarchy
-dirs = [
-    "quickstart",
-    "architecture",
-    "deployment",
-    "sdk",
-    "webhooks",
-    "operations"
-]
+dirs = ["quickstart", "architecture", "deployment", "sdk", "webhooks", "operations"]
 for d in dirs:
     os.makedirs(os.path.join(docs_dir, d), exist_ok=True)
 
@@ -43,13 +36,16 @@ Welcome to the DAA Documentation Portal.
 with open(os.path.join(docs_dir, "index.md"), "w") as f:
     f.write(index_content)
 
+
 # 4. Migrate and consolidate specs to new docs hierarchy
 # We'll just copy any existing specs into docs for now, then we'll remove the spec dirs
 def move_files(src_dir, dest_dir):
-    if not os.path.exists(src_dir): return
+    if not os.path.exists(src_dir):
+        return
     for f in os.listdir(src_dir):
-        if f.endswith('.md'):
+        if f.endswith(".md"):
             shutil.copy2(os.path.join(src_dir, f), os.path.join(dest_dir, f))
+
 
 # Consolidating specs to architecture as a default, will rename later if needed
 if os.path.exists(os.path.join(root_dir, "specs")):
@@ -65,7 +61,7 @@ spec_dirs = [
     "specs",
     "app/backend-api/specs",
     "app/python-agent/specs",
-    "app/daa-sdk/specs"
+    "app/daa-sdk/specs",
 ]
 for d in spec_dirs:
     p = os.path.join(root_dir, d)

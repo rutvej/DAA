@@ -1,6 +1,6 @@
 import os
-import sys
 import shlex
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,9 +16,7 @@ from src.main import app
 from src.routers.logs import get_current_user
 
 try:
-    from common.fingerprint import (
-        compute_canonical_fingerprint,
-    )
+    from common.fingerprint import compute_canonical_fingerprint
 except ImportError:
     from app.common.fingerprint import compute_canonical_fingerprint
 

@@ -9,13 +9,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import (
-    DAA_AUTH_ENABLED,
-    DAA_DB_PROVIDER,
-    Fix as DBFix,
-    Incident as DBIncident,
-    get_db,
-)
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER
+from ..database import Fix as DBFix
+from ..database import Incident as DBIncident
+from ..database import get_db
 from .auth import get_current_user
 
 logger = logging.getLogger("mcp_gateway")

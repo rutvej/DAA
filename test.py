@@ -20,9 +20,10 @@
 """
 
 import os
+import subprocess
 import sys
 import time
-import subprocess
+
 import requests
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -258,9 +259,9 @@ def seed_gitea() -> str:
     Create Gitea admin, generate scoped token, create repos, push source code.
     Returns the raw token string.
     """
-    import uuid
-    import tempfile
     import shutil
+    import tempfile
+    import uuid
 
     section("Seeding Gitea")
     info("Creating admin user (ignored if already exists) …")
