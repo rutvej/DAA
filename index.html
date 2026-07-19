@@ -1023,6 +1023,7 @@
   -p 8000:8080 \
   -e LLM_PROVIDER=google \
   -e GEMINI_API_KEY="your_api_key_here" \
+  -e LLM_MODEL="gemini-2.5-flash" \
   -e DAA_DB_PROVIDER=none \
   -e DAA_GIT_TOKEN="github_pat_..." \
   -e GIT_HOST="https://github.com" \
@@ -1276,6 +1277,7 @@ docker compose up -d
   --port 8080 \
   --set-env-vars LLM_PROVIDER=google \
   --set-env-vars GEMINI_API_KEY=your-key \
+  --set-env-vars LLM_MODEL=gemini-2.5-flash \
   --set-env-vars DAA_DB_PROVIDER=none \
   --set-env-vars DAA_GIT_TOKEN=your-token \
   --set-env-vars GIT_HOST=https://github.com \
@@ -1617,7 +1619,7 @@ receivers:
                             <tr><td class="config-var">OPENAI_API_KEY</td><td>—</td><td>OpenAI API key (required if openai)</td></tr>
                             <tr><td class="config-var">ANTHROPIC_API_KEY</td><td>—</td><td>Anthropic API key (required if anthropic)</td></tr>
                             <tr><td class="config-var">OLLAMA_HOST</td><td><code>http://localhost:11434</code></td><td>Ollama server URL</td></tr>
-                            <tr><td class="config-var">DAA_MODEL</td><td>Provider default</td><td>Override model name</td></tr>
+                            <tr><td class="config-var">LLM_MODEL</td><td>Provider default</td><td>Override model name (e.g. <code>gemini-2.5-flash</code>, <code>gpt-4o</code>, <code>claude-sonnet-4-20250514</code>)</td></tr>
                         </tbody>
                     </table>
                 </div>
