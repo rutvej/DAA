@@ -304,7 +304,7 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
         res = requests.get(url, headers=headers, params=params, timeout=10)
         res.raise_for_status()
         prs = res.json()
-    except Exception as e:
+    except Exception:
         return []
 
     results = []
