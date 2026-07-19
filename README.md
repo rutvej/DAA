@@ -15,9 +15,9 @@
 <div align="center">
   <img src="./docs/daa_hero.jpg" alt="DAA Hero Banner" width="800"/>
 </div>
-<div align="center">
-<video src="https://github.com/user-attachments/assets/38b77b21-f70a-4501-8308-bf88e03706fb" controls="controls" muted="muted" width="100%"></video>
-</div>
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/38b77b21-f70a-4501-8308-bf88e03706fb" controls muted width="320" style="max-width: 100%;"></video>
+</p>
 ---
 
 ## How it works
