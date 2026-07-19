@@ -59,6 +59,7 @@ It receives an alert, talks to the LLM, pushes a branch, and opens a PR.
 docker run -p 8000:8080 \
   -e LLM_PROVIDER=google \
   -e GEMINI_API_KEY="your_api_key_here" \
+  -e LLM_MODEL="gemini-2.5-flash" \
   -e DAA_DB_PROVIDER=none \
   -e DAA_GIT_TOKEN="github_pat_..." \
   -e GIT_HOST="https://github.com" \

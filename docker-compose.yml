@@ -69,6 +69,7 @@ services:
       - GITLAB_PRIVATE_TOKEN=${GITLAB_PRIVATE_TOKEN}
       - GIT_REPO_URL=${GIT_REPO_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
       - DATABASE_URL=postgresql://youruser:${POSTGRES_PASSWORD:-demo_postgres_password}@postgres/yourdb
     env_file:
       - .env

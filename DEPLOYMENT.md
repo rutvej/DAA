@@ -53,6 +53,7 @@ Key variables:
 | `SECRET_KEY` | *required* | JWT signing key — set to a random string |
 | `LLM_PROVIDER` | `google` | `google` / `openai` / `anthropic` / `vertex` / `ollama` |
 | `GEMINI_API_KEY` | — | API key for your LLM provider |
+| `LLM_MODEL` | Provider default | Override model name (e.g. `gemini-2.5-flash`) |
 | `DAA_DB_PROVIDER` | `sqlite` | `none` / `sqlite` / `postgres` |
 | `DAA_AUTH_ENABLED` | `false` | Enable JWT login portal |
 | `GITHUB_TOKEN` | — | For opening pull requests |
