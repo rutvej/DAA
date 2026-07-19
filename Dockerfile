@@ -29,7 +29,11 @@ RUN pip install --no-cache-dir -r requirements.txt \
 COPY . .
 
 # ── Runtime environment ───────────────────────────────────────────────────────
-ENV DAA_DB_PROVIDER=sqlite \
+ENV DAA_DB_PROVIDER=none \
+    DAA_QUEUE_MODE=sync \
+    DAA_GIT_MODE=api \
+    LLM_PROVIDER=google \
+    DAA_AUTH_ENABLED=false \
     DAA_SERVE_PANEL=true \
     PORT=8080
 

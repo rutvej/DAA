@@ -264,6 +264,8 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
 
 
 def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
+    import re
+
     # Prefer canonical GITEA_TOKEN; fall back to DAA_GIT_TOKEN (standalone image)
     token = os.getenv("GITEA_TOKEN") or os.getenv("DAA_GIT_TOKEN", "")
     # Prefer canonical GITEA_HOST; fall back to GIT_HOST (standalone image)
@@ -282,16 +284,23 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
         owner = parts[-2] if len(parts) >= 2 else ""
         repo_name = parts[-1] if len(parts) >= 2 else ""
     else:
-        owner = os.getenv("GITLAB_USER", "root")
+        owner = os.getenv("GITLAB_USER") or os.getenv("GIT_ORG", "root")
         repo_name = os.getenv("REPO_NAME", "")
-    if not owner or not repo_name:
+    if not owner and not repo_name:
         return []
 
     headers = {"Authorization": f"token {token}"}
     gt_state = "open" if state == "open" else ("closed" if state == "closed" else "all")
-    url = f"{host}/api/v1/repos/{owner}/{repo_name}/pulls"
-    params = {"state": gt_state, "limit": 50}
+
     try:
+        if owner and repo_name:
+            url = f"{host}/api/v1/repos/{owner}/{repo_name}/pulls"
+            params = {"state": gt_state, "limit": 50}
+        else:
+            # Standalone fallback: search across all accessible repos
+            url = f"{host}/api/v1/repos/issues/search"
+            params = {"type": "pulls", "state": gt_state, "limit": 50}
+
         res = requests.get(url, headers=headers, params=params, timeout=10)
         res.raise_for_status()
         prs = res.json()
@@ -303,27 +312,39 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
         labels = [lbl["name"] for lbl in pr.get("labels", [])]
         title = pr.get("title", "")
         branch = pr.get("head", {}).get("ref", "")
+        if not branch:
+            m = re.search(r"\*\*Branch:\*\*\s+`([^`]+)`", pr.get("body") or "")
+            if m:
+                branch = m.group(1)
         if not _is_daa_pr(title, labels, branch=branch):
             continue
+
+        repo_obj = pr.get("repository", {})
+        actual_repo_name = repo_obj.get("name") or repo_name
         parts_branch = branch.split("/")
-        app_name = parts_branch[1] if len(parts_branch) >= 3 else repo_name
+        app_name = parts_branch[1] if len(parts_branch) >= 3 else actual_repo_name
+
         merged_at = pr.get("merged") and pr.get("updated")
+        # Global issue search wraps PR specific fields
+        is_merged = pr.get("merged", False) or pr.get("pull_request", {}).get(
+            "merged", False
+        )
+        is_closed = pr.get("state") == "closed" or pr.get("closed")
+
         results.append(
             _normalise(
                 pr_id=f"gt-{pr['number']}",
                 title=title,
                 body=pr.get("body") or "",
-                state=(
-                    "open"
-                    if not pr.get("merged") and not pr.get("closed")
-                    else "closed"
-                ),
+                state="open" if not is_merged and not is_closed else "closed",
                 pr_url=pr.get("html_url", ""),
                 app_name=app_name,
                 branch=branch,
                 created_at=pr.get("created_at", ""),
                 updated_at=pr.get("updated_at", ""),
-                merged_at=merged_at if pr.get("merged") else None,
+                merged_at=pr.get("pull_request", {}).get("merged_at") or merged_at
+                if is_merged
+                else None,
                 labels=labels,
             )
         )

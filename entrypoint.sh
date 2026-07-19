@@ -46,6 +46,10 @@ fi
 PORT="${PORT:-8080}"
 echo "Starting DAA API on port $PORT..."
 
+# In standalone mode the backend-api and python-agent share the same container,
+# so the agent must reach the API via localhost, not the compose hostname.
+export DAA_BACKEND_API_URL="${DAA_BACKEND_API_URL:-http://localhost:$PORT}"
+
 if [ "$DAA_QUEUE_MODE" = "sync" ]; then
     # In serverless/sync mode, running the API server is enough (worker runs inline via BackgroundTasks)
     exec uvicorn src.main:app --host 0.0.0.0 --port "$PORT" --app-dir /app/app/backend-api
