@@ -38,11 +38,17 @@ class AnalysisUpdater:
         self.postmortem = postmortem
 
     def update_analysis_completed(self) -> None:
-        """Updates the analysis status to 'completed' and includes the pull request URL and postmortem."""
+        """Updates the analysis status to 'completed' and includes the pull request URL and postmortem.
+        Non-critical: failures are logged but do not abort the job."""
         data = {
             "log_id": self.log_id,
             "status": "completed",
             "pull_request_url": self.pull_request_url or "",
             "postmortem": self.postmortem or "",
         }
-        _send_request(data)
+        try:
+            _send_request(data)
+        except Exception as e:
+            logging.warning(
+                f"Non-critical: could not set completed status for log {self.log_id}: {e}"
+            )
