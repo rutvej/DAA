@@ -3,801 +3,2004 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DAA — Autonomous SRE Platform v3.0.0</title>
-    
+    <title>DAA — Debugging Autonomous Agent | Autonomous SRE Platform</title>
+
     <!-- SEO Meta Tags -->
-    <meta name="description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
-    <meta name="keywords" content="SRE, autonomous, AI, microservices, incident management, open-source">
+    <meta name="description" content="DAA is an open-source autonomous SRE platform. Your app breaks at 3am — DAA investigates the root cause and opens a pull request while you sleep.">
+    <meta name="keywords" content="SRE, autonomous, AI, microservices, incident management, open-source, debugging, LangChain, ReAct agent, pull request, auto-remediation">
     <meta name="author" content="Rutvej">
-    
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://daa.example.com/">
-    
+
     <!-- Open Graph Tags -->
-    <meta property="og:title" content="DAA — Autonomous SRE Platform">
-    <meta property="og:description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
+    <meta property="og:title" content="DAA — Debugging Autonomous Agent">
+    <meta property="og:description" content="Your app breaks at 3am. DAA investigates the root cause and opens a pull request — while you sleep.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://daa.example.com/">
-    <meta property="og:image" content="https://daa.example.com/og-image.png">
-    
+    <meta property="og:url" content="https://rutvej.github.io/DAA/">
+
     <!-- Twitter Cards -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="DAA — Autonomous SRE Platform">
-    <meta name="twitter:description" content="DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI.">
-    <meta name="twitter:image" content="https://daa.example.com/twitter-image.png">
+    <meta name="twitter:title" content="DAA — Debugging Autonomous Agent">
+    <meta name="twitter:description" content="Your app breaks at 3am. DAA investigates the root cause and opens a pull request — while you sleep.">
 
     <!-- JSON-LD Structured Data -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
-      "name": "DAA",
+      "name": "DAA — Debugging Autonomous Agent",
       "operatingSystem": "Linux, macOS, Windows",
       "applicationCategory": "DeveloperApplication",
-      "offers": {
-        "@type": "Offer",
-        "price": "0",
-        "priceCurrency": "USD"
-      },
-      "description": "DAA is an open-source autonomous SRE platform that triages and fixes production microservice incidents using AI."
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "description": "Open-source autonomous SRE platform that triages and fixes production incidents using AI."
     }
     </script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
     <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Syntax Highlighting (Prism.js) -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
+        /* ═══════════════════════════════════════════════════════
+           CSS CUSTOM PROPERTIES
+           ═══════════════════════════════════════════════════════ */
         :root {
-            /* Light Theme Colors */
             --bg-base: #f8fafc;
             --bg-surface: #ffffff;
-            --bg-glass: rgba(255, 255, 255, 0.7);
+            --bg-elevated: #f1f5f9;
+            --bg-glass: rgba(255, 255, 255, 0.72);
+            --bg-code: #f1f5f9;
             --text-main: #0f172a;
+            --text-secondary: #334155;
             --text-muted: #64748b;
             --border-color: #e2e8f0;
-            
-            --brand-primary: #8b5cf6;
-            --brand-secondary: #ec4899;
-            --brand-gradient: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary));
-            
-            --callout-info-bg: #eff6ff;
-            --callout-info-border: #3b82f6;
-            
-            --transition-speed: 0.3s;
-            --sidebar-width: 280px;
-            --toc-width: 240px;
-            --header-height: 70px;
-            
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            --border-subtle: rgba(0,0,0,0.06);
+
+            --accent-violet: #7c3aed;
+            --accent-fuchsia: #c026d3;
+            --accent-rose: #e11d48;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-blue: #3b82f6;
+
+            --gradient-brand: linear-gradient(135deg, #7c3aed 0%, #c026d3 50%, #e11d48 100%);
+            --gradient-subtle: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(192,38,211,0.08));
+            --gradient-card: linear-gradient(145deg, var(--bg-surface), var(--bg-elevated));
+
+            --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+            --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -2px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.06);
+            --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.06);
+            --shadow-glow: 0 0 60px rgba(124,58,237,0.15);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+
+            --header-height: 64px;
+            --sidebar-width: 272px;
+            --content-max: 880px;
         }
 
         [data-theme="dark"] {
-            /* Dark Theme Colors - Vibrant & Premium */
-            --bg-base: #020617;
-            --bg-surface: #0f172a;
-            --bg-glass: rgba(15, 23, 42, 0.7);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --border-color: rgba(255,255,255,0.1);
-            
-            --brand-primary: #a855f7;
-            --brand-secondary: #f43f5e;
-            
-            --callout-info-bg: rgba(59, 130, 246, 0.1);
-            --callout-info-border: #3b82f6;
-            
-            --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            --bg-base: #09090b;
+            --bg-surface: #18181b;
+            --bg-elevated: #27272a;
+            --bg-glass: rgba(24, 24, 27, 0.78);
+            --bg-code: #1e1e2e;
+            --text-main: #fafafa;
+            --text-secondary: #d4d4d8;
+            --text-muted: #a1a1aa;
+            --border-color: rgba(255,255,255,0.08);
+            --border-subtle: rgba(255,255,255,0.04);
+
+            --gradient-subtle: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(192,38,211,0.08));
+            --gradient-card: linear-gradient(145deg, #18181b, #1f1f23);
+
+            --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+            --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
+            --shadow-lg: 0 10px 15px rgba(0,0,0,0.4);
+            --shadow-xl: 0 20px 25px rgba(0,0,0,0.5);
+            --shadow-glow: 0 0 80px rgba(124,58,237,0.2);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        /* ═══════════════════════════════════════════════════════
+           RESET & BASE
+           ═══════════════════════════════════════════════════════ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height) + 24px); }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-base);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-base);
             color: var(--text-main);
-            line-height: 1.6;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
+            line-height: 1.7;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background-color 0.4s ease, color 0.3s ease;
         }
 
-        /* Glassmorphism Background Elements */
-        .bg-blob {
-            position: fixed;
+        /* ═══════════════════════════════════════════════════════
+           AMBIENT BACKGROUND EFFECTS
+           ═══════════════════════════════════════════════════════ */
+        .ambient-bg {
+            position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none;
+        }
+        .ambient-orb {
+            position: absolute;
             border-radius: 50%;
-            filter: blur(100px);
-            z-index: -1;
-            opacity: 0.4;
-            animation: float 20s infinite ease-in-out alternate;
+            filter: blur(120px);
+            opacity: 0.3;
+            animation: orbFloat 25s ease-in-out infinite alternate;
         }
-        .blob-1 {
-            top: -10%; left: -10%;
-            width: 50vw; height: 50vw;
-            background: radial-gradient(circle, var(--brand-primary), transparent 70%);
-        }
-        .blob-2 {
-            bottom: -10%; right: -10%;
-            width: 40vw; height: 40vw;
-            background: radial-gradient(circle, var(--brand-secondary), transparent 70%);
-            animation-delay: -10s;
-        }
-
-        @keyframes float {
+        [data-theme="light"] .ambient-orb { opacity: 0.15; }
+        .orb-1 { width: 600px; height: 600px; top: -200px; left: -100px; background: var(--accent-violet); }
+        .orb-2 { width: 500px; height: 500px; bottom: -150px; right: -100px; background: var(--accent-fuchsia); animation-delay: -12s; }
+        .orb-3 { width: 400px; height: 400px; top: 40%; left: 50%; background: var(--accent-cyan); animation-delay: -6s; opacity: 0.15; }
+        @keyframes orbFloat {
             0% { transform: translate(0, 0) scale(1); }
-            100% { transform: translate(5%, 5%) scale(1.1); }
+            100% { transform: translate(40px, 30px) scale(1.08); }
         }
 
-        /* Header / Navbar */
-        header {
-            position: fixed;
-            top: 0; left: 0; right: 0;
+        /* ═══════════════════════════════════════════════════════
+           HEADER / NAVBAR
+           ═══════════════════════════════════════════════════════ */
+        .site-header {
+            position: fixed; top: 0; left: 0; right: 0;
             height: var(--header-height);
             background: var(--bg-glass);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
             border-bottom: 1px solid var(--border-color);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
             z-index: 1000;
+            transition: background 0.3s;
         }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .mobile-toggle {
+            display: none; background: none; border: none; color: var(--text-main);
+            font-size: 1.25rem; cursor: pointer; padding: 8px; border-radius: var(--radius-sm);
+        }
+        .mobile-toggle:hover { background: var(--gradient-subtle); }
+        .logo-link {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: var(--text-main); font-weight: 800; font-size: 1.3rem;
+        }
+        .logo-icon {
+            width: 32px; height: 32px; border-radius: var(--radius-sm);
+            background: var(--gradient-brand);
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 0.9rem; font-weight: 700;
+        }
+        .version-tag {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: var(--radius-full);
+            background: rgba(124,58,237,0.15); color: var(--accent-violet);
+            font-weight: 600; border: 1px solid rgba(124,58,237,0.25);
+        }
+        .header-right { display: flex; align-items: center; gap: 8px; }
+        .search-container { position: relative; }
+        .search-input {
+            background: var(--bg-elevated); border: 1px solid var(--border-color);
+            color: var(--text-main); border-radius: var(--radius-full);
+            padding: 8px 12px 8px 36px; font-family: inherit; font-size: 0.875rem;
+            width: 220px; transition: all 0.3s;
+        }
+        .search-input:focus { outline: none; width: 280px; border-color: var(--accent-violet); box-shadow: 0 0 0 3px rgba(124,58,237,0.12); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; pointer-events: none; }
+        .search-results {
+            position: absolute; top: calc(100% + 8px); left: 0; right: 0; min-width: 320px;
+            background: var(--bg-surface); border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); box-shadow: var(--shadow-xl);
+            max-height: 360px; overflow-y: auto; display: none; z-index: 100;
+        }
+        .search-results.active { display: block; }
+        .search-result-item {
+            display: block; padding: 10px 16px; color: var(--text-main); text-decoration: none;
+            border-bottom: 1px solid var(--border-subtle); transition: background 0.15s; font-size: 0.9rem;
+        }
+        .search-result-item:hover { background: var(--gradient-subtle); }
+        .search-result-item .sr-section { font-size: 0.75rem; color: var(--text-muted); }
+        .header-btn {
+            background: none; border: none; color: var(--text-main); font-size: 1.15rem;
+            cursor: pointer; padding: 8px; border-radius: var(--radius-sm); transition: all 0.2s;
+            text-decoration: none; display: flex; align-items: center;
+        }
+        .header-btn:hover { color: var(--accent-violet); background: var(--gradient-subtle); transform: scale(1.05); }
 
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-main);
-            text-decoration: none;
-        }
-        .logo-container i {
-            background: var(--brand-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .version-badge {
-            font-size: 0.75rem;
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
-            background: rgba(168, 85, 247, 0.2);
-            color: var(--brand-primary);
-            font-weight: 600;
-            border: 1px solid rgba(168, 85, 247, 0.3);
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .search-bar {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-        .search-bar input {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            border-radius: 9999px;
-            padding: 0.5rem 1rem 0.5rem 2.5rem;
-            font-family: inherit;
-            width: 200px;
-            transition: width var(--transition-speed), background var(--transition-speed);
-        }
-        .search-bar input:focus {
-            width: 250px;
-            outline: none;
-            background: rgba(255,255,255,0.1);
-            border-color: var(--brand-primary);
-        }
-        .search-bar i {
-            position: absolute;
-            left: 1rem;
-            color: var(--text-muted);
-            pointer-events: none;
-        }
-
-        .theme-toggle, .github-link {
-            background: none;
-            border: none;
-            color: var(--text-main);
-            font-size: 1.25rem;
-            cursor: pointer;
-            transition: transform var(--transition-speed);
-            text-decoration: none;
-        }
-        .theme-toggle:hover, .github-link:hover {
-            transform: scale(1.1);
-            color: var(--brand-primary);
-        }
-
-        /* Layout */
-        .layout {
+        /* ═══════════════════════════════════════════════════════
+           LAYOUT
+           ═══════════════════════════════════════════════════════ */
+        .page-layout {
             display: flex;
             margin-top: var(--header-height);
             min-height: calc(100vh - var(--header-height));
         }
 
-        /* Sidebar (Left) */
+        /* ═══════════════════════════════════════════════════════
+           SIDEBAR
+           ═══════════════════════════════════════════════════════ */
         .sidebar {
-            width: var(--sidebar-width);
-            position: fixed;
-            top: var(--header-height);
-            bottom: 0;
-            left: 0;
-            overflow-y: auto;
-            padding: 2rem 1rem;
+            width: var(--sidebar-width); position: fixed;
+            top: var(--header-height); bottom: 0; left: 0;
+            overflow-y: auto; padding: 20px 12px;
             border-right: 1px solid var(--border-color);
             background: var(--bg-surface);
-            transition: transform var(--transition-speed);
             z-index: 900;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
-        .nav-section {
-            margin-bottom: 1.5rem;
+        .sidebar::-webkit-scrollbar { width: 4px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        .nav-group { margin-bottom: 8px; }
+        .nav-group-title {
+            font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+            color: var(--text-muted); font-weight: 700; padding: 8px 12px 6px;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none; border-radius: var(--radius-sm);
+            transition: background 0.15s;
         }
-        .nav-section-title {
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            font-weight: 700;
-            margin-bottom: 0.75rem;
-            padding-left: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            cursor: pointer;
+        .nav-group-title:hover { background: var(--gradient-subtle); }
+        .nav-group-title i { font-size: 0.65rem; transition: transform 0.3s; }
+        .nav-group-title.collapsed i { transform: rotate(-90deg); }
+        .nav-links { list-style: none; overflow: hidden; transition: max-height 0.35s ease; }
+        .nav-links.collapsed { max-height: 0 !important; }
+        .nav-link {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 12px; margin: 1px 0;
+            color: var(--text-secondary); text-decoration: none;
+            border-radius: var(--radius-sm); font-size: 0.875rem; font-weight: 450;
+            transition: all 0.15s; position: relative;
         }
-        .nav-list {
-            list-style: none;
-            overflow: hidden;
-            transition: max-height var(--transition-speed);
+        .nav-link:hover { background: var(--gradient-subtle); color: var(--accent-violet); }
+        .nav-link.active {
+            background: var(--gradient-brand); color: white !important;
+            font-weight: 600;
+            box-shadow: 0 2px 12px rgba(124,58,237,0.35);
         }
-        .nav-item a {
-            display: block;
-            padding: 0.5rem 0.75rem;
-            color: var(--text-main);
-            text-decoration: none;
-            border-radius: 8px;
-            transition: background var(--transition-speed), color var(--transition-speed);
-            font-weight: 500;
-            font-size: 0.95rem;
-        }
-        .nav-item a:hover {
-            background: rgba(168, 85, 247, 0.1);
-            color: var(--brand-primary);
-        }
-        .nav-item a.active {
-            background: var(--brand-gradient);
-            color: white;
-            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
-        }
+        .nav-link .nav-icon { width: 18px; text-align: center; font-size: 0.8rem; opacity: 0.7; }
+        .nav-link.active .nav-icon { opacity: 1; }
 
-        /* Main Content */
+        /* ═══════════════════════════════════════════════════════
+           MAIN CONTENT AREA
+           ═══════════════════════════════════════════════════════ */
         .main-content {
             flex: 1;
             margin-left: var(--sidebar-width);
-            margin-right: var(--toc-width);
-            padding: 3rem 4rem;
-            max-width: 1000px;
+            padding: 40px 48px 80px;
+            max-width: calc(var(--content-max) + 96px + var(--sidebar-width));
         }
 
-        /* Breadcrumbs */
-        .breadcrumbs {
-            display: flex;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            margin-bottom: 2rem;
-            align-items: center;
-        }
-        .breadcrumbs a {
-            color: var(--brand-primary);
-            text-decoration: none;
-        }
-        .breadcrumbs a:hover {
-            text-decoration: underline;
-        }
-        
-        /* Typography */
-        h1, h2, h3, h4 {
-            color: var(--text-main);
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-        }
-        h1 { font-size: 3rem; line-height: 1.2; margin-top: 0; }
-        h2 { font-size: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
-        p { margin-bottom: 1.5rem; font-size: 1.1rem; }
+        /* ═══════════════════════════════════════════════════════
+           TYPOGRAPHY
+           ═══════════════════════════════════════════════════════ */
+        h1, h2, h3, h4, h5, h6 { font-weight: 700; color: var(--text-main); line-height: 1.3; }
 
-        /* Feature Cards */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin: 2.5rem 0;
+        .section-anchor {
+            scroll-margin-top: calc(var(--header-height) + 24px);
         }
-        .feature-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--shadow-glass);
-            transition: transform 0.3s, box-shadow 0.3s;
+
+        h1 { font-size: 2.75rem; font-weight: 900; letter-spacing: -0.03em; margin-bottom: 16px; }
+        h2 {
+            font-size: 1.75rem; letter-spacing: -0.02em;
+            margin-top: 64px; margin-bottom: 20px; padding-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex; align-items: center; gap: 10px;
+        }
+        h2 .section-icon {
+            width: 32px; height: 32px; border-radius: var(--radius-sm);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 0.9rem;
+        }
+        h3 { font-size: 1.25rem; margin-top: 32px; margin-bottom: 12px; }
+        h4 { font-size: 1.05rem; margin-top: 24px; margin-bottom: 8px; color: var(--text-secondary); }
+        p { margin-bottom: 16px; font-size: 1rem; color: var(--text-secondary); }
+        a { color: var(--accent-violet); }
+        strong { font-weight: 600; color: var(--text-main); }
+
+        /* ═══════════════════════════════════════════════════════
+           HERO SECTION
+           ═══════════════════════════════════════════════════════ */
+        .hero {
+            text-align: center;
+            padding: 60px 0 48px;
             position: relative;
-            overflow: hidden;
         }
-        .feature-card::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
-            background: var(--brand-gradient);
-            opacity: 0; transition: opacity 0.3s;
+        .hero h1 {
+            font-size: 3.5rem;
+            background: var(--gradient-brand);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 20px;
+            line-height: 1.15;
         }
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+        .hero-subtitle {
+            font-size: 1.25rem; color: var(--text-muted); max-width: 640px;
+            margin: 0 auto 32px; line-height: 1.6;
         }
-        .feature-card:hover::before { opacity: 1; }
-        .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            background: var(--brand-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            display: inline-block;
+        .hero-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 24px; border-radius: var(--radius-full);
+            font-family: inherit; font-size: 0.95rem; font-weight: 600;
+            text-decoration: none; cursor: pointer; border: none;
+            transition: all 0.25s ease;
         }
-        .feature-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .btn-primary {
+            background: var(--gradient-brand); color: white;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.35);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(124,58,237,0.45); }
+        .btn-secondary {
+            background: var(--bg-surface); color: var(--text-main);
+            border: 1px solid var(--border-color); box-shadow: var(--shadow-sm);
+        }
+        .btn-secondary:hover { border-color: var(--accent-violet); color: var(--accent-violet); transform: translateY(-2px); }
 
-        /* Callouts */
-        .callout {
-            padding: 1rem 1.5rem;
-            border-radius: 12px;
-            border-left: 4px solid var(--callout-info-border);
-            background: var(--callout-info-bg);
-            margin: 2rem 0;
-            display: flex;
-            gap: 1rem;
-            align-items: flex-start;
+        .hero-badges {
+            display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 28px;
         }
-        .callout i { font-size: 1.25rem; color: var(--callout-info-border); margin-top: 0.25rem; }
-        .callout p { margin: 0; font-size: 1rem; }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: var(--radius-full);
+            background: var(--bg-elevated); border: 1px solid var(--border-color);
+            font-size: 0.8rem; font-weight: 500; color: var(--text-muted);
+        }
+        .hero-badge i { font-size: 0.85rem; }
+        .badge-python i { color: #3776ab; }
+        .badge-fastapi i { color: #009688; }
+        .badge-langchain i { color: #f97316; }
+        .badge-docker i { color: #2496ed; }
+        .badge-mit i { color: var(--accent-emerald); }
 
-        /* Code Blocks & Tabs */
-        .code-tabs {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            overflow: hidden;
-            margin: 2rem 0;
+        /* ═══════════════════════════════════════════════════════
+           HOW IT WORKS — PIPELINE
+           ═══════════════════════════════════════════════════════ */
+        .pipeline-flow {
+            display: flex; flex-wrap: wrap; gap: 0; justify-content: center;
+            margin: 32px 0; position: relative;
+        }
+        .pipeline-step {
+            display: flex; flex-direction: column; align-items: center;
+            padding: 20px 16px; flex: 1; min-width: 140px; max-width: 180px;
+            position: relative;
+        }
+        .pipeline-step:not(:last-child)::after {
+            content: '→'; position: absolute; right: -8px; top: 36px;
+            font-size: 1.5rem; color: var(--text-muted); font-weight: 300;
+            z-index: 2;
+        }
+        .pipeline-icon {
+            width: 52px; height: 52px; border-radius: var(--radius-md);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; margin-bottom: 10px; color: white;
             box-shadow: var(--shadow-md);
         }
-        .tab-headers {
-            display: flex;
-            background: rgba(0,0,0,0.2);
-            border-bottom: 1px solid var(--border-color);
-            padding: 0 1rem;
+        .pipeline-step:nth-child(1) .pipeline-icon { background: linear-gradient(135deg, #ef4444, #f97316); }
+        .pipeline-step:nth-child(2) .pipeline-icon { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .pipeline-step:nth-child(3) .pipeline-icon { background: linear-gradient(135deg, #8b5cf6, #a855f7); }
+        .pipeline-step:nth-child(4) .pipeline-icon { background: linear-gradient(135deg, #06b6d4, #14b8a6); }
+        .pipeline-step:nth-child(5) .pipeline-icon { background: linear-gradient(135deg, #10b981, #22c55e); }
+        .pipeline-step:nth-child(6) .pipeline-icon { background: linear-gradient(135deg, #f59e0b, #eab308); }
+        .pipeline-label { font-size: 0.8rem; font-weight: 600; text-align: center; color: var(--text-secondary); }
+        .pipeline-desc { font-size: 0.72rem; color: var(--text-muted); text-align: center; margin-top: 4px; }
+
+        /* ═══════════════════════════════════════════════════════
+           FEATURE CARDS GRID
+           ═══════════════════════════════════════════════════════ */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
         }
-        .tab-btn {
-            background: none; border: none; padding: 0.75rem 1.25rem;
+        .card {
+            background: var(--gradient-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            transition: all 0.3s ease;
+            position: relative; overflow: hidden;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+            background: var(--gradient-brand); opacity: 0; transition: opacity 0.3s;
+        }
+        .card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+        .card:hover::before { opacity: 1; }
+        .card-icon {
+            width: 40px; height: 40px; border-radius: var(--radius-sm);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; margin-bottom: 14px; color: white;
+        }
+        .card h3 { font-size: 1.05rem; margin: 0 0 8px; }
+        .card p { font-size: 0.88rem; color: var(--text-muted); margin: 0; line-height: 1.55; }
+
+        /* ═══════════════════════════════════════════════════════
+           COMPARISON TABLE
+           ═══════════════════════════════════════════════════════ */
+        .table-wrapper {
+            overflow-x: auto; margin: 20px 0; border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+        table {
+            width: 100%; border-collapse: collapse; font-size: 0.9rem;
+        }
+        thead { background: var(--bg-elevated); }
+        th {
+            padding: 12px 16px; text-align: left; font-weight: 600;
+            color: var(--text-main); font-size: 0.82rem; text-transform: uppercase;
+            letter-spacing: 0.04em; border-bottom: 2px solid var(--border-color);
+        }
+        td {
+            padding: 10px 16px; border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-secondary); vertical-align: top;
+        }
+        tr:hover td { background: var(--gradient-subtle); }
+        td code {
+            background: var(--bg-code); padding: 2px 6px; border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           CODE BLOCKS & TABS
+           ═══════════════════════════════════════════════════════ */
+        .code-block-wrapper {
+            background: var(--bg-code); border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); overflow: hidden; margin: 16px 0;
+            position: relative;
+        }
+        .code-tabs-header {
+            display: flex; background: rgba(0,0,0,0.15);
+            border-bottom: 1px solid var(--border-color); padding: 0 8px;
+        }
+        [data-theme="light"] .code-tabs-header { background: rgba(0,0,0,0.04); }
+        .code-tab-btn {
+            background: none; border: none; padding: 10px 16px;
             color: var(--text-muted); cursor: pointer; font-family: inherit;
-            font-weight: 500; font-size: 0.9rem;
+            font-weight: 500; font-size: 0.85rem;
             border-bottom: 2px solid transparent;
             transition: all 0.2s;
         }
-        .tab-btn.active {
-            color: var(--brand-primary);
-            border-bottom-color: var(--brand-primary);
+        .code-tab-btn.active { color: var(--accent-violet); border-bottom-color: var(--accent-violet); }
+        .code-tab-btn:hover:not(.active) { color: var(--text-main); }
+        .code-tab-panel { display: none; position: relative; }
+        .code-tab-panel.active { display: block; }
+
+        pre {
+            margin: 0; padding: 20px; overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;
+            line-height: 1.65; color: var(--text-main);
         }
-        .tab-content { display: none; position: relative; }
-        .tab-content.active { display: block; }
-        pre[class*="language-"] {
-            margin: 0 !important;
-            border-radius: 0 !important;
-            background: transparent !important;
-            padding: 1.5rem !important;
-            font-family: 'Fira Code', monospace !important;
-            font-size: 0.9rem !important;
+        [data-theme="dark"] pre { color: #e2e8f0; }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
         }
+        p code, li code, td code {
+            background: var(--bg-code); padding: 2px 7px; border-radius: 5px;
+            font-size: 0.84rem; border: 1px solid var(--border-subtle);
+        }
+
         .copy-btn {
-            position: absolute;
-            top: 0.75rem; right: 0.75rem;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white; padding: 0.5rem;
-            border-radius: 6px; cursor: pointer;
-            transition: all 0.2s;
-            opacity: 0;
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.25);
+            color: var(--accent-violet); padding: 6px 10px;
+            border-radius: var(--radius-sm); cursor: pointer; font-size: 0.78rem;
+            font-family: inherit; font-weight: 500;
+            transition: all 0.2s; opacity: 0; display: flex; align-items: center; gap: 5px;
         }
-        .tab-content:hover .copy-btn { opacity: 1; }
-        .copy-btn:hover { background: rgba(255,255,255,0.2); transform: scale(1.05); }
+        .code-block-wrapper:hover .copy-btn,
+        .code-tab-panel:hover .copy-btn { opacity: 1; }
+        .copy-btn:hover { background: rgba(124,58,237,0.25); }
+        .copy-btn.copied { background: rgba(16,185,129,0.2); color: var(--accent-emerald); border-color: rgba(16,185,129,0.3); }
 
-        /* Architecture Diagram Container */
-        .diagram-container {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            margin: 2.5rem 0;
-            text-align: center;
-            overflow-x: auto;
+        /* Inline code block (no tabs) */
+        .code-simple {
+            background: var(--bg-code); border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); overflow: hidden; margin: 16px 0;
+            position: relative;
+        }
+        .code-simple pre { padding: 16px 20px; }
+
+        /* ═══════════════════════════════════════════════════════
+           CALLOUTS / ALERTS
+           ═══════════════════════════════════════════════════════ */
+        .callout {
+            padding: 16px 20px; border-radius: var(--radius-md);
+            border-left: 4px solid; margin: 20px 0;
+            display: flex; gap: 12px; align-items: flex-start;
+        }
+        .callout-info { border-left-color: var(--accent-blue); background: rgba(59,130,246,0.08); }
+        .callout-tip { border-left-color: var(--accent-emerald); background: rgba(16,185,129,0.08); }
+        .callout-warn { border-left-color: var(--accent-amber); background: rgba(245,158,11,0.08); }
+        .callout-danger { border-left-color: var(--accent-rose); background: rgba(225,29,72,0.08); }
+        .callout i { margin-top: 3px; font-size: 1rem; }
+        .callout-info i { color: var(--accent-blue); }
+        .callout-tip i { color: var(--accent-emerald); }
+        .callout-warn i { color: var(--accent-amber); }
+        .callout-danger i { color: var(--accent-rose); }
+        .callout-content { flex: 1; }
+        .callout-content p { margin: 0; font-size: 0.92rem; }
+        .callout-content p:not(:last-child) { margin-bottom: 8px; }
+
+        /* ═══════════════════════════════════════════════════════
+           STATUS BADGES
+           ═══════════════════════════════════════════════════════ */
+        .status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: var(--radius-full); font-size: 0.78rem; font-weight: 600; }
+        .status-stable { background: rgba(16,185,129,0.15); color: var(--accent-emerald); }
+        .status-beta { background: rgba(245,158,11,0.15); color: var(--accent-amber); }
+        .status-planned { background: rgba(100,116,139,0.15); color: var(--text-muted); }
+        .status i { font-size: 0.55rem; }
+
+        /* ═══════════════════════════════════════════════════════
+           SECTION DIVIDERS
+           ═══════════════════════════════════════════════════════ */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            margin: 48px 0;
         }
 
-        /* Meta footer */
-        .page-meta {
-            margin-top: 4rem;
-            padding-top: 2rem;
+        /* ═══════════════════════════════════════════════════════
+           STEP LIST (for quickstart etc)
+           ═══════════════════════════════════════════════════════ */
+        .step-list { counter-reset: step; }
+        .step-item {
+            position: relative;
+            padding-left: 52px;
+            margin-bottom: 32px;
+        }
+        .step-item::before {
+            counter-increment: step;
+            content: counter(step);
+            position: absolute; left: 0; top: 0;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--gradient-brand); color: white;
+            font-weight: 700; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .step-item h4 { margin-top: 4px; margin-bottom: 8px; color: var(--text-main); font-size: 1.05rem; }
+
+        /* ═══════════════════════════════════════════════════════
+           API ENDPOINT BLOCKS
+           ═══════════════════════════════════════════════════════ */
+        .endpoint {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 16px; margin: 6px 0;
+            background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm); font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+        .endpoint-method {
+            padding: 2px 8px; border-radius: 4px; font-weight: 700;
+            font-size: 0.72rem; text-transform: uppercase; color: white; min-width: 52px; text-align: center;
+        }
+        .method-get { background: var(--accent-emerald); }
+        .method-post { background: var(--accent-blue); }
+        .method-patch { background: var(--accent-amber); }
+        .method-put { background: var(--accent-cyan); }
+        .method-delete { background: var(--accent-rose); }
+        .endpoint-path { color: var(--text-main); font-weight: 500; }
+        .endpoint-desc { color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 0.82rem; margin-left: auto; }
+
+        /* ═══════════════════════════════════════════════════════
+           CONFIG TABLE
+           ═══════════════════════════════════════════════════════ */
+        .config-var {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+            color: var(--accent-violet); font-weight: 500;
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           FOOTER
+           ═══════════════════════════════════════════════════════ */
+        .site-footer {
+            margin-left: var(--sidebar-width);
+            padding: 40px 48px;
             border-top: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.875rem;
-            color: var(--text-muted);
+            text-align: center; color: var(--text-muted); font-size: 0.88rem;
         }
-        .edit-link {
-            display: flex; align-items: center; gap: 0.5rem;
-            color: var(--text-main); text-decoration: none;
-            transition: color 0.2s;
-        }
-        .edit-link:hover { color: var(--brand-primary); }
+        .footer-links { display: flex; gap: 24px; justify-content: center; margin-bottom: 12px; flex-wrap: wrap; }
+        .footer-links a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+        .footer-links a:hover { color: var(--accent-violet); }
 
-        /* Prev/Next Navigation */
-        .page-nav {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
-            margin-top: 3rem;
+        /* ═══════════════════════════════════════════════════════
+           BACK TO TOP
+           ═══════════════════════════════════════════════════════ */
+        .back-to-top {
+            position: fixed; bottom: 24px; right: 24px;
+            width: 44px; height: 44px; border-radius: 50%;
+            background: var(--gradient-brand); color: white; border: none;
+            cursor: pointer; font-size: 1rem;
+            box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+            opacity: 0; visibility: hidden; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 999;
         }
-        .nav-card {
-            border: 1px solid var(--border-color);
-            border-radius: 12px; padding: 1.5rem;
-            text-decoration: none; color: var(--text-main);
-            display: flex; flex-direction: column;
-            transition: border-color 0.2s, background 0.2s;
-        }
-        .nav-card:hover {
-            border-color: var(--brand-primary);
-            background: rgba(168, 85, 247, 0.05);
-        }
-        .nav-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
-        .nav-card.next { text-align: right; }
-        .nav-card-title { font-weight: 600; font-size: 1.1rem; color: var(--brand-primary); }
+        .back-to-top.visible { opacity: 1; visibility: visible; }
+        .back-to-top:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(124,58,237,0.5); }
 
-        /* Table of Contents (Right) */
-        .toc {
-            width: var(--toc-width);
-            position: fixed;
-            top: var(--header-height);
-            bottom: 0;
-            right: 0;
-            padding: 2rem 1.5rem;
-            border-left: 1px solid var(--border-color);
-            overflow-y: auto;
-        }
-        .toc h4 {
-            font-size: 0.875rem; text-transform: uppercase;
-            letter-spacing: 0.05em; color: var(--text-main);
-            margin-top: 0; margin-bottom: 1rem;
-        }
-        .toc-list { list-style: none; border-left: 2px solid var(--border-color); margin-left: 0.25rem; }
-        .toc-item a {
-            display: block; padding: 0.25rem 0 0.25rem 1rem;
-            color: var(--text-muted); text-decoration: none;
-            font-size: 0.875rem; transition: color 0.2s;
-            position: relative; left: -2px;
-            border-left: 2px solid transparent;
-        }
-        .toc-item a:hover, .toc-item a.active {
-            color: var(--brand-primary); border-left-color: var(--brand-primary);
-        }
-
-        /* Mobile Adjustments */
-        .mobile-menu-btn { display: none; background: none; border: none; color: var(--text-main); font-size: 1.5rem; cursor: pointer; }
+        /* ═══════════════════════════════════════════════════════
+           MOBILE RESPONSIVE
+           ═══════════════════════════════════════════════════════ */
         @media (max-width: 1024px) {
-            .toc { display: none; }
-            .main-content { margin-right: 0; }
+            .main-content { padding: 32px 28px 80px; }
         }
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); width: 280px; box-shadow: 5px 0 25px rgba(0,0,0,0.5); }
+            .sidebar {
+                transform: translateX(-100%); width: 280px;
+                box-shadow: 4px 0 30px rgba(0,0,0,0.3);
+            }
             .sidebar.open { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 2rem 1.5rem; }
-            .mobile-menu-btn { display: block; }
-            .search-bar { display: none; }
-            h1 { font-size: 2.25rem; }
-            .page-nav { grid-template-columns: 1fr; }
+            .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 899; }
+            .sidebar-overlay.active { display: block; }
+            .main-content { margin-left: 0; padding: 24px 16px 80px; }
+            .site-footer { margin-left: 0; padding: 32px 16px; }
+            .mobile-toggle { display: flex; }
+            .search-container { display: none; }
+            .hero h1 { font-size: 2.25rem; }
+            .hero-subtitle { font-size: 1.05rem; }
+            .pipeline-flow { flex-direction: column; align-items: center; }
+            .pipeline-step:not(:last-child)::after { content: '↓'; right: auto; bottom: -8px; top: auto; }
+            .pipeline-step { max-width: 100%; }
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.4rem; margin-top: 48px; }
+            .endpoint { flex-wrap: wrap; }
+            .endpoint-desc { margin-left: 0; width: 100%; margin-top: 4px; }
+            table { font-size: 0.8rem; }
+            th, td { padding: 8px 10px; }
+        }
+
+        /* ═══════════════════════════════════════════════════════
+           ANIMATIONS
+           ═══════════════════════════════════════════════════════ */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-in {
+            opacity: 0; animation: fadeInUp 0.6s ease forwards;
+        }
+        .animate-delay-1 { animation-delay: 0.1s; }
+        .animate-delay-2 { animation-delay: 0.2s; }
+        .animate-delay-3 { animation-delay: 0.3s; }
+
+        /* ═══════════════════════════════════════════════════════
+           COMPARISON CARDS
+           ═══════════════════════════════════════════════════════ */
+        .comparison-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0;
+        }
+        @media (max-width: 640px) { .comparison-grid { grid-template-columns: 1fr; } }
+        .comparison-card {
+            background: var(--gradient-card); border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); padding: 20px;
+        }
+        .comparison-card h4 { margin-top: 0; }
+        .comparison-card ul { list-style: none; padding: 0; margin: 8px 0 0; }
+        .comparison-card li {
+            padding: 6px 0; font-size: 0.88rem; color: var(--text-secondary);
+            display: flex; align-items: flex-start; gap: 8px;
+        }
+        .comparison-card li i { margin-top: 4px; font-size: 0.7rem; }
+        .comparison-bad li i { color: var(--accent-rose); }
+        .comparison-good li i { color: var(--accent-emerald); }
+
+        /* Ordered list styling */
+        ol { padding-left: 20px; margin: 12px 0; }
+        ol li { margin-bottom: 6px; font-size: 0.92rem; color: var(--text-secondary); }
+        ul.clean-list { list-style: none; padding: 0; }
+        ul.clean-list li { padding: 4px 0; font-size: 0.92rem; color: var(--text-secondary); display: flex; align-items: flex-start; gap: 8px; }
+        ul.clean-list li i { margin-top: 5px; font-size: 0.65rem; color: var(--accent-violet); }
+
+        .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 16px; }
+        .tag {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 4px 12px; border-radius: var(--radius-full);
+            background: var(--bg-elevated); border: 1px solid var(--border-color);
+            font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);
+        }
+
+        /* Architecture diagram ASCII */
+        .arch-diagram {
+            background: var(--bg-code); border: 1px solid var(--border-color);
+            border-radius: var(--radius-md); padding: 24px; margin: 20px 0;
+            overflow-x: auto;
+        }
+        .arch-diagram pre {
+            font-size: 0.82rem; line-height: 1.5; white-space: pre; padding: 0;
+        }
+
+        /* Numbered features */
+        .feature-num {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: var(--gradient-brand); color: white;
+            font-size: 0.72rem; font-weight: 700; margin-right: 8px; flex-shrink: 0;
         }
     </style>
 </head>
 <body>
-    <div class="bg-blob blob-1"></div>
-    <div class="bg-blob blob-2"></div>
+    <!-- Ambient Background -->
+    <div class="ambient-bg">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+        <div class="ambient-orb orb-3"></div>
+    </div>
 
-    <header>
-        <div style="display: flex; align-items: center; gap: 1rem;">
-            <button class="mobile-menu-btn" aria-label="Toggle Menu" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
-            <a href="index.html" class="logo-container">
-                <i class="fa-solid fa-microchip"></i> DAA
-                <span class="version-badge">v3.0.0</span>
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <header class="site-header" id="site-header">
+        <div class="header-left">
+            <button class="mobile-toggle" onclick="toggleSidebar()" aria-label="Toggle Menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <a href="#top" class="logo-link">
+                <div class="logo-icon"><i class="fa-solid fa-robot"></i></div>
+                DAA
+                <span class="version-tag">v3.0</span>
             </a>
         </div>
-        
-        <div class="header-actions">
-            <div class="search-bar">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Search documentation..." aria-label="Search">
+        <div class="header-right">
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" class="search-input" id="search-input" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+                <div class="search-results" id="search-results"></div>
             </div>
-            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Dark/Light Mode">
+            <button class="header-btn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle dark/light mode">
                 <i class="fa-solid fa-moon" id="theme-icon"></i>
             </button>
-            <a href="https://github.com/rutvej/DAA" class="github-link" aria-label="GitHub Repository" target="_blank">
+            <a href="https://github.com/rutvej/DAA" class="header-btn" target="_blank" rel="noopener" aria-label="GitHub" title="View on GitHub">
                 <i class="fa-brands fa-github"></i>
             </a>
         </div>
     </header>
 
-    <div class="layout">
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <!-- ═══════════════ LAYOUT ═══════════════ -->
+    <div class="page-layout">
+
+        <!-- ═══════════════ SIDEBAR ═══════════════ -->
         <aside class="sidebar" id="sidebar">
-            <div class="nav-section">
-                <div class="nav-section-title" onclick="toggleNav(this)">
-                    Getting Started <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
-                </div>
-                <ul class="nav-list">
-                    <li class="nav-item"><a href="#" class="active">Introduction</a></li>
-                    <li class="nav-item"><a href="#quickstart">Quickstart</a></li>
-                    <li class="nav-item"><a href="#architecture">Architecture</a></li>
+            <div class="nav-group">
+                <div class="nav-group-title" onclick="toggleNavGroup(this)">Getting Started <i class="fa-solid fa-chevron-down"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#top" class="nav-link active"><span class="nav-icon"><i class="fa-solid fa-house"></i></span> Introduction</a></li>
+                    <li><a href="#how-it-works" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-diagram-project"></i></span> How It Works</a></li>
+                    <li><a href="#features" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-sparkles"></i></span> Features</a></li>
+                    <li><a href="#quickstart" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-rocket"></i></span> Quickstart</a></li>
                 </ul>
             </div>
-            <div class="nav-section">
-                <div class="nav-section-title" onclick="toggleNav(this)">
-                    Core Concepts <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
-                </div>
-                <ul class="nav-list">
-                    <li class="nav-item"><a href="#">Autonomous Triaging</a></li>
-                    <li class="nav-item"><a href="#">Self-Healing</a></li>
-                    <li class="nav-item"><a href="#">LLM Integration</a></li>
+            <div class="nav-group">
+                <div class="nav-group-title" onclick="toggleNavGroup(this)">Architecture <i class="fa-solid fa-chevron-down"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#architecture" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-sitemap"></i></span> Overview</a></li>
+                    <li><a href="#agent" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-brain"></i></span> AI Agent</a></li>
+                    <li><a href="#dedup" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-fingerprint"></i></span> Deduplication</a></li>
                 </ul>
             </div>
-            <div class="nav-section">
-                <div class="nav-section-title" onclick="toggleNav(this)">
-                    API Reference <i class="fa-solid fa-chevron-down" style="transition: transform 0.3s;"></i>
-                </div>
-                <ul class="nav-list">
-                    <li class="nav-item"><a href="#">REST API</a></li>
-                    <li class="nav-item"><a href="#">Webhooks</a></li>
+            <div class="nav-group">
+                <div class="nav-group-title" onclick="toggleNavGroup(this)">Deployment <i class="fa-solid fa-chevron-down"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#deployment" class="nav-link"><span class="nav-icon"><i class="fa-brands fa-docker"></i></span> Deploy Modes</a></li>
+                    <li><a href="#docker-compose" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-cubes"></i></span> Docker Compose</a></li>
+                    <li><a href="#cloud" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-cloud"></i></span> Cloud Deploy</a></li>
+                </ul>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title" onclick="toggleNavGroup(this)">Integrations <i class="fa-solid fa-chevron-down"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#sdk" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-plug"></i></span> SDK</a></li>
+                    <li><a href="#webhooks" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-tower-broadcast"></i></span> Webhooks</a></li>
+                    <li><a href="#mcp" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-link"></i></span> MCP Server</a></li>
+                    <li><a href="#git-integration" class="nav-link"><span class="nav-icon"><i class="fa-brands fa-git-alt"></i></span> Git Forges</a></li>
+                </ul>
+            </div>
+            <div class="nav-group">
+                <div class="nav-group-title" onclick="toggleNavGroup(this)">Reference <i class="fa-solid fa-chevron-down"></i></div>
+                <ul class="nav-links">
+                    <li><a href="#api" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-code"></i></span> REST API</a></li>
+                    <li><a href="#cli" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-terminal"></i></span> CLI</a></li>
+                    <li><a href="#config" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-gear"></i></span> Configuration</a></li>
+                    <li><a href="#security" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-shield-halved"></i></span> Security</a></li>
+                    <li><a href="#roadmap" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-road"></i></span> Roadmap</a></li>
+                    <li><a href="#contributing" class="nav-link"><span class="nav-icon"><i class="fa-solid fa-handshake"></i></span> Contributing</a></li>
                 </ul>
             </div>
         </aside>
 
+        <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
         <main class="main-content">
-            <div class="breadcrumbs">
-                <a href="#"><i class="fa-solid fa-house"></i></a> / 
-                <a href="#">Getting Started</a> / 
-                <span>Introduction</span>
-            </div>
 
-            <h1 id="introduction">DAA — Autonomous SRE</h1>
-            <p>Welcome to the official documentation for <strong>DAA</strong> (v3.0.0). DAA is a modern, open-source Autonomous Site Reliability Engineering platform designed to drastically reduce MTTR (Mean Time To Recovery) by leveraging AI to triage, root-cause, and resolve production microservice incidents automatically.</p>
+            <!-- HERO -->
+            <section class="hero" id="top">
+                <h1 class="animate-in">DAA — Debugging<br>Autonomous Agent</h1>
+                <p class="hero-subtitle animate-in animate-delay-1">Your app breaks at 3 AM. DAA investigates the root cause and opens a pull request — <strong>while you sleep.</strong></p>
+                <div class="hero-actions animate-in animate-delay-2">
+                    <a href="#quickstart" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Get Started</a>
+                    <a href="https://github.com/rutvej/DAA" class="btn btn-secondary" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i> View on GitHub</a>
+                </div>
+                <div class="hero-badges animate-in animate-delay-3">
+                    <span class="hero-badge badge-python"><i class="fa-brands fa-python"></i> Python 3.11+</span>
+                    <span class="hero-badge badge-fastapi"><i class="fa-solid fa-bolt"></i> FastAPI</span>
+                    <span class="hero-badge badge-langchain"><i class="fa-solid fa-brain"></i> LangChain ReAct</span>
+                    <span class="hero-badge badge-docker"><i class="fa-brands fa-docker"></i> Docker Ready</span>
+                    <span class="hero-badge badge-mit"><i class="fa-solid fa-scale-balanced"></i> MIT License</span>
+                </div>
+            </section>
 
-            <div class="callout">
-                <i class="fa-solid fa-circle-info"></i>
-                <p><strong>Note:</strong> Version 3.0.0 introduces complete support for Local Git Workspaces and RabbitMQ async task queues.</p>
-            </div>
+            <div class="section-divider"></div>
 
-            <div class="features-grid">
-                <div class="feature-card">
-                    <i class="fa-solid fa-robot feature-icon"></i>
-                    <h3 class="feature-title">AI Root Cause Analysis</h3>
-                    <p>Ingests stack traces and logs, instantly diagnosing issues with state-of-the-art LLMs.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fa-solid fa-wand-magic-sparkles feature-icon"></i>
-                    <h3 class="feature-title">Auto-Remediation</h3>
-                    <p>Generates pull requests or direct fixes for common production exceptions automatically.</p>
-                </div>
-                <div class="feature-card">
-                    <i class="fa-solid fa-bolt feature-icon"></i>
-                    <h3 class="feature-title">High Performance</h3>
-                    <p>Built for scale with pluggable queues and databases to fit right into your infrastructure.</p>
-                </div>
-            </div>
+            <!-- ═══════════════ HOW IT WORKS ═══════════════ -->
+            <section id="how-it-works" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#3b82f6,#6366f1);color:white"><i class="fa-solid fa-diagram-project"></i></span> How It Works</h2>
+                <p>DAA runs a fully autonomous pipeline from error detection to pull request — no human in the loop until code review.</p>
 
-            <h2 id="quickstart">Quickstart</h2>
-            <p>Get up and running with DAA in under 60 seconds using Docker. Below is the recommended configuration.</p>
+                <div class="pipeline-flow">
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-bug"></i></div>
+                        <span class="pipeline-label">Error Fires</span>
+                        <span class="pipeline-desc">3 AM crash in your app</span>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                        <span class="pipeline-label">DAA Ingests</span>
+                        <span class="pipeline-desc">SDK or webhook sends alert</span>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-fingerprint"></i></div>
+                        <span class="pipeline-label">Dedup Check</span>
+                        <span class="pipeline-desc">SHA-256 fingerprint filter</span>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                        <span class="pipeline-label">AI Investigates</span>
+                        <span class="pipeline-desc">4-dimension analysis</span>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-code-branch"></i></div>
+                        <span class="pipeline-label">Fix & PR</span>
+                        <span class="pipeline-desc">Code fix + pull request</span>
+                    </div>
+                    <div class="pipeline-step">
+                        <div class="pipeline-icon"><i class="fa-solid fa-mug-hot"></i></div>
+                        <span class="pipeline-label">You Review</span>
+                        <span class="pipeline-desc">Wake up, merge the PR</span>
+                    </div>
+                </div>
 
-            <div class="code-tabs">
-                <div class="tab-headers">
-                    <button class="tab-btn" onclick="switchTab(this, 'docker')">Docker Compose</button>
-                    <button class="tab-btn active" onclick="switchTab(this, 'cli')">Docker CLI</button>
+                <h3>4-Dimension Investigation</h3>
+                <p>The AI agent investigates across multiple signal dimensions to build a complete picture:</p>
+                <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#3b82f6,#6366f1)"><i class="fa-solid fa-code-commit"></i></div>
+                        <h3>Git History</h3>
+                        <p>What changed recently? Correlates commits with the error timeline.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f97316,#ef4444)"><i class="fa-solid fa-scroll"></i></div>
+                        <h3>App Logs</h3>
+                        <p>Full stack trace analysis and correlated multi-service log queries.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#06b6d4,#0ea5e9)"><i class="fa-solid fa-route"></i></div>
+                        <h3>Traces</h3>
+                        <p>Which request triggered the error? Distributed trace correlation.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#8b5cf6,#a855f7)"><i class="fa-solid fa-file-code"></i></div>
+                        <h3>Source Code</h3>
+                        <p>AST navigation to the exact line. Surgical 5-tier code retrieval.</p>
+                    </div>
                 </div>
-                <div class="tab-content" id="docker">
-                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-                    <pre><code class="language-yaml">version: '3.8'
-services:
-  daa:
-    image: rutvej1/daa-standalone:latest
-    ports:
-      - "8000:8080"
-    environment:
-      - LLM_PROVIDER=google
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - DAA_DB_PROVIDER=postgres
-      - DAA_QUEUE_MODE=rabbitmq</code></pre>
+
+                <h3>What Makes DAA Different</h3>
+                <div class="comparison-grid">
+                    <div class="comparison-card comparison-bad">
+                        <h4><i class="fa-solid fa-bell" style="color:var(--accent-rose)"></i> Traditional Alerting</h4>
+                        <ul>
+                            <li><i class="fa-solid fa-circle"></i> Fires every time the error happens</li>
+                            <li><i class="fa-solid fa-circle"></i> Tells you "Error occurred"</li>
+                            <li><i class="fa-solid fa-circle"></i> You investigate manually</li>
+                            <li><i class="fa-solid fa-circle"></i> 3 AM pages every time</li>
+                        </ul>
+                    </div>
+                    <div class="comparison-card comparison-good">
+                        <h4><i class="fa-solid fa-robot" style="color:var(--accent-emerald)"></i> DAA</h4>
+                        <ul>
+                            <li><i class="fa-solid fa-circle"></i> Once per unique error pattern</li>
+                            <li><i class="fa-solid fa-circle"></i> Root cause + code fix</li>
+                            <li><i class="fa-solid fa-circle"></i> Review a PR</li>
+                            <li><i class="fa-solid fa-circle"></i> Only for genuinely new problems</li>
+                        </ul>
+                    </div>
                 </div>
-                <div class="tab-content active" id="cli">
-                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i></button>
-                    <pre><code class="language-bash">docker run -d --name daa \
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ FEATURES ═══════════════ -->
+            <section id="features" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#f59e0b,#f97316);color:white"><i class="fa-solid fa-sparkles"></i></span> Features</h2>
+
+                <div class="card-grid">
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><i class="fa-solid fa-fingerprint"></i></div>
+                        <h3>Zero Alert Fatigue</h3>
+                        <p>SHA-256 fingerprint dedup + sliding-window cooldowns. Same error twice? Suppressed silently.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#06b6d4,#0284c7)"><i class="fa-solid fa-brain"></i></div>
+                        <h3>4-Dimension Investigation</h3>
+                        <p>Git history · Logs · Traces · AST code navigation. Complete signal coverage.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-shield-halved"></i></div>
+                        <h3>Agent Safety</h3>
+                        <p>Hard 8-tool-call budget cap — no runaway LLM costs. No destructive operations.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f43f5e,#e11d48)"><i class="fa-solid fa-microchip"></i></div>
+                        <h3>Any LLM</h3>
+                        <p>Gemini · GPT-4o · Claude · Vertex AI · Ollama (air-gapped). Switch with one env var.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fa-solid fa-user-check"></i></div>
+                        <h3>Human-in-the-Loop</h3>
+                        <p>Approve AI fixes via the Admin Panel or MCP before the PR lands. Full control.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#6366f1,#4f46e5)"><i class="fa-brands fa-git-alt"></i></div>
+                        <h3>Any Git Forge</h3>
+                        <p>GitHub · GitLab · Gitea · Bitbucket. Pluggable forge-agnostic interface.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#ec4899,#db2777)"><i class="fa-solid fa-link"></i></div>
+                        <h3>MCP Compatible</h3>
+                        <p>Use DAA as a tool inside Claude Desktop, Cursor, or any MCP-compatible client.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#14b8a6,#0d9488)"><i class="fa-solid fa-plug"></i></div>
+                        <h3>Multi-Language SDKs</h3>
+                        <p>Python · Node.js · Go · Java · Ruby · .NET. One-line instrumentation.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#a855f7,#9333ea)"><i class="fa-solid fa-tower-broadcast"></i></div>
+                        <h3>Zero-SDK Webhooks</h3>
+                        <p>Point Sentry, Prometheus, Datadog, CloudWatch, PagerDuty at DAA. No code changes.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ QUICKSTART ═══════════════ -->
+            <section id="quickstart" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#10b981,#059669);color:white"><i class="fa-solid fa-rocket"></i></span> Quickstart</h2>
+
+                <p>Get up and running with DAA in under 60 seconds. Choose your deployment mode:</p>
+
+                <div class="callout callout-info">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <div class="callout-content">
+                        <p><strong>Prerequisites:</strong> Docker installed, a free <a href="https://aistudio.google.com/app/apikey" target="_blank">Gemini API key</a>, and a GitHub Personal Access Token with <code>repo</code> scope.</p>
+                    </div>
+                </div>
+
+                <div class="step-list">
+                    <div class="step-item">
+                        <h4>Start DAA (Serverless — 1 Command)</h4>
+                        <p>No databases or queues required. Stateless webhook receiver.</p>
+                        <div class="code-block-wrapper">
+                            <div class="code-tabs-header">
+                                <button class="code-tab-btn active" onclick="switchCodeTab(this, 'qs-docker')">Docker CLI</button>
+                                <button class="code-tab-btn" onclick="switchCodeTab(this, 'qs-compose')">Docker Compose</button>
+                                <button class="code-tab-btn" onclick="switchCodeTab(this, 'qs-install')">Install Script</button>
+                            </div>
+                            <div class="code-tab-panel active" id="qs-docker">
+                                <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                                <pre>docker run -d --name daa \
   -p 8000:8080 \
   -e LLM_PROVIDER=google \
-  -e GEMINI_API_KEY=$GEMINI_API_KEY \
+  -e GEMINI_API_KEY="your_api_key_here" \
   -e DAA_DB_PROVIDER=none \
   -e DAA_GIT_TOKEN="github_pat_..." \
   -e GIT_HOST="https://github.com" \
   -e GIT_ORG="your-github-username" \
-  rutvej1/daa-standalone:latest</code></pre>
+  rutvej1/daa-standalone:latest</pre>
+                            </div>
+                            <div class="code-tab-panel" id="qs-compose">
+                                <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                                <pre>git clone https://github.com/rutvej/DAA.git
+cd DAA
+cp .env.example .env    # Edit with your credentials
+docker compose up -d</pre>
+                            </div>
+                            <div class="code-tab-panel" id="qs-install">
+                                <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                                <pre>curl -sSL https://raw.githubusercontent.com/rutvej/DAA/main/install.sh | bash
+daa init      # Interactive setup wizard</pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <h4>Verify DAA is Running</h4>
+                        <div class="code-simple">
+                            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                            <pre>curl http://localhost:8000/health
+# → {"status": "ok"}</pre>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <h4>Trigger a Test Incident</h4>
+                        <p>Simulate a webhook from Prometheus/Sentry:</p>
+                        <div class="code-simple">
+                            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                            <pre>curl -X POST http://localhost:8000/ingest/generic \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "ZeroDivisionError in calculator.py:15",
+    "stack_trace": "Traceback (most recent call last):\n  File \"calculator.py\", line 15\nZeroDivisionError: division by zero",
+    "app_name": "test-app",
+    "severity": "critical"
+  }'</pre>
+                        </div>
+                    </div>
+
+                    <div class="step-item">
+                        <h4>Watch the Magic</h4>
+                        <p>DAA investigates, finds root cause, writes a fix, and opens a PR — all in under 90 seconds.</p>
+                        <div class="code-simple">
+                            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                            <pre>docker logs -f daa    # Watch in real-time</pre>
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            <h2 id="architecture">Architecture</h2>
-            <p>DAA integrates seamlessly into your existing observability stack. Below is a high-level overview of the event pipeline.</p>
-            
-            <div class="diagram-container">
-                <div class="mermaid">
-                    graph TD
-                    A[Production Services] -->|Exceptions/Metrics| B(Observability Pipeline)
-                    B -->|Webhook| C{DAA API Gateway}
-                    C -->|Queue| D[Worker Nodes]
-                    D -->|Prompt| E((LLM Engine))
-                    E -->|Root Cause| D
-                    D -->|Create PR| F[GitHub / GitLab]
-                    
-                    style A fill:#3b82f6,stroke:#fff,stroke-width:2px,color:#fff
-                    style B fill:#8b5cf6,stroke:#fff,stroke-width:2px,color:#fff
-                    style C fill:#f43f5e,stroke:#fff,stroke-width:2px,color:#fff
-                    style E fill:#10b981,stroke:#fff,stroke-width:2px,color:#fff
+                <div class="callout callout-tip">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <div class="callout-content">
+                        <p><strong>Tip:</strong> Use <code>daa test</code> from the CLI for an even faster synthetic incident trigger!</p>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="page-meta">
-                <div class="last-updated">Last updated: <span id="current-date">July 18, 2026</span></div>
-                <a href="https://github.com/rutvej/DAA/edit/main/index.html" class="edit-link" target="_blank">
-                    <i class="fa-solid fa-pen-to-square"></i> Edit this page on GitHub
-                </a>
-            </div>
+            <div class="section-divider"></div>
 
-            <div class="page-nav">
-                <a href="#" class="nav-card prev">
-                    <span class="nav-label">Previous</span>
-                    <span class="nav-card-title">Installation Guide</span>
-                </a>
-                <a href="#" class="nav-card next">
-                    <span class="nav-label">Next</span>
-                    <span class="nav-card-title">Configuration Options</span>
-                </a>
-            </div>
+            <!-- ═══════════════ ARCHITECTURE ═══════════════ -->
+            <section id="architecture" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:white"><i class="fa-solid fa-sitemap"></i></span> Architecture</h2>
+                <p>DAA integrates into your existing observability stack. Here's the high-level event pipeline:</p>
+
+                <div class="arch-diagram">
+                    <pre>
+┌──────────────┐         ┌──────────────────┐           ┌────────────────┐
+│  Production  │  ──►    │   DAA Ingestion   │  ──►     │  Agent Worker  │
+│   Service    │ webhook │   (FastAPI)       │  queue   │  (LangChain    │
+│              │         │                  │          │   ReAct Agent) │
+└──────────────┘         └──────────────────┘           └───────┬────────┘
+                                                                │
+                                               ┌────────────────▼────────────────┐
+                                               │         Tool Executor           │
+                                               │  git_log · read_file · grep    │
+                                               │  run_tests · write_patch       │
+                                               │  create_branch · open_pr       │
+                                               └────────────────────────────────┘</pre>
+                </div>
+
+                <h3>Project Structure</h3>
+                <div class="code-simple">
+                    <pre>DAA/
+├── app/
+│   ├── backend-api/    ← FastAPI: ingest, dedup, incident tracking
+│   ├── python-agent/   ← LangChain ReAct SRE agent (the brain)
+│   ├── admin-panel/    ← React dashboard (incidents, apps, config)
+│   ├── daa-sdk/        ← Python SDK (+ Node/Go/Java/Ruby/.NET)
+│   ├── common/         ← Shared DB, config, queue, fingerprint utils
+│   └── daa_mcp_server.py ← MCP server for Claude Desktop / Cursor
+├── daa                 ← CLI tool (daa init / register / test / logs)
+├── docker-compose.yml  ← Full-stack deployment
+├── Dockerfile          ← Single-container build
+├── install.sh          ← One-line installer
+└── docs/               ← Documentation</pre>
+                </div>
+
+                <h3>Component Status</h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Component</th><th>Tech</th><th>Status</th></tr></thead>
+                        <tbody>
+                            <tr><td>Backend API</td><td>FastAPI 0.100+</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                            <tr><td>SRE Agent</td><td>LangChain ReAct</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                            <tr><td>Admin Panel</td><td>React 18</td><td><span class="status status-beta"><i class="fa-solid fa-circle"></i> Beta</span></td></tr>
+                            <tr><td>Python SDK</td><td>requests</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                            <tr><td>MCP Server</td><td>FastMCP / JSON-RPC</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                            <tr><td>CLI Tool</td><td>Bash</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                            <tr><td>Docker Image</td><td>python:3.11-alpine</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ═══════════════ AGENT ═══════════════ -->
+            <section id="agent" class="section-anchor">
+                <h3>AI Agent Deep Dive</h3>
+                <p>The SRE agent uses a 3-phase pipeline with a LangChain ReAct loop at its core:</p>
+                <ol>
+                    <li><strong>Pre-flight:</strong> Fingerprint dedup, repo cache, log hydration, context packaging</li>
+                    <li><strong>Agent Core:</strong> LLM-powered ReAct loop with tool execution (hard budget cap)</li>
+                    <li><strong>Post-flight:</strong> Parse output, apply diff, create branch/PR, generate postmortem</li>
+                </ol>
+
+                <h4>Agent Tool Inventory</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Tool</th><th>Purpose</th><th>Category</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>check_recent_changes</code></td><td>View recent git commits</td><td>Change Horizon</td></tr>
+                            <tr><td><code>view_file_slice</code></td><td>Read specific file sections</td><td>Code Navigation</td></tr>
+                            <tr><td><code>grep_search</code></td><td>Search across codebase</td><td>Code Navigation</td></tr>
+                            <tr><td><code>find_symbol</code></td><td>AST symbol lookup</td><td>Code Navigation</td></tr>
+                            <tr><td><code>read_repomap</code></td><td>Skeletonized repo overview</td><td>Code Navigation</td></tr>
+                            <tr><td><code>query_correlated_logs</code></td><td>Multi-service trace correlation</td><td>Log Horizon</td></tr>
+                            <tr><td><code>check_alerts</code></td><td>Infrastructure alert check</td><td>Infra Horizon</td></tr>
+                            <tr><td><code>run_tests</code></td><td>Execute test suite</td><td>Diagnostic</td></tr>
+                            <tr><td><code>write_patch</code></td><td>Generate code fix</td><td>Remediation</td></tr>
+                            <tr><td><code>create_branch_and_pr</code></td><td>Push branch + open PR</td><td>Remediation</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="callout callout-warn">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div class="callout-content">
+                        <p><strong>Budget Cap:</strong> The agent has a hard limit of <strong>8 tool calls</strong> per investigation (configurable via <code>DAA_MAX_TOOL_CALLS</code>). This prevents runaway LLM costs and forces focused investigation.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════ DEDUP ═══════════════ -->
+            <section id="dedup" class="section-anchor">
+                <h3>Deduplication Engine</h3>
+                <p>DAA uses SHA-256 fingerprinting to eliminate alert fatigue:</p>
+                <div class="code-simple">
+                    <pre>fingerprint = SHA-256( app_name : exception_type : normalized_top_frame )
+
+if fingerprint seen within cooldown window (default 3600s):
+    → return 200 "suppressed"
+else:
+    → create incident
+    → enqueue for investigation</pre>
+                </div>
+                <p>Fingerprints are normalized to strip volatile data (hex addresses, timestamps, variable line numbers) ensuring deterministic matching.</p>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ DEPLOYMENT ═══════════════ -->
+            <section id="deployment" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white"><i class="fa-brands fa-docker"></i></span> Deployment</h2>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Mode</th><th>Components</th><th>Storage</th><th>Best For</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Serverless</strong></td>
+                                <td>Single container, in-memory</td>
+                                <td>None / SQLite</td>
+                                <td>Demos, small teams, Cloud Run</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Full-Stack</strong></td>
+                                <td>API + Worker + Postgres + RabbitMQ + Admin UI</td>
+                                <td>PostgreSQL</td>
+                                <td>Production, multi-app</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cloud</strong></td>
+                                <td>Container on managed platform</td>
+                                <td>None (stateless)</td>
+                                <td>Cloud Run, Fargate, Azure</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="docker-compose" class="section-anchor">
+                <h3>Full-Stack Docker Compose</h3>
+                <p>For production with persistence, async queue, and admin UI:</p>
+                <div class="code-simple">
+                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                    <pre>git clone https://github.com/rutvej/DAA.git
+cd DAA
+cp .env.example .env    # Edit with your credentials
+docker compose up -d
+
+# Access points:
+# API:            http://localhost:8000
+# Admin Panel:    http://localhost:5003
+# RabbitMQ UI:    http://localhost:15672</pre>
+                </div>
+
+                <h4>Services in Docker Compose</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Service</th><th>Image</th><th>Port</th><th>Purpose</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>backend-api</code></td><td>Custom build</td><td>8000</td><td>FastAPI backend</td></tr>
+                            <tr><td><code>python-agent</code></td><td>Custom build</td><td>—</td><td>LangChain agent worker</td></tr>
+                            <tr><td><code>postgres</code></td><td>postgres:13</td><td>5433</td><td>Incident database</td></tr>
+                            <tr><td><code>rabbitmq</code></td><td>rabbitmq:3-management</td><td>5672, 15672</td><td>Async task queue</td></tr>
+                            <tr><td><code>admin-panel</code></td><td>Custom build</td><td>5003</td><td>React dashboard</td></tr>
+                            <tr><td><code>mcp-server</code></td><td>python:3.11-slim</td><td>—</td><td>MCP integration</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="cloud" class="section-anchor">
+                <h3>Cloud Deployment</h3>
+                <div class="code-block-wrapper">
+                    <div class="code-tabs-header">
+                        <button class="code-tab-btn active" onclick="switchCodeTab(this, 'cloud-run')">Google Cloud Run</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'cloud-fargate')">AWS Fargate</button>
+                    </div>
+                    <div class="code-tab-panel active" id="cloud-run">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre>gcloud run deploy daa \
+  --image rutvej1/daa-standalone:latest \
+  --port 8080 \
+  --set-env-vars LLM_PROVIDER=google \
+  --set-env-vars GEMINI_API_KEY=your-key \
+  --set-env-vars DAA_DB_PROVIDER=none \
+  --set-env-vars DAA_GIT_TOKEN=your-token \
+  --set-env-vars GIT_HOST=https://github.com \
+  --set-env-vars GIT_ORG=your-org \
+  --allow-unauthenticated</pre>
+                    </div>
+                    <div class="code-tab-panel" id="cloud-fargate">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># Use ECS task definition with:
+# Image: rutvej1/daa-standalone:latest
+# Port: 8080
+# Environment variables same as above
+# DAA_DB_PROVIDER=none for stateless mode</pre>
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ SDK ═══════════════ -->
+            <section id="sdk" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#f97316,#ea580c);color:white"><i class="fa-solid fa-plug"></i></span> SDK</h2>
+                <p>Instrument your app with a single line of code. The SDK catches exceptions and sends them to DAA.</p>
+
+                <div class="code-block-wrapper">
+                    <div class="code-tabs-header">
+                        <button class="code-tab-btn active" onclick="switchCodeTab(this, 'sdk-basic')">Basic Usage</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'sdk-flask')">Flask</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'sdk-django')">Django</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'sdk-fastapi')">FastAPI</button>
+                    </div>
+                    <div class="code-tab-panel active" id="sdk-basic">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># pip install daa-sdk
+from daa_sdk import DaaSdk
+
+# Auto-reads DAA_BACKEND_API_URL and DAA_TOKEN from env
+daa = DaaSdk()
+
+# Report a caught exception
+try:
+    risky_operation()
+except Exception as e:
+    daa.capture_exception(e)</pre>
+                    </div>
+                    <div class="code-tab-panel" id="sdk-flask">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre>from daa_sdk.integrations import flask_integration
+
+app = Flask(__name__)
+daa = DaaSdk()
+flask_integration(app, daa)
+# All unhandled exceptions now auto-report to DAA</pre>
+                    </div>
+                    <div class="code-tab-panel" id="sdk-django">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># settings.py
+MIDDLEWARE = [
+    'daa_sdk.integrations.DjangoDAAMiddleware',
+    # ... other middleware
+]</pre>
+                    </div>
+                    <div class="code-tab-panel" id="sdk-fastapi">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre>from daa_sdk.integrations import fastapi_integration
+
+app = FastAPI()
+daa = DaaSdk()
+fastapi_integration(app, daa)</pre>
+                    </div>
+                </div>
+
+                <h4>SDK Environment Variables</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>DAA_BACKEND_API_URL</code></td><td>DAA server URL (e.g., <code>http://localhost:8000</code>)</td></tr>
+                            <tr><td><code>DAA_TOKEN</code></td><td>Application token from <code>daa register</code></td></tr>
+                            <tr><td><code>REPO_NAME</code></td><td>Repository name for context</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="tag-list">
+                    <span class="tag"><i class="fa-brands fa-python"></i> Python</span>
+                    <span class="tag"><i class="fa-brands fa-node-js"></i> Node.js</span>
+                    <span class="tag"><i class="fa-brands fa-golang"></i> Go</span>
+                    <span class="tag"><i class="fa-brands fa-java"></i> Java</span>
+                    <span class="tag"><i class="fa-solid fa-gem"></i> Ruby</span>
+                    <span class="tag"><i class="fa-solid fa-code"></i> .NET</span>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ WEBHOOKS ═══════════════ -->
+            <section id="webhooks" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#ec4899,#be185d);color:white"><i class="fa-solid fa-tower-broadcast"></i></span> Webhook Integrations</h2>
+                <p>Point your existing alerting tools at DAA — no SDK or code changes required.</p>
+
+                <div class="code-block-wrapper">
+                    <div class="code-tabs-header">
+                        <button class="code-tab-btn active" onclick="switchCodeTab(this, 'wh-prom')">Prometheus</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'wh-sentry')">Sentry</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'wh-datadog')">Datadog</button>
+                        <button class="code-tab-btn" onclick="switchCodeTab(this, 'wh-generic')">Generic / cURL</button>
+                    </div>
+                    <div class="code-tab-panel active" id="wh-prom">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># alertmanager.yml
+receivers:
+  - name: daa
+    webhook_configs:
+      - url: 'http://your-daa:8000/ingest/prometheus'
+        send_resolved: true
+        http_config:
+          headers:
+            X-API-Key: your-api-key</pre>
+                    </div>
+                    <div class="code-tab-panel" id="wh-sentry">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># Sentry Project Settings → Integrations → Webhooks
+#
+# URL:    http://your-daa:8000/ingest/sentry
+# Secret: your-sentry-webhook-secret
+# Events: issue.created, event.alert
+#
+# DAA verifies HMAC-SHA256 signature automatically</pre>
+                    </div>
+                    <div class="code-tab-panel" id="wh-datadog">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre># Datadog → Integrations → Webhooks → New Webhook
+#
+# Name:    DAA
+# URL:     http://your-daa:8000/ingest/generic
+# Headers: {"X-API-Key": "your-api-key"}
+# Payload: {
+#   "title": "$EVENT_TITLE",
+#   "body": "$EVENT_MSG",
+#   "severity": "$ALERT_TYPE"
+# }</pre>
+                    </div>
+                    <div class="code-tab-panel" id="wh-generic">
+                        <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <pre>curl -X POST http://your-daa:8000/ingest/generic \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "title": "Error in payment service",
+    "stack_trace": "Traceback (most recent call last)...",
+    "app_name": "payment-svc",
+    "severity": "critical"
+  }'</pre>
+                    </div>
+                </div>
+
+                <h4>Supported Sources</h4>
+                <div class="tag-list">
+                    <span class="tag"><i class="fa-solid fa-fire"></i> Prometheus</span>
+                    <span class="tag"><i class="fa-solid fa-bug"></i> Sentry</span>
+                    <span class="tag"><i class="fa-solid fa-dog"></i> Datadog</span>
+                    <span class="tag"><i class="fa-brands fa-aws"></i> CloudWatch</span>
+                    <span class="tag"><i class="fa-solid fa-bell"></i> PagerDuty</span>
+                    <span class="tag"><i class="fa-solid fa-chart-line"></i> Grafana</span>
+                    <span class="tag"><i class="fa-brands fa-google"></i> GCP Alerting</span>
+                    <span class="tag"><i class="fa-solid fa-globe"></i> Opsgenie</span>
+                    <span class="tag"><i class="fa-solid fa-code"></i> Custom YAML</span>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ MCP ═══════════════ -->
+            <section id="mcp" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:white"><i class="fa-solid fa-link"></i></span> MCP Server</h2>
+                <p>Use DAA as a tool inside Claude Desktop, Cursor, or any MCP-compatible AI client.</p>
+
+                <h4>Available MCP Tools</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Tool</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>get_fixes_awaiting_approval</code></td><td>List all fixes pending human approval</td></tr>
+                            <tr><td><code>get_incident_postmortem</code></td><td>Get postmortem & PR URL for a fix</td></tr>
+                            <tr><td><code>approve_remediation_fix</code></td><td>Approve a fix and trigger PR creation</td></tr>
+                            <tr><td><code>get_active_incidents</code></td><td>List incidents currently being processed</td></tr>
+                            <tr><td><code>get_fix_by_fingerprint</code></td><td>Look up fix by SHA-256 fingerprint</td></tr>
+                            <tr><td><code>list_registered_apps</code></td><td>List all registered applications</td></tr>
+                            <tr><td><code>trigger_manual_incident</code></td><td>Fire a synthetic test incident</td></tr>
+                            <tr><td><code>get_incident_context_for_pr</code></td><td>Get 4-DIM telemetry for a PR URL</td></tr>
+                            <tr><td><code>fetch_pull_request_diff</code></td><td>Fetch PR diff for review</td></tr>
+                            <tr><td><code>submit_pr_review_comments</code></td><td>Post review comments on a PR</td></tr>
+                            <tr><td><code>trigger_reinvestigation</code></td><td>Trigger re-investigation with new context</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Claude Desktop Configuration</h4>
+                <div class="code-simple">
+                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                    <pre>{
+  "mcpServers": {
+    "daa": {
+      "command": "python",
+      "args": ["/path/to/app/daa_mcp_server.py"],
+      "env": {
+        "DAA_HOST": "http://localhost:8000",
+        "DAA_API_KEY": "your-api-key"
+      }
+    }
+  }
+}</pre>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ GIT INTEGRATION ═══════════════ -->
+            <section id="git-integration" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#f43f5e,#e11d48);color:white"><i class="fa-brands fa-git-alt"></i></span> Git Integration</h2>
+
+                <h4>Supported Forges</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Forge</th><th>Status</th><th>Config</th></tr></thead>
+                        <tbody>
+                            <tr><td><i class="fa-brands fa-github"></i> GitHub</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td><td><code>GIT_PROVIDER=github</code></td></tr>
+                            <tr><td><i class="fa-brands fa-gitlab"></i> GitLab</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td><td><code>GIT_PROVIDER=gitlab</code></td></tr>
+                            <tr><td><i class="fa-solid fa-code-branch"></i> Gitea</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td><td><code>GIT_PROVIDER=gitea</code></td></tr>
+                            <tr><td><i class="fa-brands fa-bitbucket"></i> Bitbucket</td><td><span class="status status-stable"><i class="fa-solid fa-circle"></i> Stable</span></td><td><code>GIT_PROVIDER=bitbucket</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Workspace Modes</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Mode</th><th>ENV</th><th>Behaviour</th></tr></thead>
+                        <tbody>
+                            <tr><td>Local Clone</td><td><code>DAA_GIT_MODE=local</code></td><td>Clones repo locally. Faster, full git operations.</td></tr>
+                            <tr><td>API Only</td><td><code>DAA_GIT_MODE=api</code></td><td>Reads files via forge REST API. No local clone — ideal for serverless.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ API REFERENCE ═══════════════ -->
+            <section id="api" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:white"><i class="fa-solid fa-code"></i></span> REST API Reference</h2>
+                <p>Base URL: <code>http://your-daa:8000</code></p>
+
+                <h4>Health & Status</h4>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/health</span> <span class="endpoint-desc">Health check</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/status/capabilities</span> <span class="endpoint-desc">Deployment feature flags</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/dashboard</span> <span class="endpoint-desc">Aggregate stats (incidents, fix rate, etc.)</span></div>
+
+                <h4>Ingestion</h4>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/ingest/prometheus</span> <span class="endpoint-desc">Prometheus/AlertManager webhook</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/ingest/sentry</span> <span class="endpoint-desc">Sentry webhook (HMAC verified)</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/ingest/custom/{name}</span> <span class="endpoint-desc">Custom YAML-mapped webhook</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/logs/</span> <span class="endpoint-desc">Submit error log via SDK</span></div>
+
+                <h4>Incidents</h4>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/incidents/</span> <span class="endpoint-desc">List incidents (filterable by status, app_name)</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/incidents/{id}</span> <span class="endpoint-desc">Get incident detail</span></div>
+                <div class="endpoint"><span class="endpoint-method method-patch">PATCH</span> <span class="endpoint-path">/incidents/{id}</span> <span class="endpoint-desc">Update incident status, root cause, PR</span></div>
+
+                <h4>Fixes</h4>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/fixes/{id}</span> <span class="endpoint-desc">Get fix details</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/fixes/{id}/approve</span> <span class="endpoint-desc">Approve fix → triggers PR creation</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/fixes/fingerprint/{fp}</span> <span class="endpoint-desc">Lookup fix by fingerprint</span></div>
+
+                <h4>Applications</h4>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/applications/</span> <span class="endpoint-desc">List registered apps</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/applications/</span> <span class="endpoint-desc">Register new app (returns token)</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/applications/{id}/escalation-policies</span> <span class="endpoint-desc">Create escalation policy</span></div>
+
+                <h4>Alerts</h4>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/alerts/</span> <span class="endpoint-desc">Create alert</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/alerts/</span> <span class="endpoint-desc">List alerts</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/alerts/webhook/alertmanager</span> <span class="endpoint-desc">AlertManager webhook</span></div>
+
+                <h4>Authentication</h4>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/auth/register</span> <span class="endpoint-desc">Register user</span></div>
+                <div class="endpoint"><span class="endpoint-method method-post">POST</span> <span class="endpoint-path">/auth/login</span> <span class="endpoint-desc">Login (returns JWT)</span></div>
+
+                <h4>Real-time Streaming</h4>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/status/incidents/{id}/stream</span> <span class="endpoint-desc">WebSocket — ReAct thought stream</span></div>
+                <div class="endpoint"><span class="endpoint-method method-get">GET</span> <span class="endpoint-path">/api/v1/mcp/sse</span> <span class="endpoint-desc">SSE — MCP event stream</span></div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ CLI ═══════════════ -->
+            <section id="cli" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#14b8a6,#0d9488);color:white"><i class="fa-solid fa-terminal"></i></span> CLI Reference</h2>
+                <p>The <code>daa</code> CLI provides complete management of your DAA installation.</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Command</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td><code>daa init</code></td><td>Interactive 5-step setup wizard (LLM, Git, DB, Queue, Logging)</td></tr>
+                            <tr><td><code>daa register</code></td><td>Register an application and get its DAA_TOKEN</td></tr>
+                            <tr><td><code>daa policy</code></td><td>Set escalation threshold (e.g., 3 errors in 60s)</td></tr>
+                            <tr><td><code>daa test</code></td><td>Fire a synthetic error and watch the pipeline</td></tr>
+                            <tr><td><code>daa logs</code></td><td>View/stream recent incidents</td></tr>
+                            <tr><td><code>daa status</code></td><td>Health check all services</td></tr>
+                            <tr><td><code>daa redeploy</code></td><td>Rebuild and restart all containers</td></tr>
+                            <tr><td><code>daa config set-model</code></td><td>Switch LLM provider/model</td></tr>
+                            <tr><td><code>daa config set-git</code></td><td>Update git provider/token</td></tr>
+                            <tr><td><code>daa config show</code></td><td>Show current configuration</td></tr>
+                            <tr><td><code>daa mcp list</code></td><td>List configured MCP servers</td></tr>
+                            <tr><td><code>daa mcp add</code></td><td>Add external MCP server</td></tr>
+                            <tr><td><code>daa version</code></td><td>Print DAA version</td></tr>
+                            <tr><td><code>daa uninstall</code></td><td>Remove DAA</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ CONFIGURATION ═══════════════ -->
+            <section id="config" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white"><i class="fa-solid fa-gear"></i></span> Configuration Reference</h2>
+                <p>All configuration is via environment variables. Copy <code>.env.example</code> to <code>.env</code> and customize.</p>
+
+                <h4>LLM Provider</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="config-var">LLM_PROVIDER</td><td><code>google</code></td><td>Provider: <code>google</code>, <code>openai</code>, <code>anthropic</code>, <code>ollama</code>, <code>vertex</code></td></tr>
+                            <tr><td class="config-var">GEMINI_API_KEY</td><td>—</td><td>Gemini API key (required if google)</td></tr>
+                            <tr><td class="config-var">OPENAI_API_KEY</td><td>—</td><td>OpenAI API key (required if openai)</td></tr>
+                            <tr><td class="config-var">ANTHROPIC_API_KEY</td><td>—</td><td>Anthropic API key (required if anthropic)</td></tr>
+                            <tr><td class="config-var">OLLAMA_HOST</td><td><code>http://localhost:11434</code></td><td>Ollama server URL</td></tr>
+                            <tr><td class="config-var">DAA_MODEL</td><td>Provider default</td><td>Override model name</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Database & Queue</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="config-var">DAA_DB_PROVIDER</td><td><code>sqlite</code></td><td><code>none</code> / <code>sqlite</code> / <code>postgres</code> / <code>internal-postgres</code></td></tr>
+                            <tr><td class="config-var">DATABASE_URL</td><td>—</td><td>PostgreSQL connection string</td></tr>
+                            <tr><td class="config-var">DAA_QUEUE_MODE</td><td><code>sync</code></td><td><code>sync</code> (inline) or <code>rabbitmq</code></td></tr>
+                            <tr><td class="config-var">RABBITMQ_HOST</td><td>—</td><td>RabbitMQ hostname</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Git Integration</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="config-var">DAA_GIT_TOKEN</td><td>—</td><td>Git forge personal access token</td></tr>
+                            <tr><td class="config-var">GIT_HOST</td><td><code>https://github.com</code></td><td>Git forge URL</td></tr>
+                            <tr><td class="config-var">GIT_ORG</td><td>—</td><td>Default git org/user</td></tr>
+                            <tr><td class="config-var">GIT_PROVIDER</td><td><code>github</code></td><td><code>github</code> / <code>gitlab</code> / <code>gitea</code> / <code>bitbucket</code></td></tr>
+                            <tr><td class="config-var">DAA_GIT_MODE</td><td><code>local</code></td><td><code>local</code> (clone) or <code>api</code> (REST only)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Security & Auth</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="config-var">DAA_AUTH_ENABLED</td><td><code>false</code></td><td>Enable JWT auth for SDK/API endpoints</td></tr>
+                            <tr><td class="config-var">DAA_API_KEY</td><td>—</td><td>API key for webhook endpoints</td></tr>
+                            <tr><td class="config-var">SECRET_KEY</td><td>—</td><td>JWT signing key</td></tr>
+                            <tr><td class="config-var">CORS_ALLOW_ORIGINS</td><td><code>*</code></td><td>CORS origins allowlist</td></tr>
+                            <tr><td class="config-var">SENTRY_WEBHOOK_SECRET</td><td>—</td><td>Sentry HMAC verification secret</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h4>Agent Configuration</h4>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+                        <tbody>
+                            <tr><td class="config-var">DAA_MAX_TOOL_CALLS</td><td><code>8</code></td><td>Hard cap on agent tool calls per investigation</td></tr>
+                            <tr><td class="config-var">DAA_MAX_ITERATIONS</td><td><code>10</code></td><td>Max ReAct loop iterations</td></tr>
+                            <tr><td class="config-var">DAA_AGENT_MODE</td><td><code>full</code></td><td><code>full</code> (4-dim) or <code>fast</code> (bug-fix only)</td></tr>
+                            <tr><td class="config-var">DAA_COOLDOWN_SECONDS</td><td><code>3600</code></td><td>Dedup cooldown window (seconds)</td></tr>
+                            <tr><td class="config-var">DAA_HITL_MODE</td><td><code>false</code></td><td>Human-in-the-loop approval mode</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ SECURITY ═══════════════ -->
+            <section id="security" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);color:white"><i class="fa-solid fa-shield-halved"></i></span> Security</h2>
+                <p>Self-hosted and private by design. Your code never leaves your infrastructure (except to the LLM provider you choose).</p>
+
+                <div class="card-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="fa-solid fa-key"></i></div>
+                        <h3>Credentials via Env Only</h3>
+                        <p>Never stored in container filesystem. Never logged. Rotatable without downtime.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fa-solid fa-shield"></i></div>
+                        <h3>CORS & Webhook Auth</h3>
+                        <p>Strict origin allowlist. API key enforcement. Sentry HMAC-SHA256 verification.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fa-solid fa-gauge-high"></i></div>
+                        <h3>Agent Budget Cap</h3>
+                        <p>Hard 8-tool-call limit. No destructive tools. All operations on isolated branches.</p>
+                    </div>
+                    <div class="card">
+                        <div class="card-icon" style="background:linear-gradient(135deg,#6366f1,#4f46e5)"><i class="fa-brands fa-docker"></i></div>
+                        <h3>Docker Hardened</h3>
+                        <p>Non-root user. Minimal alpine base. Pinned deps. Trivy-scanned images.</p>
+                    </div>
+                </div>
+
+                <h4>Security Hardening Checklist</h4>
+                <ul class="clean-list">
+                    <li><i class="fa-solid fa-circle"></i> Set <code>CORS_ALLOW_ORIGINS</code> to your specific domains</li>
+                    <li><i class="fa-solid fa-circle"></i> Enable <code>DAA_AUTH_ENABLED=true</code> for SDK endpoints</li>
+                    <li><i class="fa-solid fa-circle"></i> Use a strong <code>DAA_API_KEY</code> for webhook endpoints</li>
+                    <li><i class="fa-solid fa-circle"></i> Deploy behind a reverse proxy (nginx, Caddy, Traefik)</li>
+                    <li><i class="fa-solid fa-circle"></i> Use HTTPS in production</li>
+                    <li><i class="fa-solid fa-circle"></i> Restrict Docker network access</li>
+                    <li><i class="fa-solid fa-circle"></i> Rotate git tokens regularly</li>
+                </ul>
+
+                <div class="callout callout-danger">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div class="callout-content">
+                        <p><strong>Report vulnerabilities:</strong> Please use <a href="https://github.com/rutvej/DAA/security/advisories/new" target="_blank">GitHub Security Advisories</a>. Do NOT open public issues for security reports.</p>
+                    </div>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ PERFORMANCE ═══════════════ -->
+            <section id="performance" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);color:white"><i class="fa-solid fa-gauge-high"></i></span> Performance</h2>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+                        <tbody>
+                            <tr><td>Alert ingestion latency</td><td>< 50ms</td></tr>
+                            <tr><td>Dedup lookup</td><td>< 5ms</td></tr>
+                            <tr><td>Agent investigation (Gemini Flash)</td><td>30–90s</td></tr>
+                            <tr><td>Agent investigation (GPT-4o)</td><td>45–120s</td></tr>
+                            <tr><td>PR creation</td><td>< 10s</td></tr>
+                            <tr><td>Memory usage (idle)</td><td>~150 MB</td></tr>
+                            <tr><td>Memory usage (active)</td><td>~500 MB</td></tr>
+                            <tr><td>Docker image</td><td>Multi-arch (amd64 + arm64)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ ROADMAP ═══════════════ -->
+            <section id="roadmap" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:white"><i class="fa-solid fa-road"></i></span> Roadmap</h2>
+
+                <h4>v3.1 — Next</h4>
+                <ul class="clean-list">
+                    <li><i class="fa-solid fa-circle"></i> Multi-language agent (JavaScript, Go, Java)</li>
+                    <li><i class="fa-solid fa-circle"></i> Slack / Teams notifications</li>
+                    <li><i class="fa-solid fa-circle"></i> Incident clustering & trend analysis</li>
+                </ul>
+
+                <h4>v3.2</h4>
+                <ul class="clean-list">
+                    <li><i class="fa-solid fa-circle"></i> Kubernetes operator</li>
+                    <li><i class="fa-solid fa-circle"></i> Auto-scaling workers</li>
+                    <li><i class="fa-solid fa-circle"></i> Fine-tuned models for common error patterns</li>
+                </ul>
+
+                <h4>v4.0 — Vision</h4>
+                <ul class="clean-list">
+                    <li><i class="fa-solid fa-circle"></i> Multi-repo investigation (cross-service root cause)</li>
+                    <li><i class="fa-solid fa-circle"></i> Automated rollback integration</li>
+                    <li><i class="fa-solid fa-circle"></i> Self-improving agent (learns from merged PRs)</li>
+                </ul>
+            </section>
+
+            <div class="section-divider"></div>
+
+            <!-- ═══════════════ CONTRIBUTING ═══════════════ -->
+            <section id="contributing" class="section-anchor">
+                <h2><span class="section-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:white"><i class="fa-solid fa-handshake"></i></span> Contributing</h2>
+                <p>PRs welcome! For large changes, open an issue first to align on the approach.</p>
+
+                <div class="code-simple">
+                    <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> Copy</button>
+                    <pre># Development Setup
+git clone https://github.com/rutvej/DAA.git
+cd DAA
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Run tests
+python -m pytest test.py -v
+
+# Linting
+ruff check .</pre>
+                </div>
+
+                <div style="display:flex; gap:16px; margin-top:20px; flex-wrap: wrap;">
+                    <a href="https://github.com/rutvej/DAA/blob/main/CONTRIBUTING.md" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-book"></i> CONTRIBUTING.md</a>
+                    <a href="https://github.com/rutvej/DAA/blob/main/SECURITY.md" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-shield"></i> SECURITY.md</a>
+                    <a href="https://github.com/rutvej/DAA/blob/main/LICENSE" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-scale-balanced"></i> MIT License</a>
+                    <a href="https://github.com/rutvej/DAA/issues" class="btn btn-secondary" target="_blank"><i class="fa-solid fa-bug"></i> Report a Bug</a>
+                </div>
+            </section>
+
         </main>
-
-        <aside class="toc">
-            <h4>On this page</h4>
-            <ul class="toc-list">
-                <li class="toc-item"><a href="#introduction" class="active">Introduction</a></li>
-                <li class="toc-item"><a href="#quickstart">Quickstart</a></li>
-                <li class="toc-item"><a href="#architecture">Architecture</a></li>
-            </ul>
-        </aside>
     </div>
 
-    <!-- Minimal Scripts -->
-    <!-- Prism for Syntax Highlighting -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
-    
-    <!-- Mermaid for Architecture Diagrams -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- ═══════════════ FOOTER ═══════════════ -->
+    <footer class="site-footer">
+        <div class="footer-links">
+            <a href="https://github.com/rutvej/DAA" target="_blank"><i class="fa-brands fa-github"></i> GitHub</a>
+            <a href="https://github.com/rutvej/DAA/issues" target="_blank"><i class="fa-solid fa-bug"></i> Issues</a>
+            <a href="https://github.com/rutvej/DAA/blob/main/LICENSE" target="_blank"><i class="fa-solid fa-scale-balanced"></i> MIT License</a>
+            <a href="https://github.com/rutvej/DAA/blob/main/SECURITY.md" target="_blank"><i class="fa-solid fa-shield"></i> Security</a>
+        </div>
+        <p>Built for engineers who are tired of being paged at 3 AM for the same error twice.</p>
+        <p style="margin-top: 4px; font-size: 0.82rem;">⭐ Star the repo if it's useful · © 2026 DAA — Debugging Autonomous Agent</p>
+    </footer>
+
+    <!-- Back to Top -->
+    <button class="back-to-top" id="back-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <!-- ═══════════════ JAVASCRIPT ═══════════════ -->
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            // Initialize Mermaid
-            mermaid.initialize({ startOnLoad: true, theme: document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default' });
-            
-            // Highlight active TOC item on scroll
-            const sections = document.querySelectorAll('h1[id], h2[id], h3[id]');
-            const tocLinks = document.querySelectorAll('.toc-item a');
-            
-            window.addEventListener('scroll', () => {
-                let current = '';
-                sections.forEach(section => {
-                    const sectionTop = section.offsetTop;
-                    if (pageYOffset >= sectionTop - 100) {
-                        current = section.getAttribute('id');
-                    }
-                });
-                tocLinks.forEach(link => {
-                    link.classList.remove('active');
-                    if (link.getAttribute('href') === `#${current}`) {
-                        link.classList.add('active');
-                    }
-                });
-            });
+    document.addEventListener('DOMContentLoaded', function() {
+        // ── Initialize nav groups ──
+        document.querySelectorAll('.nav-links').forEach(list => {
+            list.style.maxHeight = list.scrollHeight + 'px';
         });
 
-        // Theme Toggle
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            
-            const icon = document.getElementById('theme-icon');
-            if(newTheme === 'dark') {
-                icon.className = 'fa-solid fa-moon';
-            } else {
-                icon.className = 'fa-solid fa-sun';
-            }
-            
-            // Re-render mermaid diagram with new theme
-            // (A simple page reload or re-init would be needed for perfect mermaid theme swap, 
-            // but this is sufficient for a lightweight approach)
-        }
+        // ── Active sidebar link tracking on scroll ──
+        const sections = document.querySelectorAll('.section-anchor, [id]');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-height'));
 
-        // Mobile Sidebar Toggle
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
-        }
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    let current = '';
+                    sections.forEach(sec => {
+                        if (sec.id && sec.offsetTop - headerH - 80 <= window.scrollY) {
+                            current = sec.id;
+                        }
+                    });
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href') === '#' + current) {
+                            link.classList.add('active');
+                        }
+                    });
+                    // Back to top button
+                    const btt = document.getElementById('back-to-top');
+                    if (window.scrollY > 400) btt.classList.add('visible');
+                    else btt.classList.remove('visible');
 
-        // Collapsible Nav
-        function toggleNav(element) {
-            const list = element.nextElementSibling;
-            const icon = element.querySelector('i');
-            if (list.style.maxHeight) {
-                list.style.maxHeight = null;
-                icon.style.transform = 'rotate(0deg)';
-            } else {
-                list.style.maxHeight = list.scrollHeight + "px";
-                icon.style.transform = 'rotate(-180deg)';
+                    ticking = false;
+                });
+                ticking = true;
             }
-        }
-        
-        // Initialize open navs
-        document.querySelectorAll('.nav-list').forEach(list => {
-            list.style.maxHeight = list.scrollHeight + "px";
         });
 
-        // Tab Switching
-        function switchTab(btn, tabId) {
-            const container = btn.closest('.code-tabs');
-            container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            btn.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-        }
+        // ── Search functionality ──
+        const searchData = [];
+        document.querySelectorAll('h2, h3, h4').forEach(el => {
+            const section = el.closest('section');
+            const id = section ? section.id : (el.id || '');
+            if (id) {
+                searchData.push({
+                    title: el.textContent.trim(),
+                    id: id,
+                    section: el.tagName
+                });
+            }
+        });
+        // Also add code elements, table entries etc as searchable
+        document.querySelectorAll('td code, .endpoint-path').forEach(el => {
+            const section = el.closest('section');
+            const id = section ? section.id : '';
+            if (id) {
+                searchData.push({ title: el.textContent.trim(), id: id, section: 'code' });
+            }
+        });
 
-        // Copy Code
-        function copyCode(btn) {
-            const pre = btn.nextElementSibling;
-            const code = pre.textContent;
-            navigator.clipboard.writeText(code).then(() => {
-                const icon = btn.querySelector('i');
-                icon.className = 'fa-solid fa-check';
-                setTimeout(() => {
-                    icon.className = 'fa-regular fa-copy';
-                }, 2000);
-            });
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase().trim();
+            if (q.length < 2) {
+                searchResults.classList.remove('active');
+                return;
+            }
+            const matches = searchData.filter(item =>
+                item.title.toLowerCase().includes(q)
+            ).slice(0, 10);
+
+            if (matches.length === 0) {
+                searchResults.innerHTML = '<div style="padding:12px 16px;color:var(--text-muted);font-size:0.9rem;">No results found</div>';
+            } else {
+                searchResults.innerHTML = matches.map(m =>
+                    `<a href="#${m.id}" class="search-result-item" onclick="closeSearch()">
+                        <div>${highlightMatch(m.title, q)}</div>
+                        <div class="sr-section">#${m.id}</div>
+                    </a>`
+                ).join('');
+            }
+            searchResults.classList.add('active');
+        });
+
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => searchResults.classList.remove('active'), 200);
+        });
+        searchInput.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) searchResults.classList.add('active');
+        });
+    });
+
+    function highlightMatch(text, query) {
+        const idx = text.toLowerCase().indexOf(query.toLowerCase());
+        if (idx === -1) return text;
+        return text.substring(0, idx) + '<strong>' + text.substring(idx, idx + query.length) + '</strong>' + text.substring(idx + query.length);
+    }
+    function closeSearch() {
+        document.getElementById('search-results').classList.remove('active');
+        document.getElementById('search-input').value = '';
+        closeSidebar();
+    }
+
+    // ── Theme Toggle ──
+    function toggleTheme() {
+        const html = document.documentElement;
+        const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', newTheme);
+        const icon = document.getElementById('theme-icon');
+        icon.className = newTheme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+        try { localStorage.setItem('daa-theme', newTheme); } catch(e) {}
+    }
+    // Persist theme
+    try {
+        const saved = localStorage.getItem('daa-theme');
+        if (saved) {
+            document.documentElement.setAttribute('data-theme', saved);
+            if (saved === 'light') document.getElementById('theme-icon').className = 'fa-solid fa-sun';
         }
+    } catch(e) {}
+
+    // ── Mobile Sidebar ──
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('sidebar-overlay').classList.toggle('active');
+    }
+    function closeSidebar() {
+        document.getElementById('sidebar').classList.remove('open');
+        document.getElementById('sidebar-overlay').classList.remove('active');
+    }
+    // Close sidebar on nav link click (mobile)
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 768) closeSidebar();
+        });
+    });
+
+    // ── Nav Group Toggle ──
+    function toggleNavGroup(el) {
+        const list = el.nextElementSibling;
+        const icon = el.querySelector('i');
+        el.classList.toggle('collapsed');
+        list.classList.toggle('collapsed');
+        if (!list.classList.contains('collapsed')) {
+            list.style.maxHeight = list.scrollHeight + 'px';
+        }
+    }
+
+    // ── Code Tab Switching ──
+    function switchCodeTab(btn, tabId) {
+        const wrapper = btn.closest('.code-block-wrapper');
+        wrapper.querySelectorAll('.code-tab-btn').forEach(b => b.classList.remove('active'));
+        wrapper.querySelectorAll('.code-tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    // ── Copy Code ──
+    function copyCode(btn) {
+        const codeEl = btn.parentElement.querySelector('pre');
+        const text = codeEl.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy';
+                btn.classList.remove('copied');
+            }, 2000);
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); btn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!'; btn.classList.add('copied'); } catch(e) {}
+            document.body.removeChild(ta);
+            setTimeout(() => { btn.innerHTML = '<i class="fa-regular fa-copy"></i> Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
     </script>
 </body>
 </html>
