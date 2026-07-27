@@ -13,8 +13,7 @@ import subprocess
 import time
 import uuid
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from urllib.parse import unquote, urlparse
 
 import requests
@@ -97,9 +96,7 @@ def _apply_unified_diff_to_text(original: str, diff_text: str) -> str:
         while i < len(diff_lines):
             hline = diff_lines[i]
             if (
-                hline.startswith("@@")
-                or hline.startswith("--- ")
-                or hline.startswith("+++ ")
+                hline.startswith(("@@", "--- ", "+++ "))
             ):
                 break
             if hline.startswith(" "):
@@ -169,7 +166,7 @@ class RepoCacheManager:
             fh.write(str(time.time()))
 
     def _run(
-        self, cmd: list, cwd: str = None, check: bool = True
+        self, cmd: list, cwd: str | None = None, check: bool = True
     ) -> subprocess.CompletedProcess:
         """Thin wrapper around subprocess.run with unified logging."""
         cmd_str = " ".join(str(c) for c in cmd)
@@ -193,7 +190,7 @@ class RepoCacheManager:
     # ------------------------------------------------------------------
 
     def get_worktree(
-        self, app_name: str, repo_url: str, incident_id: str, token: str = None
+        self, app_name: str, repo_url: str, incident_id: str, token: str | None = None
     ) -> str:
         """
         Ensure a fresh, isolated git worktree exists for *incident_id*.
@@ -301,7 +298,7 @@ class FingerprintDedup:
     whether a fix already exists in the DAA backend.
     """
 
-    def __init__(self, backend_url: str, token: str = None) -> None:
+    def __init__(self, backend_url: str, token: str | None = None) -> None:
         self.backend_url = backend_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -373,7 +370,7 @@ class LogHydrator:
         dim4 -- recent git commits
     """
 
-    def __init__(self, backend_url: str, token: str = None) -> None:
+    def __init__(self, backend_url: str, token: str | None = None) -> None:
         self.backend_url = backend_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -381,7 +378,7 @@ class LogHydrator:
     # Private fetchers
     # ------------------------------------------------------------------
 
-    def _fetch_dim2(self, app_name: str, timestamp: str) -> Optional[str]:
+    def _fetch_dim2(self, app_name: str, timestamp: str) -> str | None:
         """
         Fetch the last 500 log lines before *timestamp*.
 
@@ -412,7 +409,7 @@ class LogHydrator:
         # As requested: "if not logs are set it should not call the logs api"
         return None
 
-    def _fetch_dim3(self, app_name: str, timestamp: str) -> Optional[str]:
+    def _fetch_dim3(self, app_name: str, timestamp: str) -> str | None:
         """
         Fetch a metrics snapshot at *timestamp*.
 
@@ -423,7 +420,7 @@ class LogHydrator:
         # Don't call the fallback backend metrics API if not configured
         return None
 
-    def _fetch_dim4(self, app_name: str) -> Optional[str]:
+    def _fetch_dim4(self, app_name: str) -> str | None:
         """
         Fetch the last 10 recent commits.
         """
@@ -499,7 +496,7 @@ class LogHydrator:
         self,
         app_name: str,
         incident_timestamp: str,
-        trace_id: str = None,
+        trace_id: str | None = None,
     ) -> dict:
         """
         Fetch all three remote dimensions and return them in a single dict.
@@ -562,14 +559,14 @@ class ContextPackager:
         self.max_dim2_lines = max_dim2_lines
         self.max_dim4_commits = max_dim4_commits
 
-    def _trim_logs(self, raw: Optional[str]) -> str:
+    def _trim_logs(self, raw: str | None) -> str:
         """Return the last *max_dim2_lines* lines of *raw*, or the unavailable sentinel."""
         if not raw:
             return "unavailable"
         lines = raw.splitlines()
         return "\n".join(lines[-self.max_dim2_lines :])
 
-    def _trim_commits(self, raw: Optional[str]) -> str:
+    def _trim_commits(self, raw: str | None) -> str:
         """Return the first *max_dim4_commits* commit lines, or the unavailable sentinel."""
         if not raw:
             return "no recent commits"
@@ -677,7 +674,7 @@ class PostflightOrchestrator:
     def __init__(
         self,
         backend_url: str,
-        token: str = None,
+        token: str | None = None,
         repo_cache_manager: RepoCacheManager = None,
     ) -> None:
         self.backend_url = backend_url.rstrip("/")
@@ -741,7 +738,7 @@ class PostflightOrchestrator:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _run(self, cmd: list, cwd: str = None, input: str = None, check: bool = True):
+    def _run(self, cmd: list, cwd: str | None = None, input: str | None = None, check: bool = True):
         """Thin subprocess wrapper."""
         logger.debug("Running: %s (cwd=%s)", " ".join(cmd), cwd)
         return subprocess.run(
@@ -762,7 +759,7 @@ class PostflightOrchestrator:
         explanation: str,
         incident_id: str,
         already_committed: bool = False,  # NEW: True if agent used write_file directly
-        modified_files_hint: list = None,  # NEW: files agent reported writing
+        modified_files_hint: list | None = None,  # NEW: files agent reported writing
     ) -> dict:
         start_time = time.time()
 
@@ -1032,13 +1029,13 @@ class PostflightOrchestrator:
         fingerprint: str,
         elapsed_sec: float,
         explanation: str,
-        pr_url: Optional[str],
+        pr_url: str | None,
         files_changed: list,
     ) -> str:
         """
         Pure template fill -- no LLM call.  Returns a Markdown postmortem.
         """
-        now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        now_utc = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         files_md = (
             "\n".join(f"- `{f}`" for f in files_changed)
             if files_changed
@@ -1081,8 +1078,7 @@ def _parse_owner_repo(repo_url: str) -> tuple:
         path_part = parsed.path.lstrip("/")
 
     # Strip .git suffix
-    if path_part.endswith(".git"):
-        path_part = path_part[:-4]
+    path_part = path_part.removesuffix(".git")
 
     parts = path_part.split("/")
     if len(parts) < 2:
@@ -1090,7 +1086,7 @@ def _parse_owner_repo(repo_url: str) -> tuple:
     return parts[-2], parts[-1]
 
 
-def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, Optional[tuple[str, str]]]:
+def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, tuple[str, str] | None]:
     """Build provider API auth from env or repo URL credentials."""
     git_token = (
         os.getenv("DAA_GIT_TOKEN")

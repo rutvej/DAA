@@ -122,9 +122,9 @@ def test_cryptographic_fingerprint_deduplication(mock_pika):
 
     fp1 = compute_canonical_fingerprint("payment-api", "DBError", log_content_1)
     fp2 = compute_canonical_fingerprint("payment-api", "DBError", log_content_2)
-    assert (
-        fp1 == fp2
-    ), "Cryptographic fingerprint deduplication failed to canonicalize dynamic addresses/timestamps!"
+    assert fp1 == fp2, (
+        "Cryptographic fingerprint deduplication failed to canonicalize dynamic addresses/timestamps!"
+    )
 
     res1 = client.post(
         "/logs/",

@@ -1,6 +1,6 @@
 import os
 import unittest
-from datetime import timezone
+from datetime import UTC
 from unittest.mock import MagicMock, patch
 
 from agent_src.log_connectors import (
@@ -21,16 +21,16 @@ class TestLogConnectors(unittest.TestCase):
         self.assertEqual(ts.hour, 19)
         self.assertEqual(ts.minute, 26)
         self.assertEqual(ts.second, 3)
-        self.assertEqual(ts.tzinfo, timezone.utc)
+        self.assertEqual(ts.tzinfo, UTC)
 
     def test_parse_timestamp_unix_seconds(self):
         ts = parse_timestamp("1783538763")  # Some timestamp
-        self.assertEqual(ts.tzinfo, timezone.utc)
+        self.assertEqual(ts.tzinfo, UTC)
         self.assertAlmostEqual(ts.timestamp(), 1783538763.0)
 
     def test_parse_timestamp_unix_milliseconds(self):
         ts = parse_timestamp("1783538763000")  # Some timestamp in ms
-        self.assertEqual(ts.tzinfo, timezone.utc)
+        self.assertEqual(ts.tzinfo, UTC)
         self.assertAlmostEqual(ts.timestamp(), 1783538763.0)
 
     def test_get_configured_connector_none(self):

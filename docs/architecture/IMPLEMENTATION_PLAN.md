@@ -32,8 +32,7 @@ if db_provider == "none":
 elif db_provider == "sqlite":
     DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./daa.db")
     engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False, "timeout": 30.0}
+        DATABASE_URL, connect_args={"check_same_thread": False, "timeout": 30.0}
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
@@ -70,6 +69,7 @@ Refactor the file read/write tools to bypass local disk cloning when `DAA_GIT_MO
 # app/python-agent/src/tools/git_tool.py
 
 git_mode = os.environ.get("DAA_GIT_MODE", "local")
+
 
 @tool
 def read_file_content(app_name: str, file_path: str) -> str:

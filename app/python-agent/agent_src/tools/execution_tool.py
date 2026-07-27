@@ -79,8 +79,7 @@ def run_tests(data: str) -> str:
             shlex.split(cmd),
             shell=False,
             check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             text=True,
             timeout=120,
         )
@@ -98,4 +97,4 @@ def run_tests(data: str) -> str:
     except json.JSONDecodeError:
         return "Error: Invalid JSON string."
     except Exception as e:
-        return f"Error executing command: {str(e)}"
+        return f"Error executing command: {e!s}"

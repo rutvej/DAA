@@ -134,7 +134,7 @@ def search_repo(query: str, repo_path: str = ".") -> str:
     if os.environ.get("DAA_GIT_MODE") == "api":
         from .file_system_tool import parse_api_path
 
-        app_name, relative_path = parse_api_path(repo_path)
+        app_name, _relative_path = parse_api_path(repo_path)
         from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
         client = CloneFreeGitClient(app_name)

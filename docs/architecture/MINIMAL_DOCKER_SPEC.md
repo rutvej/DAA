@@ -137,29 +137,31 @@ Instead of querying Postgres, check if the branch already exists on the remote:
 ```python
 import subprocess
 
+
 def check_dedup(repo_url: str, fingerprint: str, token: str = None) -> dict:
     """Check if a fix branch already exists on the remote."""
     branch_name = f"fix/{fingerprint[:12]}"
-    
+
     # Build authenticated URL if token provided
     if token:
         from urllib.parse import urlparse, urlunparse
+
         parsed = urlparse(repo_url)
-        auth_url = urlunparse(parsed._replace(
-            netloc=f"{token}@{parsed.hostname}"
-        ))
+        auth_url = urlunparse(parsed._replace(netloc=f"{token}@{parsed.hostname}"))
     else:
         auth_url = repo_url
-    
+
     result = subprocess.run(
         ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
-        capture_output=True, text=True, timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=15,
     )
-    
+
     if result.stdout.strip():
         # Branch exists — find the PR URL
         return {"status": "fix_exists", "branch": branch_name}
-    
+
     return {"status": "no_fix"}
 ```
 
@@ -176,6 +178,7 @@ from datetime import datetime, timedelta
 _dedup_cache: dict[str, tuple[str, datetime]] = {}
 COOLDOWN = timedelta(minutes=30)
 
+
 def is_duplicate(fingerprint: str) -> bool:
     """Hot-path check before hitting Git remote."""
     if fingerprint in _dedup_cache:
@@ -184,6 +187,7 @@ def is_duplicate(fingerprint: str) -> bool:
             return True
         del _dedup_cache[fingerprint]
     return False
+
 
 def mark_processed(fingerprint: str):
     _dedup_cache[fingerprint] = ("processed", datetime.utcnow())
@@ -483,12 +487,13 @@ Use `asyncio.Lock` keyed on fingerprint to ensure only one investigation runs pe
 ```python
 _locks: dict[str, asyncio.Lock] = {}
 
+
 async def process_webhook(payload):
     fp = compute_fingerprint(payload)
-    
+
     if fp not in _locks:
         _locks[fp] = asyncio.Lock()
-    
+
     async with _locks[fp]:
         if is_duplicate(fp):
             return {"status": "duplicate"}

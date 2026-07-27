@@ -2,7 +2,6 @@ import base64
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional
 from urllib.parse import quote, urlparse
 
 import requests
@@ -119,8 +118,7 @@ def build_project_connection(app_name: str) -> dict:
 def _repo_parts(repo_url: str, provider: str) -> tuple[str, str]:
     parsed = urlparse(repo_url)
     path = parsed.path.strip("/")
-    if path.endswith(".git"):
-        path = path[:-4]
+    path = path.removesuffix(".git")
     parts = [p for p in path.split("/") if p]
     if provider == "gitlab":
         if len(parts) >= 2:
@@ -146,7 +144,7 @@ class RepoInfo:
     project_path: str = ""
     workspace: str = ""
     repo_slug: str = ""
-    headers: Optional[dict] = None
+    headers: dict | None = None
 
 
 class BaseGitProvider:
@@ -193,10 +191,10 @@ class BaseGitProvider:
     def get_default_branch(self) -> str:
         return "main"
 
-    def get_branch_sha(self, branch_name: str) -> Optional[str]:
+    def get_branch_sha(self, branch_name: str) -> str | None:
         return None
 
-    def _ref_candidates(self, ref: Optional[str] = None) -> list[str]:
+    def _ref_candidates(self, ref: str | None = None) -> list[str]:
         candidates = [
             ref or self.default_branch,
             self.default_branch,
@@ -213,10 +211,10 @@ class BaseGitProvider:
                 seen.add(candidate)
         return ordered
 
-    def get_file_sha(self, file_path: str, ref: str) -> Optional[str]:
+    def get_file_sha(self, file_path: str, ref: str) -> str | None:
         return None
 
-    def get_file_content(self, file_path: str, ref: str = "main") -> Optional[str]:
+    def get_file_content(self, file_path: str, ref: str = "main") -> str | None:
         return None
 
     def list_files(self, path: str, ref: str = "main") -> list[str]:
@@ -248,11 +246,11 @@ class BaseGitProvider:
             logger.error("Error searching code via API: %s", e)
         return results
 
-    def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch(self, new_branch: str, base_branch: str | None = None) -> bool:
         return False
 
     def create_branch_lock(
-        self, new_branch: str, base_branch: Optional[str] = None
+        self, new_branch: str, base_branch: str | None = None
     ) -> bool:
         return self.create_branch(new_branch, base_branch)
 
@@ -266,7 +264,7 @@ class BaseGitProvider:
         branch_name: str,
         title: str,
         description: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         return ""
 
@@ -292,7 +290,7 @@ class GitHubLikeProvider(BaseGitProvider):
                 return candidate
         return "main"
 
-    def get_file_content(self, file_path: str, ref: str = "main") -> Optional[str]:
+    def get_file_content(self, file_path: str, ref: str = "main") -> str | None:
         try:
             for branch_ref in self._ref_candidates(ref):
                 resp = self._request(
@@ -361,7 +359,7 @@ class GitHubLikeProvider(BaseGitProvider):
             logger.error("Error getting recursive tree: %s", e)
         return []
 
-    def get_branch_sha(self, branch_name: str) -> Optional[str]:
+    def get_branch_sha(self, branch_name: str) -> str | None:
         # 1. GitHub-style: GET /git/ref/heads/{branch}  → single object
         try:
             resp = self._request(
@@ -408,7 +406,7 @@ class GitHubLikeProvider(BaseGitProvider):
             pass
         return None
 
-    def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch(self, new_branch: str, base_branch: str | None = None) -> bool:
         base_branch = base_branch or self.default_branch
 
         if self.provider == "gitea":
@@ -442,7 +440,7 @@ class GitHubLikeProvider(BaseGitProvider):
         return False
 
     def create_branch_lock(
-        self, new_branch: str, base_branch: Optional[str] = None
+        self, new_branch: str, base_branch: str | None = None
     ) -> bool:
         base_branch = base_branch or self.default_branch
         if self.provider == "gitea":
@@ -528,7 +526,7 @@ class GitHubLikeProvider(BaseGitProvider):
         branch_name: str,
         title: str,
         description: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         base_branch = base_branch or self.default_branch
         try:
@@ -585,7 +583,7 @@ class GitLabProvider(BaseGitProvider):
                 return candidate
         return "main"
 
-    def get_file_content(self, file_path: str, ref: str = "main") -> Optional[str]:
+    def get_file_content(self, file_path: str, ref: str = "main") -> str | None:
         encoded_path = quote(file_path, safe="")
         try:
             for branch_ref in self._ref_candidates(ref):
@@ -638,7 +636,7 @@ class GitLabProvider(BaseGitProvider):
             logger.error("Error getting recursive tree: %s", e)
         return files
 
-    def get_branch_sha(self, branch_name: str) -> Optional[str]:
+    def get_branch_sha(self, branch_name: str) -> str | None:
         try:
             resp = self._request(
                 "GET", f"repository/branches/{branch_name}", headers=self.headers
@@ -649,7 +647,7 @@ class GitLabProvider(BaseGitProvider):
             pass
         return None
 
-    def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch(self, new_branch: str, base_branch: str | None = None) -> bool:
         base_branch = base_branch or self.default_branch
         if not self.get_branch_sha(base_branch) and base_branch not in (
             "master",
@@ -711,7 +709,7 @@ class GitLabProvider(BaseGitProvider):
         branch_name: str,
         title: str,
         description: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         base_branch = base_branch or self.default_branch
         try:
@@ -769,7 +767,7 @@ class BitbucketProvider(BaseGitProvider):
                 return candidate
         return "main"
 
-    def get_branch_sha(self, branch_name: str) -> Optional[str]:
+    def get_branch_sha(self, branch_name: str) -> str | None:
         try:
             resp = self._request(
                 "GET", f"refs/branches/{branch_name}", headers=self.headers
@@ -804,7 +802,7 @@ class BitbucketProvider(BaseGitProvider):
             logger.error("Error listing files via API: %s", e)
         return []
 
-    def get_file_content(self, file_path: str, ref: str = "main") -> Optional[str]:
+    def get_file_content(self, file_path: str, ref: str = "main") -> str | None:
         try:
             for branch_ref in self._ref_candidates(ref):
                 resp = self._request(
@@ -878,7 +876,7 @@ class BitbucketProvider(BaseGitProvider):
             logger.error("Error searching code via API: %s", e)
         return results
 
-    def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch(self, new_branch: str, base_branch: str | None = None) -> bool:
         base_branch = base_branch or self.default_branch
         base_sha = self.get_branch_sha(base_branch)
         if not base_sha and base_branch != "master":
@@ -925,7 +923,7 @@ class BitbucketProvider(BaseGitProvider):
         branch_name: str,
         title: str,
         description: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         base_branch = base_branch or self.default_branch
         try:

@@ -222,6 +222,7 @@ def mock_llm_trajectory():
         model = MagicMock()
         model.invoke.side_effect = [MagicMock(content=step) for step in steps]
         return model
+
     return _create
 ```
 Using this fixture, write comprehensive unit tests for `main.py` (`process_job`) verifying that the agent successfully navigates multi-step diagnoses, parses tool outputs, and emits valid diff patches (`WRITE_DIFF:`) across 100% of execution paths in under **0.1 seconds**.
@@ -250,12 +251,12 @@ def sample_python_repo(tmp_path):
     src.mkdir()
     main_file = src / "main.py"
     main_file.write_text(
-        'class PaymentGateway:\n'
-        '    def charge(self, amount: float) -> bool:\n'
+        "class PaymentGateway:\n"
+        "    def charge(self, amount: float) -> bool:\n"
         '        """Process payment charge."""\n'
-        '        return amount > 0\n\n'
-        'def helper_func():\n'
-        '    pass\n' + ('# dummy line\n' * 150)
+        "        return amount > 0\n\n"
+        "def helper_func():\n"
+        "    pass\n" + ("# dummy line\n" * 150)
     )
     return str(tmp_path)
 ```
@@ -285,19 +286,34 @@ class TestExecutionToolLightweight(unittest.TestCase):
     @patch.dict(os.environ, {"DAA_GIT_MODE": "api"}, clear=False)
     def test_run_tests_serverless_stateless_bypass(self):
         """Verify serverless mode immediately bypasses local docker execution."""
-        res = run_tests.run(json.dumps({"repo_path": "/tmp/app", "test_command": "pytest"}))
-        self.assertIn("Test execution bypassed: DAA SRE is running in Serverless (Stateless) mode", res)
+        res = run_tests.run(
+            json.dumps({"repo_path": "/tmp/app", "test_command": "pytest"})
+        )
+        self.assertIn(
+            "Test execution bypassed: DAA SRE is running in Serverless (Stateless) mode",
+            res,
+        )
         self.assertIn("✅ BYPASSED (Safe to proceed with creating Pull Request)", res)
 
-    @patch.dict(os.environ, {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"}, clear=False)
+    @patch.dict(
+        os.environ,
+        {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"},
+        clear=False,
+    )
     @patch("agent_src.tools.execution_tool.os.path.exists", return_value=True)
     @patch("agent_src.tools.execution_tool._get_app_language", return_value="python")
     @patch("agent_src.tools.execution_tool.subprocess.run")
-    def test_run_tests_local_docker_success_mock(self, mock_run, mock_lang, mock_exists):
+    def test_run_tests_local_docker_success_mock(
+        self, mock_run, mock_lang, mock_exists
+    ):
         """Verify successful test command execution formatting via mocked subprocess."""
-        mock_run.return_value = MagicMock(returncode=0, stdout="5 passed in 0.12s", stderr="")
-        res = run_tests.run(json.dumps({"repo_path": "/tmp/app", "test_command": "pytest -v"}))
-        
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="5 passed in 0.12s", stderr=""
+        )
+        res = run_tests.run(
+            json.dumps({"repo_path": "/tmp/app", "test_command": "pytest -v"})
+        )
+
         # Verify exact docker run command construction
         expected_cmd = "docker run --rm -v /tmp/app:/workspace -w /workspace python:3.10-slim pytest -v"
         mock_run.assert_called_once()
@@ -305,26 +321,48 @@ class TestExecutionToolLightweight(unittest.TestCase):
         self.assertIn("✅ PASSED", res)
         self.assertIn("5 passed in 0.12s", res)
 
-    @patch.dict(os.environ, {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"}, clear=False)
+    @patch.dict(
+        os.environ,
+        {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"},
+        clear=False,
+    )
     @patch("agent_src.tools.execution_tool.os.path.exists", return_value=True)
     @patch("agent_src.tools.execution_tool._get_app_language", return_value="node")
     @patch("agent_src.tools.execution_tool.subprocess.run")
-    def test_run_tests_local_docker_failure_mock(self, mock_run, mock_lang, mock_exists):
+    def test_run_tests_local_docker_failure_mock(
+        self, mock_run, mock_lang, mock_exists
+    ):
         """Verify failed test execution reports exact return codes and stderr."""
-        mock_run.return_value = MagicMock(returncode=1, stdout="FAIL test.js", stderr="TypeError: x is not a function")
-        res = run_tests.run(json.dumps({"repo_path": "/tmp/app", "test_command": "npm test"}))
-        
-        self.assertIn("docker run --rm -v /tmp/app:/workspace -w /workspace node:18-slim npm test", mock_run.call_args[0][0])
+        mock_run.return_value = MagicMock(
+            returncode=1, stdout="FAIL test.js", stderr="TypeError: x is not a function"
+        )
+        res = run_tests.run(
+            json.dumps({"repo_path": "/tmp/app", "test_command": "npm test"})
+        )
+
+        self.assertIn(
+            "docker run --rm -v /tmp/app:/workspace -w /workspace node:18-slim npm test",
+            mock_run.call_args[0][0],
+        )
         self.assertIn("❌ FAILED", res)
         self.assertIn("TypeError: x is not a function", res)
 
-    @patch.dict(os.environ, {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"}, clear=False)
+    @patch.dict(
+        os.environ,
+        {"DAA_GIT_MODE": "local", "DAA_DB_PROVIDER": "postgres"},
+        clear=False,
+    )
     @patch("agent_src.tools.execution_tool.os.path.exists", return_value=True)
     @patch("agent_src.tools.execution_tool._get_app_language", return_value="python")
-    @patch("agent_src.tools.execution_tool.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=120))
+    @patch(
+        "agent_src.tools.execution_tool.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="pytest", timeout=120),
+    )
     def test_run_tests_timeout_handling(self, mock_run, mock_lang, mock_exists):
         """Verify 120-second test timeouts are caught gracefully without crashing."""
-        res = run_tests.run(json.dumps({"repo_path": "/tmp/app", "test_command": "pytest"}))
+        res = run_tests.run(
+            json.dumps({"repo_path": "/tmp/app", "test_command": "pytest"})
+        )
         self.assertIn("Error: The test command timed out after 120 seconds.", res)
 ```
 This suite verifies **100% of the logic inside `execution_tool.py`** in less than 50 milliseconds without requiring Docker daemon access or external image downloads.

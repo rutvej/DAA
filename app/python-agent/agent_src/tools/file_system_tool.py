@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 
 try:
     from langchain.tools import tool
@@ -47,7 +46,7 @@ def get_full_path(file_path: str) -> str:
     if not os.path.isabs(file_path):
         candidate = os.path.join(WORKSPACE_DIR, file_path)
     else:
-        if file_path.startswith(WORKSPACE_DIR) or file_path.startswith("/tmp"):
+        if file_path.startswith((WORKSPACE_DIR, "/tmp")):
             candidate = file_path
         else:
             candidate = os.path.join(WORKSPACE_DIR, file_path.lstrip("/"))
@@ -161,7 +160,7 @@ def write_file(data: str) -> str:
 
 
 @tool
-def list_files(path: str) -> List[str]:
+def list_files(path: str) -> list[str]:
     """Lists all files in a directory.
 
     Args:

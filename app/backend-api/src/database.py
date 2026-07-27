@@ -2,8 +2,17 @@ import os
 import uuid
 from datetime import datetime
 
-from sqlalchemy import (Boolean, Column, DateTime, ForeignKey, Integer, String,
-                        Text, UniqueConstraint, event)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    event,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -103,17 +112,15 @@ class MockSession:
         import uuid
         from datetime import datetime
 
-        if hasattr(instance, "id") and not getattr(instance, "id"):
+        if hasattr(instance, "id") and not instance.id:
             instance.id = str(uuid.uuid4())
-        if hasattr(instance, "timestamp") and not getattr(instance, "timestamp"):
+        if hasattr(instance, "timestamp") and not instance.timestamp:
             instance.timestamp = datetime.utcnow()
-        if hasattr(instance, "created_at") and not getattr(instance, "created_at"):
+        if hasattr(instance, "created_at") and not instance.created_at:
             instance.created_at = datetime.utcnow()
-        if hasattr(instance, "first_seen_at") and not getattr(
-            instance, "first_seen_at"
-        ):
+        if hasattr(instance, "first_seen_at") and not instance.first_seen_at:
             instance.first_seen_at = datetime.utcnow()
-        if hasattr(instance, "last_seen_at") and not getattr(instance, "last_seen_at"):
+        if hasattr(instance, "last_seen_at") and not instance.last_seen_at:
             instance.last_seen_at = datetime.utcnow()
 
     def delete(self, instance):

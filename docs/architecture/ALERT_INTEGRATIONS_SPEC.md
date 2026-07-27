@@ -228,6 +228,7 @@ from fastapi import APIRouter, Request
 
 router = APIRouter(prefix="/ingest")
 
+
 @router.post("/prometheus")
 async def ingest_prometheus(request: Request):
     payload = await request.json()
@@ -235,6 +236,7 @@ async def ingest_prometheus(request: Request):
     for job in jobs:
         await enqueue_investigation(job)
     return {"status": "accepted", "jobs": len(jobs)}
+
 
 @router.post("/sentry")
 async def ingest_sentry(request: Request):
@@ -244,6 +246,7 @@ async def ingest_sentry(request: Request):
         await enqueue_investigation(job)
     return {"status": "accepted"}
 
+
 @router.post("/datadog")
 async def ingest_datadog(request: Request):
     payload = await request.json()
@@ -252,6 +255,7 @@ async def ingest_datadog(request: Request):
         await enqueue_investigation(job)
     return {"status": "accepted"}
 
+
 @router.post("/gcp-alerting")
 async def ingest_gcp(request: Request):
     payload = await request.json()
@@ -259,6 +263,7 @@ async def ingest_gcp(request: Request):
     if job:
         await enqueue_investigation(job)
     return {"status": "accepted"}
+
 
 @router.post("/generic")
 async def ingest_generic(request: Request):
@@ -276,18 +281,20 @@ async def ingest_generic(request: Request):
 from dataclasses import dataclass
 from typing import Optional, List
 
+
 @dataclass
 class InvestigationJob:
     app_name: str
-    repo_url: Optional[str]     # looked up from config if not in payload
+    repo_url: Optional[str]  # looked up from config if not in payload
     exception_type: str
     error_file: Optional[str]
     line_number: Optional[int]
     stack_trace: Optional[str]
     log_content: Optional[str]
-    severity: str               # "info", "warning", "error", "critical", "fatal"
-    source: str                 # "prometheus", "sentry", "datadog", etc.
-    raw_payload: dict           # original payload for debugging
+    severity: str  # "info", "warning", "error", "critical", "fatal"
+    source: str  # "prometheus", "sentry", "datadog", etc.
+    raw_payload: dict  # original payload for debugging
+
 
 class PrometheusAdapter:
     @staticmethod
@@ -298,20 +305,25 @@ class PrometheusAdapter:
                 continue
             labels = alert.get("labels", {})
             annotations = alert.get("annotations", {})
-            
-            jobs.append(InvestigationJob(
-                app_name=labels.get("service") or labels.get("job") or labels.get("app", "unknown"),
-                repo_url=None,  # looked up from config
-                exception_type=labels.get("alertname", "Unknown"),
-                error_file=None,
-                line_number=None,
-                stack_trace=annotations.get("description", ""),
-                log_content=annotations.get("summary", ""),
-                severity=labels.get("severity", "error"),
-                source="prometheus",
-                raw_payload=alert,
-            ))
+
+            jobs.append(
+                InvestigationJob(
+                    app_name=labels.get("service")
+                    or labels.get("job")
+                    or labels.get("app", "unknown"),
+                    repo_url=None,  # looked up from config
+                    exception_type=labels.get("alertname", "Unknown"),
+                    error_file=None,
+                    line_number=None,
+                    stack_trace=annotations.get("description", ""),
+                    log_content=annotations.get("summary", ""),
+                    severity=labels.get("severity", "error"),
+                    source="prometheus",
+                    raw_payload=alert,
+                )
+            )
         return jobs
+
 
 class SentryAdapter:
     @staticmethod
@@ -320,7 +332,7 @@ class SentryAdapter:
             return None
         issue = payload.get("data", {}).get("issue", {})
         metadata = issue.get("metadata", {})
-        
+
         return InvestigationJob(
             app_name=issue.get("project", {}).get("slug", "unknown"),
             repo_url=None,
@@ -527,11 +539,11 @@ The DAA engine loads this YAML on startup and dynamically generates a FastAPI en
 # ingest/declarative_parser.py
 from jsonpath_ng import parse
 
+
 class DeclarativeAdapter:
     def __init__(self, mapping_config: dict):
         self.mappings = {
-            field: parse(expression) 
-            for field, expression in mapping_config.items()
+            field: parse(expression) for field, expression in mapping_config.items()
         }
 
     def parse_payload(self, json_data: dict) -> dict:
@@ -571,20 +583,27 @@ For integrations that require complex logic (like decoding base64 payloads, fetc
    import importlib.util
    import os
 
+
    def load_custom_plugins(app, plugin_dir="/app/plugins/ingest"):
        if not os.path.exists(plugin_dir):
            return
-           
+
        for filename in os.listdir(plugin_dir):
            if filename.endswith(".py") and filename != "base.py":
-               spec = importlib.util.spec_from_file_location("plugin_mod", os.path.join(plugin_dir, filename))
+               spec = importlib.util.spec_from_file_location(
+                   "plugin_mod", os.path.join(plugin_dir, filename)
+               )
                module = importlib.util.module_from_spec(spec)
                spec.loader.exec_module(module)
-               
+
                # Register the plugin's parse method under a dynamic endpoint
                for attr in dir(module):
                    obj = getattr(module, attr)
-                   if isinstance(obj, type) and issubclass(obj, BaseIngestPlugin) and obj != BaseIngestPlugin:
+                   if (
+                       isinstance(obj, type)
+                       and issubclass(obj, BaseIngestPlugin)
+                       and obj != BaseIngestPlugin
+                   ):
                        plugin_instance = obj()
                        register_plugin_route(app, plugin_instance)
    ```

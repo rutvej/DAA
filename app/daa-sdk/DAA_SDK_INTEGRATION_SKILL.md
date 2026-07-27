@@ -36,6 +36,7 @@ app = FastAPI()
 DAA_LOGS_URL = os.environ.get("DAA_LOGS_URL")
 DAA_TOKEN = os.environ.get("DAA_TOKEN")
 
+
 def report_to_daa(exception_type: str, content: str, trace_id: str):
     if not DAA_LOGS_URL or not DAA_TOKEN:
         return
@@ -44,7 +45,7 @@ def report_to_daa(exception_type: str, content: str, trace_id: str):
         "content": content,
         "exception_type": exception_type,
         "trace_id": trace_id,
-        "correlation_id": str(uuid.uuid4())
+        "correlation_id": str(uuid.uuid4()),
     }
     headers = {"Authorization": f"Bearer {DAA_TOKEN}"}
     try:

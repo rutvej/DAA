@@ -10,7 +10,7 @@ import os
 import urllib.request
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 logger = logging.getLogger("daa.redis_storage")
 
@@ -22,7 +22,7 @@ class UpstashRestClient:
         self.rest_url = rest_url.rstrip("/")
         self.rest_token = rest_token
 
-    def _execute(self, command: List[Any]) -> Any:
+    def _execute(self, command: list[Any]) -> Any:
         url = self.rest_url
         headers = {
             "Authorization": f"Bearer {self.rest_token}",
@@ -38,7 +38,7 @@ class UpstashRestClient:
             logger.error(f"Upstash REST API error for command {command[0]}: {e}")
             raise
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         return self._execute(["GET", key])
 
     def set(self, key: str, value: str) -> Any:
@@ -72,8 +72,8 @@ class RedisBackend:
     def __init__(self):
         self.client = None
         self.is_memory_fallback = False
-        self._memory_store: Dict[str, Any] = {}
-        self._memory_sets: Dict[str, set] = {}
+        self._memory_store: dict[str, Any] = {}
+        self._memory_sets: dict[str, set] = {}
 
         provider = os.environ.get("DAA_DB_PROVIDER", "").lower()
         upstash_url = os.environ.get("UPSTASH_REDIS_REST_URL")
@@ -98,7 +98,7 @@ class RedisBackend:
                 self.client = redis.Redis.from_url(redis_url, decode_responses=True)
             else:
                 host = os.environ.get("REDIS_HOST", "localhost")
-                port = int(os.environ.get("REDIS_PORT", 6379))
+                port = int(os.environ.get("REDIS_PORT", "6379"))
                 self.client = redis.Redis(host=host, port=port, decode_responses=True)
             # Quick ping check if local
             self.client.ping()
@@ -116,7 +116,7 @@ class RedisBackend:
             cls._instance = RedisBackend()
         return cls._instance
 
-    def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> str | None:
         if self.client:
             return self.client.get(key)
         return self._memory_store.get(key)
@@ -174,7 +174,7 @@ def _serialize_value(val: Any) -> Any:
     return val
 
 
-def _deserialize_value(val: Any, target_type: Optional[Type] = None) -> Any:
+def _deserialize_value(val: Any, target_type: type | None = None) -> Any:
     if isinstance(val, str) and (
         target_type == datetime or (val.count("-") == 2 and "T" in val)
     ):
@@ -190,21 +190,21 @@ class RedisQuery:
 
     def __init__(
         self,
-        model_class: Type,
+        model_class: type,
         backend: RedisBackend,
-        pending_instances: Optional[List[Any]] = None,
+        pending_instances: list[Any] | None = None,
     ):
         self.model_class = model_class
         self.backend = backend
         self.table_name = getattr(
             model_class, "__tablename__", model_class.__name__.lower()
         )
-        self._filters_args: List[Any] = []
-        self._filters_kwargs: Dict[str, Any] = {}
+        self._filters_args: list[Any] = []
+        self._filters_kwargs: dict[str, Any] = {}
         self._order_by_attr = None
         self._order_desc = False
-        self._limit_val: Optional[int] = None
-        self._offset_val: Optional[int] = 0
+        self._limit_val: int | None = None
+        self._offset_val: int | None = 0
         self.pending_instances = pending_instances or []
 
     def filter(self, *args, **kwargs):
@@ -301,8 +301,8 @@ class RedisQuery:
                 setattr(instance, col_name, _deserialize_value(val, col_type))
         return instance
 
-    def _fetch_all_candidates(self) -> List[Any]:
-        candidates: Dict[str, Any] = {}
+    def _fetch_all_candidates(self) -> list[Any]:
+        candidates: dict[str, Any] = {}
 
         # First, load all persisted IDs from Redis index
         idx_key = f"daa:idx:{self.table_name}:all"
@@ -351,7 +351,7 @@ class RedisQuery:
             return results[start]
         return None
 
-    def all(self) -> List[Any]:
+    def all(self) -> list[Any]:
         results = self._fetch_all_candidates()
         start = self._offset_val or 0
         end = start + self._limit_val if self._limit_val is not None else len(results)
@@ -369,26 +369,24 @@ class StatelessRedisSession:
 
     def __init__(self, *args, **kwargs):
         self.backend = RedisBackend.get_instance()
-        self.dirty_instances: List[Any] = []
-        self.deleted_instances: List[Any] = []
+        self.dirty_instances: list[Any] = []
+        self.deleted_instances: list[Any] = []
 
-    def query(self, model_class: Type) -> RedisQuery:
+    def query(self, model_class: type) -> RedisQuery:
         return RedisQuery(
             model_class, self.backend, pending_instances=self.dirty_instances
         )
 
     def add(self, instance: Any):
-        if hasattr(instance, "id") and not getattr(instance, "id"):
+        if hasattr(instance, "id") and not instance.id:
             instance.id = str(uuid.uuid4())
-        if hasattr(instance, "timestamp") and not getattr(instance, "timestamp"):
+        if hasattr(instance, "timestamp") and not instance.timestamp:
             instance.timestamp = datetime.utcnow()
-        if hasattr(instance, "created_at") and not getattr(instance, "created_at"):
+        if hasattr(instance, "created_at") and not instance.created_at:
             instance.created_at = datetime.utcnow()
-        if hasattr(instance, "first_seen_at") and not getattr(
-            instance, "first_seen_at"
-        ):
+        if hasattr(instance, "first_seen_at") and not instance.first_seen_at:
             instance.first_seen_at = datetime.utcnow()
-        if hasattr(instance, "last_seen_at") and not getattr(instance, "last_seen_at"):
+        if hasattr(instance, "last_seen_at") and not instance.last_seen_at:
             instance.last_seen_at = datetime.utcnow()
 
         if instance not in self.dirty_instances:

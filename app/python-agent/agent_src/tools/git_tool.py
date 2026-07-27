@@ -73,8 +73,7 @@ def get_project_connection(app_name: str) -> dict:
 def _parse_github_repo(repo_url: str) -> tuple[str, str]:
     """Parses owner and repository name from a GitHub URL."""
     path = urlparse(repo_url).path
-    if path.endswith(".git"):
-        path = path[:-4]
+    path = path.removesuffix(".git")
     parts = [p for p in path.split("/") if p]
     if len(parts) >= 2:
         return parts[-2], parts[-1]

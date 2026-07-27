@@ -58,33 +58,33 @@ When DAA crashes or errors during operation, the error handler captures:
 @dataclass
 class DAAInternalErrorReport:
     """Crash report about DAA itself — NOT about the user's application."""
-    
+
     # What went wrong in DAA
-    exception_type: str          # "ImportError", "AttributeError", "TimeoutError", etc.
-    exception_message: str       # "module 'orchestrator' has no attribute 'run_preflight'"
-    traceback: str               # Full Python traceback (DAA's own code only)
-    
+    exception_type: str  # "ImportError", "AttributeError", "TimeoutError", etc.
+    exception_message: str  # "module 'orchestrator' has no attribute 'run_preflight'"
+    traceback: str  # Full Python traceback (DAA's own code only)
+
     # Where in DAA it happened
-    daa_file: str                # "src/orchestrator.py"
-    daa_line: int                # 482
-    daa_function: str            # "run_preflight"
-    
+    daa_file: str  # "src/orchestrator.py"
+    daa_line: int  # 482
+    daa_function: str  # "run_preflight"
+
     # DAA environment
-    daa_version: str             # "3.0.1"
-    python_version: str          # "3.11.9"
-    llm_provider: str            # "google" (no API keys!)
-    deployment_mode: str         # "docker-compose", "minimal", "cloud-run"
-    os_info: str                 # "Linux 6.1.0 x86_64"
-    
+    daa_version: str  # "3.0.1"
+    python_version: str  # "3.11.9"
+    llm_provider: str  # "google" (no API keys!)
+    deployment_mode: str  # "docker-compose", "minimal", "cloud-run"
+    os_info: str  # "Linux 6.1.0 x86_64"
+
     # Context (what DAA was doing when it crashed)
-    phase: str                   # "preflight", "agent_core", "postflight"
-    trigger: str                 # "webhook", "rabbitmq", "mcp", "manual"
-    
+    phase: str  # "preflight", "agent_core", "postflight"
+    trigger: str  # "webhook", "rabbitmq", "mcp", "manual"
+
     # Timestamp
-    timestamp: str               # ISO 8601
-    
+    timestamp: str  # ISO 8601
+
     # Privacy
-    instance_id: str             # anonymous random ID (not user-identifying)
+    instance_id: str  # anonymous random ID (not user-identifying)
 ```
 
 ### NEVER sent:
@@ -121,6 +121,7 @@ MASTER_DAA_URL = os.environ.get("DAA_MASTER_URL", "https://master.daa.dev")
 DAA_SELF_REPORT = os.environ.get("DAA_SELF_REPORT", "false").lower() == "true"
 DAA_VERSION = "3.0.1"
 
+
 async def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
     """
     Report a DAA internal error to the Master DAA.
@@ -129,13 +130,13 @@ async def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
     """
     if not DAA_SELF_REPORT:
         return
-    
+
     tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
     tb_str = "".join(tb)
-    
+
     # Extract file/line from traceback (only DAA's own files)
     daa_file, daa_line, daa_function = _extract_daa_frame(exc)
-    
+
     report = {
         "exception_type": type(exc).__name__,
         "exception_message": str(exc),
@@ -153,7 +154,7 @@ async def report_daa_internal_error(exc: Exception, phase: str = "unknown"):
         "timestamp": datetime.utcnow().isoformat(),
         "instance_id": _get_anonymous_instance_id(),
     }
-    
+
     try:
         async with httpx.AsyncClient() as client:
             await client.post(
@@ -173,7 +174,11 @@ def _sanitize_traceback(tb: str) -> str:
     safe_lines = []
     for line in tb.split("\n"):
         # Only keep frames from DAA's own modules
-        if "daa_minimal/" in line or "python-agent/src/" in line or "backend-api/src/" in line:
+        if (
+            "daa_minimal/" in line
+            or "python-agent/src/" in line
+            or "backend-api/src/" in line
+        ):
             safe_lines.append(line)
         elif line.strip().startswith("File "):
             # External frame — redact the path but keep the error type
@@ -186,12 +191,13 @@ def _sanitize_traceback(tb: str) -> str:
 def _extract_daa_frame(exc: Exception) -> tuple[str, int, str]:
     """Extract the most relevant DAA source file from the traceback."""
     import traceback as tb_module
+
     for frame in reversed(tb_module.extract_tb(exc.__traceback__)):
         if "daa_minimal/" in frame.filename or "python-agent/src/" in frame.filename:
             # Return relative path within DAA project
             for prefix in ["daa_minimal/", "python-agent/src/", "backend-api/src/"]:
                 if prefix in frame.filename:
-                    rel_path = frame.filename[frame.filename.index(prefix):]
+                    rel_path = frame.filename[frame.filename.index(prefix) :]
                     return rel_path, frame.lineno, frame.name
     return "unknown", 0, "unknown"
 ```
@@ -245,30 +251,31 @@ When a crash report arrives:
 ```python
 # master_daa/self_report_handler.py
 
+
 @app.post("/api/v1/self-report")
 async def receive_self_report(report: DAAInternalErrorReport):
     """
     Receive a crash report about DAA's own code.
     Investigate in the DAA repository and create a fix PR.
     """
-    
+
     # 1. Compute fingerprint from DAA's own error
     fingerprint = hashlib.sha256(
         f"DAA|{report.exception_type}|{report.daa_file}|{report.daa_line}".encode()
     ).hexdigest()
-    
+
     # 2. Dedup — don't create duplicate PRs for the same bug
     if check_git_dedup("https://github.com/rutvej/DAA.git", fingerprint):
         return {"status": "known_bug", "fingerprint": fingerprint}
-    
+
     # 3. Create investigation job — but targeting the DAA repo itself
     job = InvestigationJob(
         app_name="DAA",
         repo_url="https://github.com/rutvej/DAA.git",
         exception_type=report.exception_type,
-        error_file=report.daa_file,           # e.g., "python-agent/src/orchestrator.py"
-        line_number=report.daa_line,           # e.g., 482
-        stack_trace=report.traceback,          # DAA's own traceback
+        error_file=report.daa_file,  # e.g., "python-agent/src/orchestrator.py"
+        line_number=report.daa_line,  # e.g., 482
+        stack_trace=report.traceback,  # DAA's own traceback
         log_content=report.exception_message,
         severity="error",
         source="self-report",
@@ -278,9 +285,9 @@ async def receive_self_report(report: DAAInternalErrorReport):
             "deployment_mode": report.deployment_mode,
             "phase": report.phase,
             "occurrence_count": 1,  # incremented by dedup
-        }
+        },
     )
-    
+
     # 4. Run the standard DAA investigation pipeline
     #    → clone github.com/rutvej/DAA
     #    → read the failing code
@@ -289,7 +296,7 @@ async def receive_self_report(report: DAAInternalErrorReport):
     #    → push branch fix/<fingerprint>
     #    → create PR on github.com/rutvej/DAA
     await enqueue_investigation(job)
-    
+
     return {"status": "accepted", "fingerprint": fingerprint}
 ```
 
@@ -495,24 +502,24 @@ When multiple users hit the same bug:
 @app.post("/api/v1/self-report")
 async def receive_self_report(report: DAAInternalErrorReport):
     fingerprint = compute_fingerprint(report)
-    
+
     # Check if we already know about this bug
     existing = await get_existing_report(fingerprint)
-    
+
     if existing:
         # Increment occurrence count — more reports = higher priority
         existing.occurrence_count += 1
         existing.affected_versions.add(report.daa_version)
         existing.affected_modes.add(report.deployment_mode)
         await update_report(existing)
-        
+
         return {
             "status": "known_bug",
             "fingerprint": fingerprint,
             "pr_url": existing.pr_url,  # share the fix PR URL back
-            "message": f"This bug is known. Fix PR: {existing.pr_url}"
+            "message": f"This bug is known. Fix PR: {existing.pr_url}",
         }
-    
+
     # New bug — investigate
     await create_investigation(report, fingerprint)
     return {"status": "new_bug_accepted", "fingerprint": fingerprint}

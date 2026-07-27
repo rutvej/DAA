@@ -2,18 +2,15 @@ import asyncio
 import os
 import re
 import time
-from typing import Dict, Set
 
-from fastapi import (APIRouter, Depends, HTTPException, WebSocket,
-                     WebSocketDisconnect)
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, DAA_POLICY_ENABLED
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, DAA_POLICY_ENABLED, get_db
 from ..database import Fix as DBFix
 from ..database import Incident as DBIncident
 from ..database import Log as DBLog
-from ..database import get_db
 from .auth import get_current_user
 from .git_provider import get_provider_info
 
@@ -100,7 +97,7 @@ class ThoughtBroadcaster:
     """
 
     def __init__(self):
-        self.subscribers: Dict[str, Set[asyncio.Queue]] = {}
+        self.subscribers: dict[str, set[asyncio.Queue]] = {}
 
     def subscribe(self, log_id: str, queue: asyncio.Queue):
         log_id_str = str(log_id)
@@ -260,7 +257,7 @@ async def stream_incident_thoughts(
                 pkt = _parse_step_to_json(msg, start_time)
                 await websocket.send_json(pkt)
                 sent_chars += len(msg) + 2
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Fallback poll database if queue was silent (handles out-of-process workers)
                 db.expire_all()
                 fix = (

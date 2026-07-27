@@ -96,7 +96,7 @@ If you don't have centralized logging, use the DAA SDK.
 # pip install daa-sdk
 from daa_sdk import DAAClient
 
-daa = DAAClient() # reads DAA_TOKEN from env
+daa = DAAClient()  # reads DAA_TOKEN from env
 daa.report_exception(exception, app_name="my-service")
 ```
 

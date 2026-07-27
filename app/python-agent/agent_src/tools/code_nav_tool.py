@@ -26,10 +26,8 @@ def view_file_slice(data: str) -> str:
         start_line = int(input_data.get("start_line", 1))
         end_line = int(input_data.get("end_line", start_line + 99))
 
-        if start_line < 1:
-            start_line = 1
-        if end_line < start_line:
-            end_line = start_line
+        start_line = max(start_line, 1)
+        end_line = max(end_line, start_line)
 
         truncated_msg = ""
         if end_line - start_line >= 100:
@@ -92,7 +90,7 @@ def grep_search(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(search_path)
+            app_name, _relative_path = parse_api_path(search_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
@@ -182,7 +180,7 @@ def find_symbol(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(search_path)
+            app_name, _relative_path = parse_api_path(search_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
@@ -286,7 +284,7 @@ def read_repomap(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(repo_path)
+            app_name, _relative_path = parse_api_path(repo_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)

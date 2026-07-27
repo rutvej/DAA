@@ -115,23 +115,24 @@ import time
 from collections import defaultdict
 from threading import Lock
 
+
 class InMemoryPolicyEngine:
     """Sliding window error counter + cooldown tracker. No external deps."""
-    
+
     def __init__(self):
         self._lock = Lock()
         # app_name → list of timestamps
         self._error_timestamps: dict[str, list[float]] = defaultdict(list)
         # fingerprint → cooldown_expiry_timestamp
         self._cooldowns: dict[str, float] = {}
-    
+
     def record_error(self, app_name: str) -> int:
         """Record an error and return the current count in the sliding window."""
         now = time.time()
         with self._lock:
             self._error_timestamps[app_name].append(now)
             return self._count_in_window(app_name, window_sec=120)
-    
+
     def _count_in_window(self, app_name: str, window_sec: int) -> int:
         """Count errors within the sliding window, pruning old entries."""
         cutoff = time.time() - window_sec
@@ -139,7 +140,7 @@ class InMemoryPolicyEngine:
         # Prune old entries
         self._error_timestamps[app_name] = [t for t in timestamps if t > cutoff]
         return len(self._error_timestamps[app_name])
-    
+
     def is_in_cooldown(self, fingerprint: str) -> bool:
         """Check if a fingerprint is in cooldown."""
         with self._lock:
@@ -150,7 +151,7 @@ class InMemoryPolicyEngine:
             if expiry:
                 del self._cooldowns[fingerprint]
             return False
-    
+
     def set_cooldown(self, fingerprint: str, cooldown_minutes: int = 30):
         """Set cooldown for a fingerprint."""
         with self._lock:
@@ -189,60 +190,55 @@ UPSTASH_REDIS_TOKEN=AxxxxYYY
 import httpx
 import time
 
+
 class UpstashPolicyEngine:
     """Serverless Redis-backed policy engine using Upstash REST API."""
-    
+
     def __init__(self, url: str, token: str):
         self.url = url
         self.headers = {"Authorization": f"Bearer {token}"}
-    
+
     def _cmd(self, *args) -> dict:
         """Execute a Redis command via Upstash HTTP API."""
-        resp = httpx.post(
-            self.url,
-            headers=self.headers,
-            json=list(args),
-            timeout=5.0
-        )
+        resp = httpx.post(self.url, headers=self.headers, json=list(args), timeout=5.0)
         return resp.json()
-    
+
     def record_error(self, app_name: str, window_sec: int = 120) -> int:
         """Record error timestamp and return count in sliding window."""
         key = f"daa:errors:{app_name}"
         now = time.time()
         cutoff = now - window_sec
-        
+
         # Pipeline: add timestamp, remove old entries, count remaining, set TTL
         pipeline = [
             ["ZADD", key, str(now), f"{now}"],
             ["ZREMRANGEBYSCORE", key, "0", str(cutoff)],
             ["ZCARD", key],
-            ["EXPIRE", key, str(window_sec * 2)]  # auto-cleanup
+            ["EXPIRE", key, str(window_sec * 2)],  # auto-cleanup
         ]
-        
+
         resp = httpx.post(
-            f"{self.url}/pipeline",
-            headers=self.headers,
-            json=pipeline,
-            timeout=5.0
+            f"{self.url}/pipeline", headers=self.headers, json=pipeline, timeout=5.0
         )
         results = resp.json()
         return int(results[2]["result"])  # ZCARD result
-    
+
     def is_in_cooldown(self, fingerprint: str) -> bool:
         """Check if fingerprint is in cooldown (key exists in Redis)."""
         result = self._cmd("EXISTS", f"daa:cooldown:{fingerprint}")
         return result.get("result", 0) == 1
-    
+
     def set_cooldown(self, fingerprint: str, cooldown_minutes: int = 30):
         """Set cooldown with auto-expiry."""
-        self._cmd("SET", f"daa:cooldown:{fingerprint}", "1", "EX", str(cooldown_minutes * 60))
-    
+        self._cmd(
+            "SET", f"daa:cooldown:{fingerprint}", "1", "EX", str(cooldown_minutes * 60)
+        )
+
     def check_dedup(self, fingerprint: str) -> bool:
         """Check if fingerprint is being actively processed."""
         result = self._cmd("EXISTS", f"daa:active:{fingerprint}")
         return result.get("result", 0) == 1
-    
+
     def mark_active(self, fingerprint: str, ttl_seconds: int = 600):
         """Mark fingerprint as actively being investigated (10 min TTL)."""
         self._cmd("SET", f"daa:active:{fingerprint}", "1", "EX", str(ttl_seconds))
@@ -300,14 +296,15 @@ The code should support all three options via a single interface:
 ```python
 import os
 
+
 class PolicyEngine:
     """Factory that returns the right policy engine based on config."""
-    
+
     @staticmethod
     def create():
         upstash_url = os.environ.get("UPSTASH_REDIS_URL")
         upstash_token = os.environ.get("UPSTASH_REDIS_TOKEN")
-        
+
         if upstash_url and upstash_token:
             return UpstashPolicyEngine(upstash_url, upstash_token)
         else:
@@ -319,26 +316,27 @@ Usage in the webhook handler:
 ```python
 policy_engine = PolicyEngine.create()
 
+
 @app.post("/webhook")
 async def webhook(payload: WebhookPayload):
     fingerprint = compute_fingerprint(payload)
-    
+
     # 1. Dedup check (git-based)
     if check_git_dedup(payload.repo_url, fingerprint):
         return {"status": "duplicate", "fingerprint": fingerprint}
-    
+
     # 2. Cooldown check
     if policy_engine.is_in_cooldown(fingerprint):
         return {"status": "cooldown", "fingerprint": fingerprint}
-    
+
     # 3. No threshold check needed — upstream already applied it
     #    (or use policy_engine.record_error() if running without upstream alerting)
-    
+
     # 4. Investigate
     policy_engine.mark_active(fingerprint)
     result = await run_investigation(payload)
     policy_engine.set_cooldown(fingerprint)
-    
+
     return result
 ```
 

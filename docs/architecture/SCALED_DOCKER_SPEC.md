@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS job_queue (
 def enqueue_job(db, job_id: str, payload: dict):
     db.execute(
         "INSERT INTO job_queue (id, payload, status) VALUES (?, ?, 'pending')",
-        (job_id, json.dumps(payload))
+        (job_id, json.dumps(payload)),
     )
     db.commit()
 ```
@@ -114,6 +114,7 @@ def dequeue_job(db) -> Optional[dict]:
 ```python
 import threading, time
 
+
 def worker_loop(db_path: str):
     while True:
         db = sqlite3.connect(db_path)
@@ -123,18 +124,19 @@ def worker_loop(db_path: str):
                 result = process_job(Job(**json.loads(job["payload"])))
                 db.execute(
                     "UPDATE job_queue SET status='done', completed_at=CURRENT_TIMESTAMP, result=? WHERE id=?",
-                    (json.dumps(result), job["id"])
+                    (json.dumps(result), job["id"]),
                 )
             except Exception as e:
                 db.execute(
                     "UPDATE job_queue SET status='failed', error=? WHERE id=?",
-                    (str(e), job["id"])
+                    (str(e), job["id"]),
                 )
             db.commit()
             db.close()
         else:
             db.close()
             time.sleep(2)  # Poll every 2 seconds
+
 
 # Start worker on app startup
 threading.Thread(target=worker_loop, args=("daa.db",), daemon=True).start()
@@ -154,7 +156,7 @@ The existing code in `database.py` already handles the SQLite fallback:
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./test.db")
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
+    connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
 )
 ```
 

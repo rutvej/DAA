@@ -84,7 +84,7 @@ def test_login_incorrect_password():
     teardown()
 
 
-from unittest.mock import patch  # noqa: E402
+from unittest.mock import patch
 
 
 @patch("src.routers.auth.DAA_DB_PROVIDER", "none")

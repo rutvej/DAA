@@ -1,13 +1,10 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from ..database import DAA_DB_PROVIDER
+from ..database import DAA_DB_PROVIDER, get_db
 from ..database import Fix as DBFix
 from ..database import Incident as DBIncident
-from ..database import get_db
 from .auth import get_current_user
 from .git_provider import fetch_prs
 
@@ -25,24 +22,24 @@ class IncidentResponse(BaseModel):
     first_seen_at: str
     last_seen_at: str
     agent_attempts: int
-    root_cause_summary: Optional[str] = None
-    confidence_score: Optional[int] = None
-    pr_url: Optional[str] = None
-    ticket_url: Optional[str] = None
-    postmortem_md: Optional[str] = None
-    fix_id: Optional[str] = None
+    root_cause_summary: str | None = None
+    confidence_score: int | None = None
+    pr_url: str | None = None
+    ticket_url: str | None = None
+    postmortem_md: str | None = None
+    fix_id: str | None = None
     # Informational: tells the panel where this record came from
-    source: Optional[str] = "db"
+    source: str | None = "db"
     model_config = ConfigDict(from_attributes=True)
 
 
 class IncidentUpdate(BaseModel):
-    status: Optional[str] = None
-    root_cause_summary: Optional[str] = None
-    confidence_score: Optional[int] = None
-    pr_url: Optional[str] = None
-    ticket_url: Optional[str] = None
-    postmortem_md: Optional[str] = None
+    status: str | None = None
+    root_cause_summary: str | None = None
+    confidence_score: int | None = None
+    pr_url: str | None = None
+    ticket_url: str | None = None
+    postmortem_md: str | None = None
 
 
 def _to_incident_response(inc: DBIncident, db: Session) -> IncidentResponse:
@@ -89,11 +86,11 @@ def _git_pr_to_incident(pr: dict) -> IncidentResponse:
     )
 
 
-@router.get("/", response_model=List[IncidentResponse])
+@router.get("/", response_model=list[IncidentResponse])
 def list_incidents(
     db: Session = Depends(get_db),
-    status: Optional[str] = Query(None),
-    app_name: Optional[str] = Query(None),
+    status: str | None = Query(None),
+    app_name: str | None = Query(None),
     refresh: bool = Query(False, description="Force-bypass the git PR cache"),
     current_user: dict = Depends(get_current_user),
 ):

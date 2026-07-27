@@ -1,4 +1,3 @@
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -10,9 +9,9 @@ class ErrorLog(BaseModel):
     content: str
     stack_trace: str
     timestamp: str
-    exception_type: Optional[str] = None
-    trace_id: Optional[str] = None
-    error_file: Optional[str] = None
+    exception_type: str | None = None
+    trace_id: str | None = None
+    error_file: str | None = None
 
 
 class Job(BaseModel):
@@ -23,10 +22,10 @@ class Job(BaseModel):
     created_at: str
     updated_at: str
     error_log: ErrorLog
-    pull_request_url: Optional[str] = None
-    incident_id: Optional[str] = None
-    fingerprint: Optional[str] = None
-    trace_id: Optional[str] = None
+    pull_request_url: str | None = None
+    incident_id: str | None = None
+    fingerprint: str | None = None
+    trace_id: str | None = None
 
 
 class MissingModelError(Exception):
@@ -34,12 +33,8 @@ class MissingModelError(Exception):
     Exception raised when a required model is missing.
     """
 
-    pass
-
 
 class NotSupportedError(Exception):
     """
     Exception raised when a feature is not supported.
     """
-
-    pass

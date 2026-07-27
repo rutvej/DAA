@@ -1,0 +1,19 @@
+line-length = 88
+target-version = "py311"
+
+[lint]
+ignore = [
+  "B008",
+  "BLE001",
+  "DTZ003",
+  "DTZ901",
+  "G201",
+  "LOG015",
+  "PLW1510",
+  "S110",
+  "S112",
+  "SIM102",
+  "TRY002",
+  "ASYNC221",
+  "ASYNC230",
+]

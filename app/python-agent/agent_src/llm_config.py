@@ -4,7 +4,7 @@ import os
 import subprocess
 import urllib.error
 import urllib.request
-from typing import Any, List, Optional
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage
@@ -34,9 +34,9 @@ class CodexChatModel(BaseChatModel):
     )
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[Any] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         # Load auth
@@ -251,9 +251,9 @@ class AgyChatModel(BaseChatModel):
     )
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[Any] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         import hashlib
@@ -327,9 +327,9 @@ class MockChatModel(BaseChatModel):
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[Any] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: Any | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         object.__setattr__(self, "_call_count", self._call_count + 1)
@@ -379,7 +379,7 @@ class MockChatModel(BaseChatModel):
     reraise=True,
 )
 def get_chat_completion(
-    messages: List[BaseMessage], stop: Optional[List[str]] = None, **kwargs: Any
+    messages: list[BaseMessage], stop: list[str] | None = None, **kwargs: Any
 ) -> ChatResult:
     """
     Direct chat completion wrapper with tenacity exponential backoff and circuit breaker protection.

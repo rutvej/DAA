@@ -1,5 +1,4 @@
 import os
-import re
 import shutil
 
 root_dir = "/home/rutvej/Desktop/DAA"

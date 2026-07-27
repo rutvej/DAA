@@ -2,7 +2,6 @@ import logging
 import os
 import urllib.parse
 from datetime import datetime
-from typing import Optional
 
 import requests
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -24,10 +23,10 @@ class FixResponse(BaseModel):
     id: str
     logId: str
     timestamp: datetime
-    generatedFix: Optional[str] = None
-    postmortem: Optional[str] = None
-    status: Optional[str] = None
-    pull_request_url: Optional[str] = None
+    generatedFix: str | None = None
+    postmortem: str | None = None
+    status: str | None = None
+    pull_request_url: str | None = None
 
 
 class AnalysisReport(BaseModel):
@@ -90,8 +89,7 @@ def create_pr_on_provider(
         repo_url = proj.repo_url if proj else ""
         parsed = urllib.parse.urlparse(repo_url)
         path = parsed.path
-        if path.endswith(".git"):
-            path = path[:-4]
+        path = path.removesuffix(".git")
         parts = [p for p in path.split("/") if p]
         owner = parts[-2] if len(parts) >= 2 else "owner"
         r_name = parts[-1] if len(parts) >= 2 else "repo"

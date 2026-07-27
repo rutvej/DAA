@@ -83,8 +83,7 @@ def query_correlated_logs(data: str) -> str:
 
                 if not logs and timestamp_str:
                     try:
-                        if timestamp_str.endswith("Z"):
-                            timestamp_str = timestamp_str[:-1]
+                        timestamp_str = timestamp_str.removesuffix("Z")
                         target_time = datetime.fromisoformat(timestamp_str)
                         start_time = target_time - timedelta(seconds=window_sec)
                         end_time = target_time + timedelta(seconds=window_sec)

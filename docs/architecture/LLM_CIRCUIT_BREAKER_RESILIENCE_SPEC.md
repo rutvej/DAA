@@ -99,7 +99,11 @@ Because serverless container storage is ephemeral (`/tmp`), `ExecutionLogCallbac
 When `agent_executor.invoke()` fails, `main.py` extracts `callback_handler.logs` directly from RAM:
 
 ```python
-partial_logs = callback_handler.logs if callback_handler.logs else ["No agent tool steps executed before failure."]
+partial_logs = (
+    callback_handler.logs
+    if callback_handler.logs
+    else ["No agent tool steps executed before failure."]
+)
 traces_formatted = "\n\n".join(partial_logs)
 ```
 
@@ -118,11 +122,7 @@ If the same incident re-triggers via cron schedule or log ingestion while the LL
 1. `run_preflight()` (`orchestrator.py:1150`) computes `fingerprint` and checks remote Git heads (`git ls-remote --heads ... refs/heads/fix/{fingerprint[:12]}`).
 2. Because the first circuit breaker fallback already created `fix/{fingerprint[:12]}` (`fix_open`), `run_preflight` returns:
    ```python
-   {
-       "skip": True,
-       "skip_reason": "Fix already exists: fix_open",
-       "pr_url": pr_url
-   }
+   {"skip": True, "skip_reason": "Fix already exists: fix_open", "pr_url": pr_url}
    ```
 3. `process_job()` (`main.py:664`) logs `[DAA 3.0] Skipping job... Duplicate incident. Existing fix: {pr_url}`, updates the ticket, and terminates immediately (`0` LLM tokens consumed).
 

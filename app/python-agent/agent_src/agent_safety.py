@@ -6,7 +6,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any, ClassVar
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 class CapExceededException(Exception):
     """Raised by HardCapCallbackHandler when the tool-call budget is exhausted."""
-
-    pass
 
 
 # ---------------------------------------------------------------------------
@@ -45,12 +43,16 @@ class PlanningValidator:
     )
     _BARE_JSON_RE = re.compile(r"(\{.*\})", re.DOTALL)
 
-    REQUIRED_KEYS = {"hypothesis", "evidence_needed", "will_not_check"}
+    REQUIRED_KEYS: ClassVar[set[str]] = {
+        "hypothesis",
+        "evidence_needed",
+        "will_not_check",
+    }
 
     def __init__(self) -> None:
         pass
 
-    def extract_plan(self, llm_output: str) -> Optional[Dict]:
+    def extract_plan(self, llm_output: str) -> dict | None:
         """
         Try to extract a valid investigation plan JSON from the first LLM output.
 
@@ -154,7 +156,7 @@ class HardCapCallbackHandler(BaseCallbackHandler):
 
     def on_tool_start(
         self,
-        serialized: Dict[str, Any],
+        serialized: dict[str, Any],
         input_str: str,
         **kwargs: Any,
     ) -> None:
@@ -189,7 +191,7 @@ class HardCapCallbackHandler(BaseCallbackHandler):
     # Warning message injection
     # ------------------------------------------------------------------
 
-    def get_warning_message(self) -> Optional[str]:
+    def get_warning_message(self) -> str | None:
         """
         Return a warning string if the call count has reached *warning_at*,
         otherwise return None.
@@ -261,7 +263,7 @@ class AgentSafetyWrapper:
         # Reusable validator for plan-prompt generation
         self._planning_validator = PlanningValidator()
 
-    def invoke(self, input_dict: dict, callbacks: list = None) -> dict:
+    def invoke(self, input_dict: dict, callbacks: list | None = None) -> dict:
         """
         Invoke the agent with both safety layers active.
 
@@ -310,7 +312,7 @@ class AgentSafetyWrapper:
         """
         return self._planning_validator.format_plan_prompt()
 
-    def validate_plan(self, llm_output: str) -> Optional[Dict]:
+    def validate_plan(self, llm_output: str) -> dict | None:
         """
         Delegate to ``PlanningValidator.extract_plan()``.
 

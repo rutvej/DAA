@@ -30,10 +30,10 @@ except ImportError:
     from orchestrator import setup_json_logging, trace_id_ctx
 
 setup_json_logging()
-from .tools.llm_tool import get_instructions  # noqa: E402
-from .tools.log_query_tool import query_correlated_logs  # noqa: E402
-from .tools.search_tool import search_repo  # noqa: E402
-from .tools.ticket_tool import create_incident_ticket  # noqa: E402
+from .tools.llm_tool import get_instructions
+from .tools.log_query_tool import query_correlated_logs
+from .tools.search_tool import search_repo
+from .tools.ticket_tool import create_incident_ticket
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
@@ -299,7 +299,7 @@ def load_mcp_tools() -> list:
 
 
 class ExecutionLogCallbackHandler(BaseCallbackHandler):
-    def __init__(self, log_id, trace_id: str = None):
+    def __init__(self, log_id, trace_id: str | None = None):
         super().__init__()
         self.log_id = str(log_id)
         self.trace_id = trace_id or trace_id_ctx.get() or ""
