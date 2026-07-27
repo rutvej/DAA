@@ -92,9 +92,7 @@ def _is_daa_pr(title: str, labels: list[str], branch: str = "") -> bool:
     label_lower = [lab.lower() for lab in labels]
     if DAA_PR_LABEL.lower() in label_lower or "daa-automated" in label_lower:
         return True
-    if branch and any(branch.startswith(p) for p in _DAA_BRANCH_PREFIXES):
-        return True
-    return False
+    return bool(branch and any(branch.startswith(p) for p in _DAA_BRANCH_PREFIXES))
 
 
 # ── Normalised PR dict ────────────────────────────────────────────────────────

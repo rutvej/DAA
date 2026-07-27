@@ -8,8 +8,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import (DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Application, User,
-                        get_db)
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, Application, User, get_db
 
 router = APIRouter()
 

@@ -53,7 +53,7 @@ class TestMain(unittest.TestCase):
         # Assert
         mock_analysis_updater.assert_called_once_with(log_id)
         mock_updater_instance.update_analysis_processing.assert_called_once()
-        called_args, called_kwargs = mock_agent_executor.return_value.invoke.call_args
+        called_args, _called_kwargs = mock_agent_executor.return_value.invoke.call_args
         scrubbed_log = scrub_secrets(str(error_log))
         self.assertEqual(
             called_args[0]["input"],
@@ -125,7 +125,7 @@ class TestMain(unittest.TestCase):
         # Assert
         mock_analysis_updater.assert_called_once_with(log_id)
         mock_updater_instance.update_analysis_processing.assert_called_once()
-        called_args, called_kwargs = mock_safety_wrapper.return_value.invoke.call_args
+        called_args, _called_kwargs = mock_safety_wrapper.return_value.invoke.call_args
         self.assertEqual(
             called_args[0]["input"],
             "[INCIDENT]\napp: test-app\nfingerprint: mock_fingerprint\n",

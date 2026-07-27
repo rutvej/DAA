@@ -119,7 +119,7 @@ def run_showcase():
     app_id = app_res.get("id", str(uuid.uuid4()))
     print(f"  ✔ Registered Application: checkout-service (ID: {app_id[:8]}...)")
 
-    status, policy_res = api_post(
+    status, _policy_res = api_post(
         f"/applications/{app_id}/escalation-policies",
         {
             "rule_type": "error_rate_threshold",
@@ -172,7 +172,7 @@ def run_showcase():
 
     # --- STEP 3: Verify Incident State in Database ---
     print_step(3, "Verifying Active Incident Database State...")
-    status, inc_list = api_get("/incidents/")
+    _status, inc_list = api_get("/incidents/")
     if inc_list and len(inc_list) > 0:
         inc = inc_list[0]
         print(f"  ✔ Incident ID       : {inc.get('id')}")

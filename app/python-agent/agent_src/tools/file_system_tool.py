@@ -46,7 +46,7 @@ def get_full_path(file_path: str) -> str:
     if not os.path.isabs(file_path):
         candidate = os.path.join(WORKSPACE_DIR, file_path)
     else:
-        if file_path.startswith(WORKSPACE_DIR) or file_path.startswith("/tmp"):
+        if file_path.startswith((WORKSPACE_DIR, "/tmp")):
             candidate = file_path
         else:
             candidate = os.path.join(WORKSPACE_DIR, file_path.lstrip("/"))

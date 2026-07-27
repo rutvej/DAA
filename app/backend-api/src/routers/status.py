@@ -3,16 +3,14 @@ import os
 import re
 import time
 
-from fastapi import (APIRouter, Depends, HTTPException, WebSocket,
-                     WebSocketDisconnect)
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, DAA_POLICY_ENABLED
+from ..database import DAA_AUTH_ENABLED, DAA_DB_PROVIDER, DAA_POLICY_ENABLED, get_db
 from ..database import Fix as DBFix
 from ..database import Incident as DBIncident
 from ..database import Log as DBLog
-from ..database import get_db
 from .auth import get_current_user
 from .git_provider import get_provider_info
 

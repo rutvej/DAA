@@ -96,9 +96,7 @@ def _apply_unified_diff_to_text(original: str, diff_text: str) -> str:
         while i < len(diff_lines):
             hline = diff_lines[i]
             if (
-                hline.startswith("@@")
-                or hline.startswith("--- ")
-                or hline.startswith("+++ ")
+                hline.startswith(("@@", "--- ", "+++ "))
             ):
                 break
             if hline.startswith(" "):
@@ -168,7 +166,7 @@ class RepoCacheManager:
             fh.write(str(time.time()))
 
     def _run(
-        self, cmd: list, cwd: str = None, check: bool = True
+        self, cmd: list, cwd: str | None = None, check: bool = True
     ) -> subprocess.CompletedProcess:
         """Thin wrapper around subprocess.run with unified logging."""
         cmd_str = " ".join(str(c) for c in cmd)
@@ -192,7 +190,7 @@ class RepoCacheManager:
     # ------------------------------------------------------------------
 
     def get_worktree(
-        self, app_name: str, repo_url: str, incident_id: str, token: str = None
+        self, app_name: str, repo_url: str, incident_id: str, token: str | None = None
     ) -> str:
         """
         Ensure a fresh, isolated git worktree exists for *incident_id*.
@@ -300,7 +298,7 @@ class FingerprintDedup:
     whether a fix already exists in the DAA backend.
     """
 
-    def __init__(self, backend_url: str, token: str = None) -> None:
+    def __init__(self, backend_url: str, token: str | None = None) -> None:
         self.backend_url = backend_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -372,7 +370,7 @@ class LogHydrator:
         dim4 -- recent git commits
     """
 
-    def __init__(self, backend_url: str, token: str = None) -> None:
+    def __init__(self, backend_url: str, token: str | None = None) -> None:
         self.backend_url = backend_url.rstrip("/")
         self._headers = {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -498,7 +496,7 @@ class LogHydrator:
         self,
         app_name: str,
         incident_timestamp: str,
-        trace_id: str = None,
+        trace_id: str | None = None,
     ) -> dict:
         """
         Fetch all three remote dimensions and return them in a single dict.
@@ -676,7 +674,7 @@ class PostflightOrchestrator:
     def __init__(
         self,
         backend_url: str,
-        token: str = None,
+        token: str | None = None,
         repo_cache_manager: RepoCacheManager = None,
     ) -> None:
         self.backend_url = backend_url.rstrip("/")
@@ -740,7 +738,7 @@ class PostflightOrchestrator:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _run(self, cmd: list, cwd: str = None, input: str = None, check: bool = True):
+    def _run(self, cmd: list, cwd: str | None = None, input: str | None = None, check: bool = True):
         """Thin subprocess wrapper."""
         logger.debug("Running: %s (cwd=%s)", " ".join(cmd), cwd)
         return subprocess.run(
@@ -761,7 +759,7 @@ class PostflightOrchestrator:
         explanation: str,
         incident_id: str,
         already_committed: bool = False,  # NEW: True if agent used write_file directly
-        modified_files_hint: list = None,  # NEW: files agent reported writing
+        modified_files_hint: list | None = None,  # NEW: files agent reported writing
     ) -> dict:
         start_time = time.time()
 

@@ -4,17 +4,20 @@ import uuid
 from datetime import datetime, timedelta
 
 import pika
-from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
-                     status)
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..database import DAA_POLICY_ENABLED, Application, EscalationPolicy
+from ..database import (
+    DAA_POLICY_ENABLED,
+    Application,
+    EscalationPolicy,
+    Incident,
+    get_db,
+)
 from ..database import Fix as DBFix
-from ..database import Incident
 from ..database import Log as DBLog
-from ..database import get_db
 from .auth import get_current_user
 
 router = APIRouter()

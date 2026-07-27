@@ -226,7 +226,7 @@ class GCPCloudLoggingConnector(BaseLogConnector):
                 import google.auth
                 import google.auth.transport.requests as google_requests
 
-                credentials, project = google.auth.default()
+                credentials, _project = google.auth.default()
                 request = google_requests.Request()
                 credentials.refresh(request)
                 token = credentials.token

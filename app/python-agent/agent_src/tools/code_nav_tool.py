@@ -90,7 +90,7 @@ def grep_search(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(search_path)
+            app_name, _relative_path = parse_api_path(search_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
@@ -180,7 +180,7 @@ def find_symbol(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(search_path)
+            app_name, _relative_path = parse_api_path(search_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)
@@ -284,7 +284,7 @@ def read_repomap(data: str) -> str:
 
         # Support DAA_GIT_MODE=api
         if os.environ.get("DAA_GIT_MODE") == "api":
-            app_name, relative_path = parse_api_path(repo_path)
+            app_name, _relative_path = parse_api_path(repo_path)
             from .clonefree_client import ACTIVE_BRANCHES, CloneFreeGitClient
 
             client = CloneFreeGitClient(app_name)

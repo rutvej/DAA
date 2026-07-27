@@ -2,9 +2,14 @@ import json
 import unittest
 from unittest.mock import MagicMock, patch
 
-from agent_src.tools.git_tool import (clone_repo, commit, create_branch,
-                                      create_pull_request,
-                                      get_project_connection, push)
+from agent_src.tools.git_tool import (
+    clone_repo,
+    commit,
+    create_branch,
+    create_pull_request,
+    get_project_connection,
+    push,
+)
 
 
 class TestGitTool(unittest.TestCase):

@@ -530,7 +530,7 @@ def fetch_pull_request_diff(pr_url: str):
             return {"success": False, "error": "Invalid or missing pr_url URL."}
         diff_url = (
             pr_url
-            if pr_url.endswith(".diff") or pr_url.endswith(".patch")
+            if pr_url.endswith((".diff", ".patch"))
             else f"{pr_url}.diff"
         )
         headers = {}

@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
-from ..database import DAA_DB_PROVIDER
+from ..database import DAA_DB_PROVIDER, get_db
 from ..database import Fix as DBFix
 from ..database import Incident as DBIncident
-from ..database import get_db
 from .auth import get_current_user
 from .git_provider import fetch_prs
 

@@ -1049,7 +1049,7 @@ def _dump_logs(staging):
     else:
         daa_path = os.path.expanduser("~/Desktop/DAA")
         for svc in ["backend-api", "python-agent"]:
-            rc, out, err = run_capture(
+            _rc, out, err = run_capture(
                 f"docker-compose logs --no-color --tail 60 {svc}", cwd=daa_path
             )
             print(c(DIM, f"--- {svc} ---"))

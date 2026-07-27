@@ -5,7 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 
 def create_unified_engine(
-    database_url: str = None, pool_size: int = 20, max_overflow: int = 40
+    database_url: str | None = None, pool_size: int = 20, max_overflow: int = 40
 ):
     """
     Creates a unified SQLAlchemy engine with standardized pooling and resilience settings:

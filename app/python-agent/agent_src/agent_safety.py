@@ -259,7 +259,7 @@ class AgentSafetyWrapper:
         # Reusable validator for plan-prompt generation
         self._planning_validator = PlanningValidator()
 
-    def invoke(self, input_dict: dict, callbacks: list = None) -> dict:
+    def invoke(self, input_dict: dict, callbacks: list | None = None) -> dict:
         """
         Invoke the agent with both safety layers active.
 

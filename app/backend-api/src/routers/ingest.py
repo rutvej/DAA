@@ -14,9 +14,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..database import DAA_DB_PROVIDER, Incident
+from ..database import DAA_DB_PROVIDER, Incident, ProjectConnection, get_db
 from ..database import Log as DBLog
-from ..database import ProjectConnection, get_db
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ingest")
@@ -99,8 +98,8 @@ async def dispatch_investigation(
     severity: str,
     db: Session,
     background_tasks: BackgroundTasks,
-    error_file: str = None,
-    trace_id: str = None,
+    error_file: str | None = None,
+    trace_id: str | None = None,
 ):
     """Computes fingerprint, runs deduplication check, records database state, and dispatches the job."""
     trace_id = trace_id or str(uuid.uuid4())
