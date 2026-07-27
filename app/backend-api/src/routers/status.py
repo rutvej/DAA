@@ -2,7 +2,6 @@ import asyncio
 import os
 import re
 import time
-from typing import Dict, Set
 
 from fastapi import (APIRouter, Depends, HTTPException, WebSocket,
                      WebSocketDisconnect)
@@ -100,7 +99,7 @@ class ThoughtBroadcaster:
     """
 
     def __init__(self):
-        self.subscribers: Dict[str, Set[asyncio.Queue]] = {}
+        self.subscribers: dict[str, set[asyncio.Queue]] = {}
 
     def subscribe(self, log_id: str, queue: asyncio.Queue):
         log_id_str = str(log_id)

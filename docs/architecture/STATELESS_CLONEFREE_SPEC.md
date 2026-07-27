@@ -49,16 +49,17 @@ import base64
 import httpx
 from typing import Optional
 
+
 class CloneFreeGitClient:
     """Manages file reading and writing directly via Git API without cloning."""
-    
+
     def __init__(self, provider: str, repo_url: str, token: str):
         self.provider = provider  # "github" or "gitlab"
         self.token = token
         self.repo_url = repo_url
         self.headers = self._get_auth_headers()
         self.api_base = self._get_api_base()
-        
+
     def get_file_content(self, path: str, ref: str = "main") -> Optional[str]:
         """Fetch file content directly via API."""
         if self.provider == "github":
@@ -138,19 +139,30 @@ Get current ref head sha ──▶ Create blob for modified file ──▶ Creat
 On **GitLab**, this is simplified into a single Commits API call:
 
 ```python
-    async def commit_changes_gitlab(self, branch_name: str, parent_branch: str, file_path: str, content: str, commit_message: str):
-        # POST /projects/{id}/repository/commits
-        payload = {
-            "branch": branch_name,
-            "start_branch": parent_branch,
-            "commit_message": commit_message,
-            "actions": [{
-                "action": "update", # or "create"
+async def commit_changes_gitlab(
+    self,
+    branch_name: str,
+    parent_branch: str,
+    file_path: str,
+    content: str,
+    commit_message: str,
+):
+    # POST /projects/{id}/repository/commits
+    payload = {
+        "branch": branch_name,
+        "start_branch": parent_branch,
+        "commit_message": commit_message,
+        "actions": [
+            {
+                "action": "update",  # or "create"
                 "file_path": file_path,
-                "content": content
-            }]
-        }
-        httpx.post(f"{self.api_base}/repository/commits", headers=self.headers, json=payload)
+                "content": content,
+            }
+        ],
+    }
+    httpx.post(
+        f"{self.api_base}/repository/commits", headers=self.headers, json=payload
+    )
 ```
 
 ---
@@ -193,18 +205,17 @@ import hashlib
 import json
 import httpx
 
+
 async def send_outbound_webhook(payload: dict, url: str, secret: str = None):
     data = json.dumps(payload)
     headers = {"Content-Type": "application/json"}
-    
+
     if secret:
         signature = hmac.new(
-            secret.encode("utf-8"),
-            data.encode("utf-8"),
-            hashlib.sha256
+            secret.encode("utf-8"), data.encode("utf-8"), hashlib.sha256
         ).hexdigest()
         headers["X-DAA-Signature"] = signature
-        
+
     try:
         async with httpx.AsyncClient() as client:
             await client.post(url, headers=headers, content=data, timeout=5.0)

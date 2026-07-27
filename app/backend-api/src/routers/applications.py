@@ -1,6 +1,5 @@
 import json
 from datetime import datetime
-from typing import List, Optional
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -17,43 +16,43 @@ router = APIRouter()
 
 class ApplicationCreate(BaseModel):
     name: str
-    description: Optional[str] = None
-    language: Optional[str] = None
-    repository_url: Optional[str] = None
-    spec_file_path: Optional[str] = None
-    team_owner: Optional[str] = None
-    allowed_ip: Optional[str] = None
+    description: str | None = None
+    language: str | None = None
+    repository_url: str | None = None
+    spec_file_path: str | None = None
+    team_owner: str | None = None
+    allowed_ip: str | None = None
 
 
 class ApplicationResponse(ApplicationCreate):
     id: str
-    token: Optional[str] = None
+    token: str | None = None
     created_at: str
-    repo_url: Optional[str] = None
+    repo_url: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
 class EscalationPolicyCreate(BaseModel):
     rule_type: str = "error_rate_threshold"
-    condition_value: Optional[int] = 15
-    window_seconds: Optional[int] = 120
-    severity_keywords: Optional[List[str]] = [
+    condition_value: int | None = 15
+    window_seconds: int | None = 120
+    severity_keywords: list[str] | None = [
         "FATAL",
         "OOMKill",
         "PANIC",
         "DatabaseDeadlock",
     ]
-    cooldown_minutes: Optional[int] = 30
-    is_active: Optional[bool] = True
+    cooldown_minutes: int | None = 30
+    is_active: bool | None = True
 
 
 class EscalationPolicyResponse(BaseModel):
     id: str
     application_id: str
     rule_type: str
-    condition_value: Optional[int]
+    condition_value: int | None
     window_seconds: int
-    severity_keywords: Optional[str]
+    severity_keywords: str | None
     cooldown_minutes: int
     is_active: bool
     model_config = ConfigDict(from_attributes=True)
@@ -119,7 +118,7 @@ def create_application(
     )
 
 
-@router.get("/", response_model=List[ApplicationResponse])
+@router.get("/", response_model=list[ApplicationResponse])
 def list_applications(
     db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
 ):
@@ -228,7 +227,7 @@ def create_escalation_policy(
     return db_policy
 
 
-@router.get("/{id}/escalation-policies", response_model=List[EscalationPolicyResponse])
+@router.get("/{id}/escalation-policies", response_model=list[EscalationPolicyResponse])
 def list_escalation_policies(
     id: str,
     db: Session = Depends(get_db),

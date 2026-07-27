@@ -110,7 +110,9 @@ An analysis of RabbitMQ queue declaration logic across three independent modules
 ```python
 connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
 channel = connection.channel()
-channel.queue_declare(queue="fix_jobs", durable=True)  # Simple declare (NO DLX arguments)
+channel.queue_declare(
+    queue="fix_jobs", durable=True
+)  # Simple declare (NO DLX arguments)
 ```
 2. `app/backend-api/src/routers/logs.py` (`POST /logs/`, lines 259–278) & `app/python-agent/agent_src/main.py` (lines 532–550):
 ```python
@@ -149,7 +151,9 @@ if (
     os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
     and "K_SERVICE" in os.environ
 ):
-    raise RuntimeError("Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run...")
+    raise RuntimeError(
+        "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run..."
+    )
 ```
 * **Limitations & Risks:** While this check prevents operators from deploying long-running background consumers on request-scoped serverless platforms (where CPU is throttled to zero after HTTP responses complete, severing AMQP TCP connections), it leaves the platform without an asynchronous, decoupled queueing mechanism on serverless environments (`Cloud Run`, `AWS App Runner`). In `DAA_QUEUE_MODE=sync`, the agent runs entirely inline inside FastAPI `BackgroundTasks` threads within the API container. Under high incident volume (`10+ concurrent alerts`), running multi-iteration ReAct LLM loops and local file diffs inside the API thread pool causes severe CPU/memory exhaustion, leading to container out-of-memory (`OOMKill`) crashes and API request timeouts (`HTTP 504 Gateway Timeout`).
 * **Remediation:** Support pull-based HTTP message queues native to serverless environments (e.g., Google Cloud Tasks, AWS SQS, or Redis Pub/Sub streams with HTTP push webhooks) so `backend-api` can dispatch jobs to isolated worker instances without holding persistent TCP sockets.

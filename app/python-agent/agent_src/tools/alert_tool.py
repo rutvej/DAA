@@ -46,4 +46,4 @@ def check_alerts(app_name: str) -> str:
             )
         return output
     except Exception as e:
-        return f"Error retrieving alerts from backend: {str(e)}"
+        return f"Error retrieving alerts from backend: {e!s}"

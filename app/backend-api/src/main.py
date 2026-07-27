@@ -47,11 +47,9 @@ def setup_json_logging():
 
 setup_json_logging()
 
-from .database import (DAA_DB_PROVIDER, Base, engine,  # noqa: E402
-                       run_db_migrations)
-from .routers import (alerts, applications, auth, dashboard,  # noqa: E402
-                      fixes, incidents, ingest, logs, mcp_gateway, projects,
-                      status, telemetry)
+from .database import DAA_DB_PROVIDER, Base, engine, run_db_migrations
+from .routers import (alerts, applications, auth, dashboard, fixes, incidents,
+                      ingest, logs, mcp_gateway, projects, status, telemetry)
 
 _DB_ACTIVE = DAA_DB_PROVIDER not in ("none", "internal-redis", "external-redis")
 

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
@@ -16,9 +14,9 @@ class ProjectConnectionCreate(BaseModel):
     repo_provider: str = "gitlab"  # "github", "gitlab"
     repo_url: str
     repo_token: str
-    jira_url: Optional[str] = None
-    jira_token: Optional[str] = None
-    jira_project_key: Optional[str] = None
+    jira_url: str | None = None
+    jira_token: str | None = None
+    jira_project_key: str | None = None
 
 
 class ProjectConnectionResponse(BaseModel):
@@ -26,8 +24,8 @@ class ProjectConnectionResponse(BaseModel):
     app_name: str
     repo_provider: str
     repo_url: str
-    jira_url: Optional[str]
-    jira_project_key: Optional[str]
+    jira_url: str | None
+    jira_project_key: str | None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -93,7 +91,7 @@ def get_project(
     return project
 
 
-@router.get("/", response_model=List[ProjectConnectionResponse])
+@router.get("/", response_model=list[ProjectConnectionResponse])
 def list_projects(
     db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)
 ):

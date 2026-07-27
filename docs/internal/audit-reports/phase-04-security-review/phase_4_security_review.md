@@ -114,7 +114,9 @@ Every finding below is substantiated with precise absolute file paths, line numb
   GITEA_PASS = "DaaDemo123!"
 
   # app/backend-api/src/database.py line 168:
-  DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db")
+  DATABASE_URL = os.environ.get(
+      "DATABASE_URL", "postgresql://daa:daa_pass@localhost:5432/daa_db"
+  )
   ```
 * **Impact Analysis:**
   Default credentials (`demo_postgres_password`, `daa_pass`, `payflow_secret`, `DaaDemo123!`) are hardcoded across Docker Compose definitions, connection string defaults, and supervisor startup scripts (`entrypoint.sh`). Any attacker who gains access to the Docker network (or LAN if port `5433:5432` or `3000` is exposed) can authenticate directly to PostgreSQL or Gitea with these known default passwords, leading to total data breach and repository takeover.
@@ -134,7 +136,7 @@ Every finding below is substantiated with precise absolute file paths, line numb
       app_name: str
       repo_provider: str
       repo_url: str
-      repo_token: str            # <--- Returned in cleartext!
+      repo_token: str  # <--- Returned in cleartext!
       jira_url: Optional[str]
       jira_token: Optional[str]  # <--- Returned in cleartext!
       jira_project_key: Optional[str]
@@ -162,7 +164,7 @@ Every finding below is substantiated with precise absolute file paths, line numb
       CORSMiddleware,
       allow_origins=cors_origins,
       allow_origin_regex=cors_origin_regex,
-      allow_credentials=True,      # <--- Allow credentials with wide regex!
+      allow_credentials=True,  # <--- Allow credentials with wide regex!
       allow_methods=["*"],
       allow_headers=["*"],
   )
@@ -202,8 +204,14 @@ Every finding below is substantiated with precise absolute file paths, line numb
   Raise a fatal startup exception if `SECRET_KEY` is set to `"a_secret_key"`, `"demo_secret_key"`, `"change-me-to-a-random-secret-key"`, or is shorter than 32 bytes when running in production:
   ```python
   SECRET_KEY = os.environ.get("SECRET_KEY")
-  if not SECRET_KEY or SECRET_KEY in ("a_secret_key", "demo_secret_key", "change-me-to-a-random-secret-key"):
-      raise RuntimeError("Fatal: Insecure SECRET_KEY configured. Please set a strong, unique 64-character secret.")
+  if not SECRET_KEY or SECRET_KEY in (
+      "a_secret_key",
+      "demo_secret_key",
+      "change-me-to-a-random-secret-key",
+  ):
+      raise RuntimeError(
+          "Fatal: Insecure SECRET_KEY configured. Please set a strong, unique 64-character secret."
+      )
   ```
 
 ---
@@ -216,11 +224,15 @@ Every finding below is substantiated with precise absolute file paths, line numb
   # app/backend-api/src/database.py lines 87-124:
   class MockSession:
       def query(self, model_class):
-          return MockQuery(model_class)  # MockQuery.first() returns None, .all() returns []
+          return MockQuery(
+              model_class
+          )  # MockQuery.first() returns None, .all() returns []
+
       def add(self, instance):
-          pass                           # <--- Silent discard!
+          pass  # <--- Silent discard!
+
       def commit(self):
-          pass                           # <--- Silent discard!
+          pass  # <--- Silent discard!
   ```
 * **Impact Analysis:**
   When `DAA_DB_PROVIDER=none` (the default in `.env` line 4), `SessionLocal` uses `MockSession`. In this mode, `.query().first()` always returns `None`, `.all()` returns `[]`, and `.add()`/`.commit()` silently do nothing. If `DAA_AUTH_ENABLED=true` while `DAA_DB_PROVIDER=none`, user registration (`POST /auth/register`) silently discards the user, and login attempts (`POST /auth/login`) permanently fail (`401 Incorrect username or password` because `query(User)...first()` returns `None`). Furthermore, when endpoints like `/logs` or `/applications` are invoked, data is accepted (`HTTP 202` or `HTTP 201`) but permanently lost without any warning or indication of persistence failure.
@@ -353,7 +365,9 @@ Every finding below is substantiated with precise absolute file paths, line numb
       db: Session = Depends(get_db),
   ):
       if not DAA_MASTER_MODE:
-          raise HTTPException(status_code=403, detail="Self-reporting endpoint is disabled...")
+          raise HTTPException(
+              status_code=403, detail="Self-reporting endpoint is disabled..."
+          )
       # NO authentication check (no get_current_user or API key check)!
   ```
   ```python
@@ -383,7 +397,9 @@ Every finding below is substantiated with precise absolute file paths, line numb
       current_user: dict = Depends(get_current_user),
   ):
       if current_user.get("role") == "application":
-          raise HTTPException(status_code=403, detail="Applications are not authorized...")
+          raise HTTPException(
+              status_code=403, detail="Applications are not authorized..."
+          )
       # NO check to see if current_user owns the application associated with this fix!
   ```
 * **Impact Analysis:**
@@ -406,7 +422,7 @@ Every finding below is substantiated with precise absolute file paths, line numb
   cmd = f"docker run --rm -v {repo_path}:/workspace -w /workspace {runner_image} {test_command}"
   result = subprocess.run(
       cmd,
-      shell=True,            # <--- Command/Shell injection!
+      shell=True,  # <--- Command/Shell injection!
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
       text=True,
@@ -428,12 +444,24 @@ Every finding below is substantiated with precise absolute file paths, line numb
   Never use `shell=True` when executing commands with variable inputs. Pass command arguments as a strict list of tokens (`shell=False`), and explicitly tokenize or validate `test_command` using `shlex.split()` while blocking dangerous Docker flag arguments:
   ```python
   import shlex
+
   test_args = shlex.split(test_command)
   # Prevent container breakout/flag injection inside test arguments
   if any(arg.startswith("-v") or arg.startswith("--privileged") for arg in test_args):
       return "Error: Disallowed flags in test_command."
-  cmd_list = ["docker", "run", "--rm", "-v", f"{repo_path}:/workspace", "-w", "/workspace", runner_image] + test_args
-  result = subprocess.run(cmd_list, shell=False, capture_output=True, text=True, timeout=120)
+  cmd_list = [
+      "docker",
+      "run",
+      "--rm",
+      "-v",
+      f"{repo_path}:/workspace",
+      "-w",
+      "/workspace",
+      runner_image,
+  ] + test_args
+  result = subprocess.run(
+      cmd_list, shell=False, capture_output=True, text=True, timeout=120
+  )
   ```
 
 ---
@@ -449,7 +477,9 @@ Every finding below is substantiated with precise absolute file paths, line numb
   # app/backend-api/src/routers/ingest.py lines 161-166:
   res = subprocess.run(
       ["git", "ls-remote", "--heads", auth_url, f"refs/heads/{branch_name}"],
-      capture_output=True, text=True, timeout=10,
+      capture_output=True,
+      text=True,
+      timeout=10,
   )
   ```
   ```python
@@ -465,7 +495,9 @@ Every finding below is substantiated with precise absolute file paths, line numb
 * **Remediation Steps:**
   1. Insert `--` (end of command options separator) before positional arguments (`auth_url`, `branch_name`) in all `subprocess.run` calls involving `git`:
      ```python
-     subprocess.run(["git", "ls-remote", "--heads", "--", auth_url, f"refs/heads/{branch_name}"], ...)
+     subprocess.run(
+         ["git", "ls-remote", "--heads", "--", auth_url, f"refs/heads/{branch_name}"], ...
+     )
      ```
   2. Strictly validate `repo_url` and `branch_name` before passing to GitPython or `subprocess`. Reject any URL or branch name starting with `-` or containing characters outside `[a-zA-Z0-9_/.-:]`:
      ```python
@@ -507,7 +539,7 @@ Every finding below is substantiated with precise absolute file paths, line numb
       """Returns the full path of a file."""
       file_path = file_path.strip().strip("'\"")
       if file_path.startswith("/tmp") or file_path.startswith("/home"):
-          return file_path              # <--- No check for '..' or boundary restrictions!
+          return file_path  # <--- No check for '..' or boundary restrictions!
       if os.path.isabs(file_path):
           if file_path.startswith(ROOT_DIR):
               return file_path
@@ -534,8 +566,13 @@ Every finding below is substantiated with precise absolute file paths, line numb
           candidate = file_path
       canonical = os.path.realpath(candidate)
       allowed_bases = [os.path.realpath(ROOT_DIR), os.path.realpath("/tmp")]
-      if not any(canonical == base or canonical.startswith(base + os.sep) for base in allowed_bases):
-          raise PermissionError(f"Access denied: Path '{file_path}' traverses outside allowed sandbox directories ({allowed_bases}).")
+      if not any(
+          canonical == base or canonical.startswith(base + os.sep)
+          for base in allowed_bases
+      ):
+          raise PermissionError(
+              f"Access denied: Path '{file_path}' traverses outside allowed sandbox directories ({allowed_bases})."
+          )
       return canonical
   ```
 
@@ -644,8 +681,13 @@ Every finding below is substantiated with precise absolute file paths, line numb
 * **Code Evidence:**
   ```python
   # app/backend-api/src/main.py lines 44-53:
-  if os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq" and "K_SERVICE" in os.environ:
-      raise RuntimeError("Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run...")
+  if (
+      os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
+      and "K_SERVICE" in os.environ
+  ):
+      raise RuntimeError(
+          "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run..."
+      )
   ```
   ```bash
   # entrypoint.sh lines 54-56:

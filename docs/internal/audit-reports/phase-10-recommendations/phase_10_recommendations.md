@@ -70,7 +70,9 @@ These items represent **showstopper vulnerabilities and startup crashes** that m
 - **Remediation Code:** Enforce explicit, static allowlists via environment variables and remove dynamic origin reflection for credentialed requests:
 ```python
 # app/backend-api/src/main.py
-ALLOWED_ORIGINS = os.environ.get("CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:8080").split(",")
+ALLOWED_ORIGINS = os.environ.get(
+    "CORS_ALLOW_ORIGINS", "http://localhost:3000,http://localhost:8080"
+).split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -101,13 +103,19 @@ import shlex
 
 # execution_tool.py
 cmd_list = [
-    "docker", "run", "--rm",
-    "-v", f"{repo_path}:/workspace",
-    "-w", "/workspace",
-    runner_image
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    f"{repo_path}:/workspace",
+    "-w",
+    "/workspace",
+    runner_image,
 ] + shlex.split(test_command)
 
-result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=120, shell=False)
+result = subprocess.run(
+    cmd_list, capture_output=True, text=True, timeout=120, shell=False
+)
 ```
 
 ---
@@ -139,7 +147,9 @@ result = subprocess.run(cmd_list, capture_output=True, text=True, timeout=120, s
 # Shared config or direct injection in ingest.py / logs.py / telemetry.py
 RABBITMQ_QUEUE_NAME = os.environ.get("RABBITMQ_QUEUE", "fix_jobs")
 channel.queue_declare(queue=RABBITMQ_QUEUE_NAME, durable=True)
-channel.basic_publish(exchange='', routing_key=RABBITMQ_QUEUE_NAME, body=payload, properties=...)
+channel.basic_publish(
+    exchange="", routing_key=RABBITMQ_QUEUE_NAME, body=payload, properties=...
+)
 ```
 
 #### [P0-OPS-3] Eliminate `MockSession` Silent Database Drop Mode
@@ -154,11 +164,17 @@ channel.basic_publish(exchange='', routing_key=RABBITMQ_QUEUE_NAME, body=payload
 ```python
 # SimpleMcpClient.start()
 init_req = {
-    "jsonrpc": "2.0", "id": 1, "method": "initialize",
-    "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "daa-agent", "version": "3.0"}}
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {},
+        "clientInfo": {"name": "daa-agent", "version": "3.0"},
+    },
 }
 self._send_payload(init_req)
-self._read_response() # Await initialization result
+self._read_response()  # Await initialization result
 self._send_payload({"jsonrpc": "2.0", "method": "notifications/initialized"})
 
 # Now safe to request tools/list

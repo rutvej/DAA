@@ -18,11 +18,13 @@ from .llm_config import get_llm
 from .models import Job
 from .tools.alert_tool import check_alerts
 from .tools.change_tracker_tool import check_recent_changes
-from .tools.code_nav_tool import find_symbol, grep_search, read_repomap, view_file_slice
+from .tools.code_nav_tool import (find_symbol, grep_search, read_repomap,
+                                  view_file_slice)
 from .tools.database_tool import AnalysisUpdater
 from .tools.execution_tool import run_tests
 from .tools.file_system_tool import list_files, read_file, write_file
-from .tools.git_tool import clone_repo, commit, create_branch, create_pull_request, push
+from .tools.git_tool import (clone_repo, commit, create_branch,
+                             create_pull_request, push)
 
 try:
     from .orchestrator import setup_json_logging, trace_id_ctx
@@ -30,10 +32,10 @@ except ImportError:
     from orchestrator import setup_json_logging, trace_id_ctx
 
 setup_json_logging()
-from .tools.llm_tool import get_instructions  # noqa: E402
-from .tools.log_query_tool import query_correlated_logs  # noqa: E402
-from .tools.search_tool import search_repo  # noqa: E402
-from .tools.ticket_tool import create_incident_ticket  # noqa: E402
+from .tools.llm_tool import get_instructions
+from .tools.log_query_tool import query_correlated_logs
+from .tools.search_tool import search_repo
+from .tools.ticket_tool import create_incident_ticket
 
 # --- Configuration ---
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
@@ -682,16 +684,10 @@ def process_job(job: Job):
     # - Fingerprint dedup, repo cache, log hydration, context packaging
     # =====================================================================
     try:
-        from .agent_safety import (
-            AgentSafetyWrapper,
-            HardCapCallbackHandler,
-            PlanningValidator,
-        )
-        from .orchestrator import (
-            PostflightOrchestrator,
-            RepoCacheManager,
-            run_preflight,
-        )
+        from .agent_safety import (AgentSafetyWrapper, HardCapCallbackHandler,
+                                   PlanningValidator)
+        from .orchestrator import (PostflightOrchestrator, RepoCacheManager,
+                                   run_preflight)
 
         preflight = run_preflight(job.__dict__, backend_url, daa_token)
 
@@ -864,7 +860,8 @@ def process_job(job: Job):
 
     try:
         if daa30_available:
-            from .agent_safety import AgentSafetyWrapper, HardCapCallbackHandler
+            from .agent_safety import (AgentSafetyWrapper,
+                                       HardCapCallbackHandler)
 
             max_tool_calls = int(os.environ.get("DAA_MAX_TOOL_CALLS", "8"))
             warning_at = int(os.environ.get("DAA_TOOL_CALL_WARNING_AT", "5"))

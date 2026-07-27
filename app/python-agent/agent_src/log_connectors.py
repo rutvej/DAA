@@ -1,7 +1,6 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import requests
 
@@ -44,7 +43,7 @@ class BaseLogConnector:
 
     def fetch_logs(
         self, app_name: str, timestamp_str: str, limit: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fetches up to `limit` log lines before/around the incident timestamp.
 
         Returns a plain-text string of log lines, or None if fetching fails.
@@ -63,7 +62,7 @@ class AWSCloudWatchConnector(BaseLogConnector):
 
     def fetch_logs(
         self, app_name: str, timestamp_str: str, limit: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         logger.info(
             "AWS CloudWatch Log Connector fetching logs for %s near %s",
             app_name,
@@ -143,7 +142,7 @@ class GCPCloudLoggingConnector(BaseLogConnector):
 
     def fetch_logs(
         self, app_name: str, timestamp_str: str, limit: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         logger.info(
             "GCP Cloud Logging Connector fetching logs for %s near %s",
             app_name,
@@ -284,7 +283,7 @@ class DatadogConnector(BaseLogConnector):
 
     def fetch_logs(
         self, app_name: str, timestamp_str: str, limit: int = 500
-    ) -> Optional[str]:
+    ) -> str | None:
         logger.info(
             "Datadog Log Connector fetching logs for %s near %s",
             app_name,
@@ -337,7 +336,7 @@ class DatadogConnector(BaseLogConnector):
             return None
 
 
-def get_configured_connector() -> Optional[BaseLogConnector]:
+def get_configured_connector() -> BaseLogConnector | None:
     """Inspects environment credentials and returns the first configured log connector, or None."""
     connectors = [
         DatadogConnector(),

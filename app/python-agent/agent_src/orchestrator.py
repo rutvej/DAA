@@ -14,7 +14,6 @@ import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime, timezone
-from typing import Optional
 from urllib.parse import unquote, urlparse
 
 import requests
@@ -381,7 +380,7 @@ class LogHydrator:
     # Private fetchers
     # ------------------------------------------------------------------
 
-    def _fetch_dim2(self, app_name: str, timestamp: str) -> Optional[str]:
+    def _fetch_dim2(self, app_name: str, timestamp: str) -> str | None:
         """
         Fetch the last 500 log lines before *timestamp*.
 
@@ -412,7 +411,7 @@ class LogHydrator:
         # As requested: "if not logs are set it should not call the logs api"
         return None
 
-    def _fetch_dim3(self, app_name: str, timestamp: str) -> Optional[str]:
+    def _fetch_dim3(self, app_name: str, timestamp: str) -> str | None:
         """
         Fetch a metrics snapshot at *timestamp*.
 
@@ -423,7 +422,7 @@ class LogHydrator:
         # Don't call the fallback backend metrics API if not configured
         return None
 
-    def _fetch_dim4(self, app_name: str) -> Optional[str]:
+    def _fetch_dim4(self, app_name: str) -> str | None:
         """
         Fetch the last 10 recent commits.
         """
@@ -562,14 +561,14 @@ class ContextPackager:
         self.max_dim2_lines = max_dim2_lines
         self.max_dim4_commits = max_dim4_commits
 
-    def _trim_logs(self, raw: Optional[str]) -> str:
+    def _trim_logs(self, raw: str | None) -> str:
         """Return the last *max_dim2_lines* lines of *raw*, or the unavailable sentinel."""
         if not raw:
             return "unavailable"
         lines = raw.splitlines()
         return "\n".join(lines[-self.max_dim2_lines :])
 
-    def _trim_commits(self, raw: Optional[str]) -> str:
+    def _trim_commits(self, raw: str | None) -> str:
         """Return the first *max_dim4_commits* commit lines, or the unavailable sentinel."""
         if not raw:
             return "no recent commits"
@@ -1032,7 +1031,7 @@ class PostflightOrchestrator:
         fingerprint: str,
         elapsed_sec: float,
         explanation: str,
-        pr_url: Optional[str],
+        pr_url: str | None,
         files_changed: list,
     ) -> str:
         """
@@ -1081,8 +1080,7 @@ def _parse_owner_repo(repo_url: str) -> tuple:
         path_part = parsed.path.lstrip("/")
 
     # Strip .git suffix
-    if path_part.endswith(".git"):
-        path_part = path_part[:-4]
+    path_part = path_part.removesuffix(".git")
 
     parts = path_part.split("/")
     if len(parts) < 2:
@@ -1090,7 +1088,7 @@ def _parse_owner_repo(repo_url: str) -> tuple:
     return parts[-2], parts[-1]
 
 
-def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, Optional[tuple[str, str]]]:
+def _git_auth_from_repo_url(repo_url: str) -> tuple[dict, tuple[str, str] | None]:
     """Build provider API auth from env or repo URL credentials."""
     git_token = (
         os.getenv("DAA_GIT_TOKEN")

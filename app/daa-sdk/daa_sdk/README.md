@@ -39,10 +39,7 @@ except Exception as e:
 You can send custom logs using `send_log`:
 
 ```python
-daa.send_log({
-    "content": '{"message": "Custom event"}',
-    "app_name": "my-python-app"
-})
+daa.send_log({"content": '{"message": "Custom event"}', "app_name": "my-python-app"})
 ```
 
 ## Configuration

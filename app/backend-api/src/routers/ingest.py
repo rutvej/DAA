@@ -37,8 +37,7 @@ def resolve_jsonpath(data: dict, path: str):
     """Resolves standard dotted JSONPaths (e.g. $.event.service -> data['event']['service'])"""
     if not path or not isinstance(data, dict):
         return None
-    if path.startswith("$"):
-        path = path[1:]
+    path = path.removeprefix("$")
     parts = [p for p in path.split(".") if p]
     current = data
     for part in parts:

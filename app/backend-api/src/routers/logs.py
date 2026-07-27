@@ -2,7 +2,6 @@ import json
 import os
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Optional
 
 import pika
 from fastapi import (APIRouter, BackgroundTasks, Depends, HTTPException, Query,
@@ -29,17 +28,17 @@ RABBITMQ_QUEUE = os.environ.get(
 class LogCreate(BaseModel):
     content: str
     app_name: str
-    exception_type: Optional[str] = None
-    trace_id: Optional[str] = None
-    correlation_id: Optional[str] = None
-    metadata_json: Optional[str] = None
+    exception_type: str | None = None
+    trace_id: str | None = None
+    correlation_id: str | None = None
+    metadata_json: str | None = None
 
 
 class LogResponse(BaseModel):
     id: str
     status: str
     timestamp: str
-    fixId: Optional[str] = None
+    fixId: str | None = None
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -312,7 +311,7 @@ def submit_log(
     }
 
 
-@router.get("/", response_model=List[LogResponse])
+@router.get("/", response_model=list[LogResponse])
 def get_logs(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1),

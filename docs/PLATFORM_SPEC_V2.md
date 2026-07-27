@@ -309,30 +309,33 @@ When users register an application in DAA, they define an **Escalation Policy**:
 ```python
 class Application(Base):
     __tablename__ = "applications"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    name = Column(String, nullable=False, unique=True)      # e.g., "payment-service"
-    description = Column(String)                              # e.g., "Handles Stripe charges"
-    language = Column(String)                                 # e.g., "python", "go"
-    repository_url = Column(String)                           # e.g., "https://github.com/..."
-    spec_file_path = Column(String)                           # path to OpenAPI/architecture spec
-    team_owner = Column(String)                               # e.g., "payments-team"
+    name = Column(String, nullable=False, unique=True)  # e.g., "payment-service"
+    description = Column(String)  # e.g., "Handles Stripe charges"
+    language = Column(String)  # e.g., "python", "go"
+    repository_url = Column(String)  # e.g., "https://github.com/..."
+    spec_file_path = Column(String)  # path to OpenAPI/architecture spec
+    team_owner = Column(String)  # e.g., "payments-team"
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     escalation_policies = relationship("EscalationPolicy", back_populates="application")
+
 
 class EscalationPolicy(Base):
     __tablename__ = "escalation_policies"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     application_id = Column(String, ForeignKey("applications.id"))
-    rule_type = Column(String)           # "error_rate_threshold" | "severity_immediate" | "external_webhook" | "error_rate_spike"
-    condition_value = Column(Integer)     # e.g., 15 (error count threshold)
-    window_seconds = Column(Integer)      # e.g., 120 (2-minute window)
-    severity_keywords = Column(JSON)      # e.g., ["FATAL", "OOMKill", "PANIC"]
+    rule_type = Column(
+        String
+    )  # "error_rate_threshold" | "severity_immediate" | "external_webhook" | "error_rate_spike"
+    condition_value = Column(Integer)  # e.g., 15 (error count threshold)
+    window_seconds = Column(Integer)  # e.g., 120 (2-minute window)
+    severity_keywords = Column(JSON)  # e.g., ["FATAL", "OOMKill", "PANIC"]
     cooldown_minutes = Column(Integer, default=30)
     is_active = Column(Boolean, default=True)
-    
+
     application = relationship("Application", back_populates="escalation_policies")
 ```
 
@@ -580,6 +583,7 @@ Every incoming error is hashed into a unique fingerprint:
 ```python
 import hashlib
 
+
 def generate_fingerprint(log_entry: dict) -> str:
     """
     Generate a unique fingerprint for an error by hashing:
@@ -587,9 +591,11 @@ def generate_fingerprint(log_entry: dict) -> str:
     - Exception type (what kind of error)
     - Top non-library stack frame (where in user code)
     """
-    raw = f"{log_entry['application_id']}:" \
-          f"{log_entry['exception_type']}:" \
-          f"{get_top_user_frame(log_entry['stack_trace'])}"
+    raw = (
+        f"{log_entry['application_id']}:"
+        f"{log_entry['exception_type']}:"
+        f"{get_top_user_frame(log_entry['stack_trace'])}"
+    )
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
 ```
 
@@ -834,10 +840,11 @@ Redis connections to leak on each retry attempt.
 ```python
 # app/python-agent/src/llm_config.py
 
+
 def get_chat_model():
     provider = os.environ.get("LLM_PROVIDER", "google")
     model = os.environ.get("LLM_MODEL", "gemini-2.5-flash")
-    
+
     if provider == "google":
         return ChatGoogleGenerativeAI(model=model, api_key=os.environ["LLM_API_KEY"])
     elif provider == "openai":
@@ -848,7 +855,7 @@ def get_chat_model():
         return ChatOpenAI(
             model=model,
             base_url=os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1"),
-            api_key="not-needed"
+            api_key="not-needed",
         )
 ```
 
@@ -919,11 +926,11 @@ When trace-ID log correlation is insufficient, the agent can actively query clou
 ```python
 # Agent tool: fetch_cloud_logs
 def fetch_cloud_logs(
-    provider: str,          # "aws" | "gcp" | "azure"
-    log_group: str,         # e.g., "/aws/ecs/payment-service"
-    start_time: datetime,   # incident_time - 5 minutes
-    end_time: datetime,     # incident_time + 5 minutes
-    filter_pattern: str     # e.g., "ERROR" or trace_id
+    provider: str,  # "aws" | "gcp" | "azure"
+    log_group: str,  # e.g., "/aws/ecs/payment-service"
+    start_time: datetime,  # incident_time - 5 minutes
+    end_time: datetime,  # incident_time + 5 minutes
+    filter_pattern: str,  # e.g., "ERROR" or trace_id
 ) -> list[LogEntry]:
     """
     Rate limited: max 10 API calls per investigation.

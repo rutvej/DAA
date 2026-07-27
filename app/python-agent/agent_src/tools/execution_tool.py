@@ -98,4 +98,4 @@ def run_tests(data: str) -> str:
     except json.JSONDecodeError:
         return "Error: Invalid JSON string."
     except Exception as e:
-        return f"Error executing command: {str(e)}"
+        return f"Error executing command: {e!s}"

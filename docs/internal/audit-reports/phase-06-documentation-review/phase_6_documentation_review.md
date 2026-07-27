@@ -100,8 +100,13 @@ This has led to severe drift. For instance, `/specs/system-overview.md` referenc
 - `specs/DEPLOYMENT_COMBINATIONS_MATRIX.md` and `specs/MINIMAL_DOCKER_SPEC.md` propose various `sync` vs `rabbitmq` configurations.
 - **Runtime Reality:** `app/backend-api/src/main.py` L44-L52 implements a **hard safety guardrail**:
   ```python
-  if os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq" and "K_SERVICE" in os.environ:
-      raise RuntimeError("Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run...")
+  if (
+      os.environ.get("DAA_QUEUE_MODE", "rabbitmq").lower() == "rabbitmq"
+      and "K_SERVICE" in os.environ
+  ):
+      raise RuntimeError(
+          "Invalid configuration: DAA_QUEUE_MODE=rabbitmq is not supported on Google Cloud Run..."
+      )
   ```
   This critical Cloud Run constraint (`K_SERVICE` request-scoped CPU suspension breaking background RabbitMQ consumers) is only briefly mentioned in `DEPLOYMENT.md` without highlighting that the application will throw a fatal startup `RuntimeError`.
 

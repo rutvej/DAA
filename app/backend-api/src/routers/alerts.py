@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
@@ -15,7 +14,7 @@ router = APIRouter()
 class AlertCreate(BaseModel):
     app_name: str
     summary: str
-    description: Optional[str] = None
+    description: str | None = None
     severity: str = "warning"  # "info", "warning", "critical"
     status: str = "firing"  # "firing", "resolved"
 
@@ -24,7 +23,7 @@ class AlertResponse(BaseModel):
     id: str
     app_name: str
     summary: str
-    description: Optional[str]
+    description: str | None
     severity: str
     status: str
     timestamp: datetime
@@ -55,9 +54,9 @@ def create_alert(
     return db_alert
 
 
-@router.get("/", response_model=List[AlertResponse])
+@router.get("/", response_model=list[AlertResponse])
 def get_alerts(
-    app_name: Optional[str] = None,
+    app_name: str | None = None,
     active_only: bool = True,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),

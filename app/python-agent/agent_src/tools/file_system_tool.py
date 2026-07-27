@@ -1,6 +1,5 @@
 import json
 import os
-from typing import List
 
 try:
     from langchain.tools import tool
@@ -161,7 +160,7 @@ def write_file(data: str) -> str:
 
 
 @tool
-def list_files(path: str) -> List[str]:
+def list_files(path: str) -> list[str]:
     """Lists all files in a directory.
 
     Args:

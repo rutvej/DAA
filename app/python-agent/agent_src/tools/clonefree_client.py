@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from .git_api_providers import build_project_connection, create_provider_client
 
@@ -31,13 +30,13 @@ class CloneFreeGitClient:
     def __getattr__(self, name: str):
         return getattr(self._client, name)
 
-    def get_file_sha(self, file_path: str, ref: str) -> Optional[str]:
+    def get_file_sha(self, file_path: str, ref: str) -> str | None:
         getter = getattr(self._client, "get_file_sha", None)
         if callable(getter):
             return getter(file_path, ref)
         return None
 
-    def get_file_content(self, file_path: str, ref: str = "main") -> Optional[str]:
+    def get_file_content(self, file_path: str, ref: str = "main") -> str | None:
         return self._client.get_file_content(file_path, ref=ref)
 
     def list_files(self, path: str, ref: str = "main") -> list[str]:
@@ -49,14 +48,14 @@ class CloneFreeGitClient:
     def search_code(self, query: str, ref: str = "main") -> list[str]:
         return self._client.search_code(query, ref=ref)
 
-    def get_branch_sha(self, branch_name: str) -> Optional[str]:
+    def get_branch_sha(self, branch_name: str) -> str | None:
         return self._client.get_branch_sha(branch_name)
 
-    def create_branch(self, new_branch: str, base_branch: Optional[str] = None) -> bool:
+    def create_branch(self, new_branch: str, base_branch: str | None = None) -> bool:
         return self._client.create_branch(new_branch, base_branch=base_branch)
 
     def create_branch_lock(
-        self, new_branch: str, base_branch: Optional[str] = None
+        self, new_branch: str, base_branch: str | None = None
     ) -> bool:
         return self._client.create_branch_lock(new_branch, base_branch=base_branch)
 
@@ -72,7 +71,7 @@ class CloneFreeGitClient:
         branch_name: str,
         title: str,
         description: str,
-        base_branch: Optional[str] = None,
+        base_branch: str | None = None,
     ) -> str:
         return self._client.create_pull_request(
             branch_name, title, description, base_branch=base_branch

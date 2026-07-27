@@ -15,12 +15,12 @@ Caching:  60-second in-process TTL cache — avoids Git API rate limits without
 import os
 import time
 import urllib.parse
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import requests
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
-_cache: Dict[str, Any] = {}
+_cache: dict[str, Any] = {}
 _CACHE_TTL = 60  # seconds
 
 
@@ -61,7 +61,7 @@ def _detect_provider() -> str:
     return "none"
 
 
-def get_provider_info() -> Dict[str, Any]:
+def get_provider_info() -> dict[str, Any]:
     """Return provider name and whether git is usably configured."""
     provider = _detect_provider()
     return {
@@ -79,7 +79,7 @@ DAA_PR_TITLE_PREFIX = "[DAA]"
 _DAA_BRANCH_PREFIXES = ("fix/", "remediation/", "daa-fix/", "daa/", "autofix/")
 
 
-def _is_daa_pr(title: str, labels: List[str], branch: str = "") -> bool:
+def _is_daa_pr(title: str, labels: list[str], branch: str = "") -> bool:
     """Return True if this PR was created by DAA.
 
     Matches on:
@@ -111,9 +111,9 @@ def _normalise(
     branch: str,
     created_at: str,
     updated_at: str,
-    merged_at: Optional[str],
-    labels: List[str],
-) -> Dict[str, Any]:
+    merged_at: str | None,
+    labels: list[str],
+) -> dict[str, Any]:
     if merged_at:
         status = "resolved"
     elif state == "open":
@@ -145,7 +145,7 @@ def _normalise(
 # ── GitHub ────────────────────────────────────────────────────────────────────
 
 
-def _fetch_github(state: str = "all") -> List[Dict[str, Any]]:
+def _fetch_github(state: str = "all") -> list[dict[str, Any]]:
     token = os.getenv("GITHUB_TOKEN", "")
     repo = os.getenv("GITHUB_REPO", "")  # "owner/repo"
     if not token or not repo:
@@ -194,7 +194,7 @@ def _fetch_github(state: str = "all") -> List[Dict[str, Any]]:
 # ── GitLab ────────────────────────────────────────────────────────────────────
 
 
-def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
+def _fetch_gitlab(state: str = "all") -> list[dict[str, Any]]:
     token = os.getenv("GITLAB_PRIVATE_TOKEN", "")
     host = os.getenv("GITLAB_HOST", "https://gitlab.com").rstrip("/")
     repo_url = os.getenv("DAA_REPO_URL", "")
@@ -263,7 +263,7 @@ def _fetch_gitlab(state: str = "all") -> List[Dict[str, Any]]:
 # ── Gitea ─────────────────────────────────────────────────────────────────────
 
 
-def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
+def _fetch_gitea(state: str = "all") -> list[dict[str, Any]]:
     import re
 
     # Prefer canonical GITEA_TOKEN; fall back to DAA_GIT_TOKEN (standalone image)
@@ -342,9 +342,11 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
                 branch=branch,
                 created_at=pr.get("created_at", ""),
                 updated_at=pr.get("updated_at", ""),
-                merged_at=pr.get("pull_request", {}).get("merged_at") or merged_at
-                if is_merged
-                else None,
+                merged_at=(
+                    pr.get("pull_request", {}).get("merged_at") or merged_at
+                    if is_merged
+                    else None
+                ),
                 labels=labels,
             )
         )
@@ -354,7 +356,7 @@ def _fetch_gitea(state: str = "all") -> List[Dict[str, Any]]:
 # ── Bitbucket ─────────────────────────────────────────────────────────────────
 
 
-def _fetch_bitbucket(state: str = "all") -> List[Dict[str, Any]]:
+def _fetch_bitbucket(state: str = "all") -> list[dict[str, Any]]:
     username = os.getenv("BITBUCKET_USERNAME", "")
     app_password = os.getenv("BITBUCKET_APP_PASSWORD", "")
     repo_url = os.getenv("DAA_REPO_URL", "")
@@ -422,7 +424,7 @@ def _fetch_bitbucket(state: str = "all") -> List[Dict[str, Any]]:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-def fetch_prs(state: str = "all", force_refresh: bool = False) -> List[Dict[str, Any]]:
+def fetch_prs(state: str = "all", force_refresh: bool = False) -> list[dict[str, Any]]:
     """
     Return DAA-created PRs from the configured git provider.
 
@@ -451,7 +453,7 @@ def fetch_prs(state: str = "all", force_refresh: bool = False) -> List[Dict[str,
     return _cached(cache_key, lambda: fetcher(state), force=force_refresh)
 
 
-def fetch_dashboard_stats(force_refresh: bool = False) -> Dict[str, Any]:
+def fetch_dashboard_stats(force_refresh: bool = False) -> dict[str, Any]:
     """
     Compute dashboard-compatible stats purely from git PRs.
     Shape mirrors GET /dashboard response so the admin panel needs zero changes.

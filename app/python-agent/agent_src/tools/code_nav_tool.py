@@ -26,10 +26,8 @@ def view_file_slice(data: str) -> str:
         start_line = int(input_data.get("start_line", 1))
         end_line = int(input_data.get("end_line", start_line + 99))
 
-        if start_line < 1:
-            start_line = 1
-        if end_line < start_line:
-            end_line = start_line
+        start_line = max(start_line, 1)
+        end_line = max(end_line, start_line)
 
         truncated_msg = ""
         if end_line - start_line >= 100:

@@ -2,7 +2,7 @@ import asyncio
 import hmac
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -31,9 +31,9 @@ _MUTATING_TOOLS = {
 
 def _verify_mutating_access(
     tool_name: str,
-    tool_args: Dict[str, Any],
-    hmac_query: Optional[str] = None,
-    current_user: Optional[dict] = None,
+    tool_args: dict[str, Any],
+    hmac_query: str | None = None,
+    current_user: dict | None = None,
 ):
     """
     Enforce No-Auth Security Safeguards:
@@ -90,9 +90,7 @@ def _verify_mutating_access(
 @router.post("/message")
 async def handle_mcp_message(
     request: Request,
-    hmac: Optional[str] = Query(
-        None, description="HMAC action token for mutating calls"
-    ),
+    hmac: str | None = Query(None, description="HMAC action token for mutating calls"),
     current_user: dict = Depends(get_current_user),
 ):
     """
@@ -157,13 +155,13 @@ async def handle_mcp_sse(request: Request):
 class CommentPayload(BaseModel):
     pr_url: str
     comments: str
-    hmac_token: Optional[str] = None
+    hmac_token: str | None = None
 
 
 @router.post("/collaborate/comment")
 def collaborate_comment(
     payload: CommentPayload,
-    hmac: Optional[str] = Query(None),
+    hmac: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
@@ -221,13 +219,13 @@ def collaborate_comment(
 class ReinvestigatePayload(BaseModel):
     pr_url: str
     additional_context: str
-    hmac_token: Optional[str] = None
+    hmac_token: str | None = None
 
 
 @router.post("/collaborate/reinvestigate")
 def collaborate_reinvestigate(
     payload: ReinvestigatePayload,
-    hmac: Optional[str] = Query(None),
+    hmac: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):

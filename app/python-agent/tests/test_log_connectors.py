@@ -3,13 +3,10 @@ import unittest
 from datetime import timezone
 from unittest.mock import MagicMock, patch
 
-from agent_src.log_connectors import (
-    AWSCloudWatchConnector,
-    DatadogConnector,
-    GCPCloudLoggingConnector,
-    get_configured_connector,
-    parse_timestamp,
-)
+from agent_src.log_connectors import (AWSCloudWatchConnector, DatadogConnector,
+                                      GCPCloudLoggingConnector,
+                                      get_configured_connector,
+                                      parse_timestamp)
 
 
 class TestLogConnectors(unittest.TestCase):
