@@ -98,7 +98,7 @@ class RedisBackend:
                 self.client = redis.Redis.from_url(redis_url, decode_responses=True)
             else:
                 host = os.environ.get("REDIS_HOST", "localhost")
-                port = int(os.environ.get("REDIS_PORT", 6379))
+                port = int(os.environ.get("REDIS_PORT", "6379"))
                 self.client = redis.Redis(host=host, port=port, decode_responses=True)
             # Quick ping check if local
             self.client.ping()

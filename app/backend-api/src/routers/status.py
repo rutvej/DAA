@@ -257,7 +257,7 @@ async def stream_incident_thoughts(
                 pkt = _parse_step_to_json(msg, start_time)
                 await websocket.send_json(pkt)
                 sent_chars += len(msg) + 2
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Fallback poll database if queue was silent (handles out-of-process workers)
                 db.expire_all()
                 fix = (

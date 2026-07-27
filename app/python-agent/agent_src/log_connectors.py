@@ -1,6 +1,6 @@
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import requests
 
@@ -10,12 +10,12 @@ logger = logging.getLogger(__name__)
 def parse_timestamp(ts_str: str) -> datetime:
     """Parses ISO-8601, millisecond or second Unix timestamps, returning timezone-aware datetime."""
     if not ts_str:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
     try:
         val = float(ts_str)
         if val > 2e9:  # MS timestamp
-            return datetime.fromtimestamp(val / 1000.0, tz=timezone.utc)
-        return datetime.fromtimestamp(val, tz=timezone.utc)
+            return datetime.fromtimestamp(val / 1000.0, tz=UTC)
+        return datetime.fromtimestamp(val, tz=UTC)
     except ValueError:
         pass
 
@@ -28,10 +28,10 @@ def parse_timestamp(ts_str: str) -> datetime:
         # Fallback parsing for common custom formats
         try:
             return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S").replace(
-                tzinfo=timezone.utc
+                tzinfo=UTC
             )
         except Exception:
-            return datetime.now(timezone.utc)
+            return datetime.now(UTC)
 
 
 class BaseLogConnector:

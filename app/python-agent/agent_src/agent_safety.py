@@ -6,7 +6,7 @@
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, ClassVar
 
 from langchain_core.callbacks import BaseCallbackHandler
 
@@ -43,7 +43,11 @@ class PlanningValidator:
     )
     _BARE_JSON_RE = re.compile(r"(\{.*\})", re.DOTALL)
 
-    REQUIRED_KEYS = {"hypothesis", "evidence_needed", "will_not_check"}
+    REQUIRED_KEYS: ClassVar[set[str]] = {
+        "hypothesis",
+        "evidence_needed",
+        "will_not_check",
+    }
 
     def __init__(self) -> None:
         pass

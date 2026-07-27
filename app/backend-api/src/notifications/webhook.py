@@ -3,7 +3,7 @@ import hmac
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -24,7 +24,7 @@ async def send_outbound_webhook(payload: dict):
     if "event" not in payload:
         payload["event"] = "daa.investigation.completed"
     if "timestamp" not in payload:
-        payload["timestamp"] = datetime.now(timezone.utc).isoformat()
+        payload["timestamp"] = datetime.now(UTC).isoformat()
 
     data = json.dumps(payload)
     headers = {"Content-Type": "application/json"}

@@ -13,7 +13,7 @@ import subprocess
 import time
 import uuid
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import unquote, urlparse
 
 import requests
@@ -1035,7 +1035,7 @@ class PostflightOrchestrator:
         """
         Pure template fill -- no LLM call.  Returns a Markdown postmortem.
         """
-        now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        now_utc = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
         files_md = (
             "\n".join(f"- `{f}`" for f in files_changed)
             if files_changed
