@@ -2335,10 +2335,21 @@ ruff check .</pre>
             if (aiSessionInitializing || aiSession) return;
             aiSessionInitializing = true;
             try {
-                if (window.ai && window.ai.languageModel) {
-                    const capabilities = await window.ai.languageModel.capabilities();
-                    if (capabilities.available !== 'no') {
-                        const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
+                if (!window.ai || !window.ai.languageModel) {
+                    throw new Error("window.ai.languageModel is not available. Flags might not be enabled.");
+                }
+                
+                const capabilities = await window.ai.languageModel.capabilities();
+                if (capabilities.available === 'no') {
+                    throw new Error("Gemini Nano is explicitly unavailable on this device.");
+                }
+                
+                if (capabilities.available === 'after-download') {
+                    document.getElementById('chat-status-text').innerText = 'Downloading Model... (Check Console)';
+                    console.log("Gemini Nano model is downloading in the background...");
+                }
+                
+                const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
 1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
 2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
 3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
@@ -2348,14 +2359,18 @@ ruff check .</pre>
 7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
 8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
 
-                        aiSession = await window.ai.languageModel.create({
-                            systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
-                            temperature: 0.2
+                aiSession = await window.ai.languageModel.create({
+                    systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
+                    temperature: 0.2,
+                    monitor(m) {
+                        m.addEventListener("downloadprogress", (e) => {
+                            const percent = Math.round((e.loaded / e.total) * 100);
+                            document.getElementById('chat-status-text').innerText = `Downloading: ${percent}%`;
                         });
-                        console.log("Chrome Built-in AI session created successfully.");
-                        document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
                     }
-                }
+                });
+                console.log("Chrome Built-in AI session created successfully.");
+                document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
             } catch (e) {
                 console.warn("Chrome Built-in AI initialization failed, using fallback:", e);
             }
