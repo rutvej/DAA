@@ -2257,7 +2257,7 @@ ruff check .</pre>
     }
     </style>
     
-    <div class="chat-widget">
+    <div class="chat-widget" id="chat-widget-container" style="display: none;">
         <div class="chat-window" id="chat-window">
             <div class="chat-header">
                 <div class="chat-header-icon"><i class="fa-solid fa-robot"></i></div>
@@ -2326,6 +2326,7 @@ ruff check .</pre>
                 div.textContent = text;
                 msgs.scrollTop = msgs.scrollHeight;
             }
+            return div;
         }
         
         let aiSession = null;
@@ -2335,10 +2336,21 @@ ruff check .</pre>
             if (aiSessionInitializing || aiSession) return;
             aiSessionInitializing = true;
             try {
-                if (window.ai && window.ai.languageModel) {
-                    const capabilities = await window.ai.languageModel.capabilities();
-                    if (capabilities.available !== 'no') {
-                        const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
+                if (!('LanguageModel' in self)) {
+                    throw new Error('Prompt API not available');
+                }
+
+                const availability = await LanguageModel.availability();
+
+                if (availability === 'unavailable') {
+                    throw new Error('Model unavailable on this device');
+                }
+
+                if (availability === 'downloadable' || availability === 'downloading') {
+                    document.getElementById('chat-status-text').innerText = 'Downloading model…';
+                }
+
+                const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
 1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
 2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
 3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
@@ -2348,16 +2360,25 @@ ruff check .</pre>
 7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
 8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
 
-                        aiSession = await window.ai.languageModel.create({
-                            systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
-                            temperature: 0.2
+                aiSession = await LanguageModel.create({
+                    initialPrompts: [{
+                        role: 'system',
+                        content: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say "I can only answer questions based on the DAA documentation."\n\n${daaDocs}`
+                    }],
+                    monitor(m) {
+                        m.addEventListener('downloadprogress', (e) => {
+                            const pct = e.total ? Math.round((e.loaded / e.total) * 100) : Math.round(e.loaded * 100);
+                            document.getElementById('chat-status-text').innerText = `Downloading: ${pct}%`;
                         });
-                        console.log("Chrome Built-in AI session created successfully.");
-                        document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
                     }
-                }
+                });
+
+                console.log('Chrome Built-in AI session created successfully.');
+                document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
+                document.getElementById('chat-widget-container').style.display = 'block';
             } catch (e) {
-                console.warn("Chrome Built-in AI initialization failed, using fallback:", e);
+                console.warn('Chrome Built-in AI initialization failed, hiding chat:', e);
+                document.getElementById('chat-widget-container').style.display = 'none';
             }
             aiSessionInitializing = false;
         }
@@ -2385,48 +2406,28 @@ ruff check .</pre>
             
             try {
                 if (aiSession) {
-                    const answer = await aiSession.prompt(text);
-                    ind.style.display = 'none';
-                    appendMsg(answer, 'bot', true);
+                    const stream = aiSession.promptStreaming(text);
+                    const msgs = document.getElementById('chat-messages');
+                    const indEl = document.getElementById('typing-indicator');
+                    indEl.style.display = 'none';
+                    const bubble = appendMsg('', 'bot', false);
+                    let full = '';
+                    for await (const chunk of stream) {
+                        full += chunk;
+                        bubble.textContent = full;
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
                     return;
                 }
             } catch (e) {
-                console.error("AI prompt failed, falling back to JS:", e);
+                console.error('AI prompt failed:', e);
+                document.getElementById('typing-indicator').style.display = 'none';
+                appendMsg('Sorry, the local AI model encountered an error.', 'bot', false);
                 if (aiSession) {
                     try { aiSession.destroy(); } catch(err) {}
                     aiSession = null;
                 }
             }
-            
-            // Fallback to our simple keyword matcher
-            setTimeout(() => {
-                ind.style.display = 'none';
-                const answer = getBotAnswer(text);
-                appendMsg(answer, 'bot', true);
-            }, 800 + Math.random() * 800);
-        }
-        
-        function getBotAnswer(q) {
-            const ql = q.toLowerCase();
-            if(ql.includes('code') && (ql.includes('safe') || ql.includes('secure'))) {
-                return "Absolutely. DAA only analyzes the specific context around a triggered error (like stack traces and related commits). It does not scan or upload your entire codebase.";
-            }
-            if(ql.includes('disclose') || (ql.includes('code') && ql.includes('daa'))) {
-                return "No. DAA has no central server that receives your code. Context is sent directly from your self-hosted DAA instance to the LLM provider you configure.";
-            }
-            if(ql.includes('safe') || ql.includes('privacy')) {
-                return "Yes, DAA is self-hosted and private by design. It runs in your own environment (e.g., via Docker) and uses the API keys you provide.";
-            }
-            if(ql.includes('offline') || ql.includes('air-gap') || ql.includes('ollama')) {
-                return "Yes, you can configure DAA to use local LLMs (like Ollama) so no data ever leaves your network.";
-            }
-            if(ql.includes('how') && (ql.includes('work') || ql.includes('fix'))) {
-                return "DAA investigates Git commits, app logs, traces, and source code to find the root cause, then generates a code fix and opens a Pull Request on your repository automatically.";
-            }
-            if(ql.includes('hello') || ql.includes('hi')) {
-                return "Hello! I can answer your questions about DAA's security, privacy, and how it works.";
-            }
-            return "I'm a simple assistant. I can answer FAQs about DAA's code safety, privacy, and how it fixes bugs. Could you rephrase your question regarding these topics?";
         }
     </script>
 </body>
