@@ -2050,5 +2050,382 @@ ruff check .</pre>
         });
     }
     </script>
+
+    <!-- Chat Widget -->
+    <style>
+    .chat-widget {
+        position: fixed;
+        bottom: 24px;
+        right: 84px; /* Left of back-to-top button */
+        z-index: 1000;
+        font-family: 'Inter', sans-serif;
+    }
+    .chat-toggle {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--gradient-brand);
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 1.5rem;
+        box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+    .chat-toggle:hover {
+        transform: scale(1.05);
+        box-shadow: 0 8px 30px rgba(124,58,237,0.5);
+    }
+    .chat-window {
+        position: absolute;
+        bottom: 76px;
+        right: 0;
+        width: 340px;
+        height: 480px;
+        background: var(--bg-glass);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-xl), var(--shadow-glow);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(20px) scale(0.95);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-origin: bottom right;
+    }
+    .chat-window.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0) scale(1);
+    }
+    .chat-header {
+        padding: 16px;
+        background: rgba(0,0,0,0.1);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    [data-theme="light"] .chat-header {
+        background: rgba(0,0,0,0.03);
+    }
+    .chat-header-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--gradient-brand);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+    }
+    .chat-header-title {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--text-main);
+    }
+    .chat-header-status {
+        font-size: 0.75rem;
+        color: var(--accent-emerald);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-emerald);
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+        70% { box-shadow: 0 0 0 4px rgba(16,185,129,0); }
+        100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+    }
+    .chat-messages {
+        flex: 1;
+        padding: 16px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    .chat-msg {
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        line-height: 1.5;
+        animation: fadeInMsg 0.3s ease;
+    }
+    @keyframes fadeInMsg {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-bot {
+        background: var(--bg-elevated);
+        color: var(--text-main);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid var(--border-color);
+    }
+    .msg-user {
+        background: var(--gradient-brand);
+        color: white;
+        align-self: flex-end;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-input-area {
+        padding: 12px;
+        border-top: 1px solid var(--border-color);
+        background: var(--bg-surface);
+        display: flex;
+        gap: 8px;
+    }
+    .chat-input {
+        flex: 1;
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-full);
+        padding: 10px 16px;
+        color: var(--text-main);
+        font-family: inherit;
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .chat-input:focus {
+        border-color: var(--accent-violet);
+    }
+    .chat-send {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(124,58,237,0.1);
+        color: var(--accent-violet);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .chat-send:hover {
+        background: var(--accent-violet);
+        color: white;
+    }
+    .typing-indicator {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 14px;
+        background: var(--bg-elevated);
+        border-radius: var(--radius-md);
+        align-self: flex-start;
+        border-bottom-left-radius: 4px;
+        border: 1px solid var(--border-color);
+    }
+    .typing-dot {
+        width: 6px;
+        height: 6px;
+        background: var(--text-muted);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out both;
+    }
+    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+    @keyframes typing {
+        0%, 80%, 100% { transform: scale(0); }
+        40% { transform: scale(1); }
+    }
+    @media (max-width: 768px) {
+        .chat-widget { right: 24px; bottom: 84px; }
+        .chat-window { width: calc(100vw - 48px); height: 400px; }
+        .chat-input { font-size: 16px; } /* Prevent iOS zoom */
+    }
+    </style>
+    
+    <div class="chat-widget">
+        <div class="chat-window" id="chat-window">
+            <div class="chat-header">
+                <div class="chat-header-icon"><i class="fa-solid fa-robot"></i></div>
+                <div>
+                    <div class="chat-header-title">DAA Assistant</div>
+                    <div class="chat-header-status"><div class="status-dot"></div> Online</div>
+                </div>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="chat-msg msg-bot">Hi! I can answer questions about DAA, like whether it's safe or how it accesses your code. Ask me anything!</div>
+                <div class="typing-indicator" id="typing-indicator">
+                    <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" id="chat-input" placeholder="Type a question..." onkeypress="handleChatKeyPress(event)">
+                <button class="chat-send" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+        <button class="chat-toggle" onclick="toggleChat()" aria-label="Toggle chat">
+            <i class="fa-solid fa-message" id="chat-toggle-icon"></i>
+        </button>
+    </div>
+    
+    <script>
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            const icon = document.getElementById('chat-toggle-icon');
+            win.classList.toggle('active');
+            if(win.classList.contains('active')) {
+                icon.classList.remove('fa-message');
+                icon.classList.add('fa-xmark');
+                document.getElementById('chat-input').focus();
+            } else {
+                icon.classList.remove('fa-xmark');
+                icon.classList.add('fa-message');
+            }
+        }
+        
+        function handleChatKeyPress(e) {
+            if(e.key === 'Enter') sendChatMessage();
+        }
+        
+        function appendMsg(text, type, stream = false) {
+            const msgs = document.getElementById('chat-messages');
+            const ind = document.getElementById('typing-indicator');
+            const div = document.createElement('div');
+            div.className = 'chat-msg ' + (type === 'user' ? 'msg-user' : 'msg-bot');
+            msgs.insertBefore(div, ind);
+            
+            if (stream && type === 'bot') {
+                div.innerText = '';
+                const tokens = text.match(/\S+|\s+/g) || [];
+                let i = 0;
+                
+                function nextToken() {
+                    if (i < tokens.length) {
+                        div.innerText += tokens[i];
+                        msgs.scrollTop = msgs.scrollHeight;
+                        i++;
+                        setTimeout(nextToken, 20 + Math.random() * 40);
+                    }
+                }
+                nextToken();
+            } else {
+                div.innerText = text;
+                msgs.scrollTop = msgs.scrollHeight;
+            }
+        }
+        
+        let aiSession = null;
+        let aiSessionInitializing = false;
+
+        async function initAiSession() {
+            if (aiSessionInitializing || aiSession) return;
+            aiSessionInitializing = true;
+            try {
+                if (window.ai && window.ai.languageModel) {
+                    const capabilities = await window.ai.languageModel.capabilities();
+                    if (capabilities.available !== 'no') {
+                        const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
+1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
+2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
+3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
+4. Code Privacy: DAA has no central server. It only sends specific context around an error (stack traces, specific Git commits) directly from your instance to your configured LLM provider. It never uploads your entire codebase.
+5. Alert Fatigue: DAA uses SHA-256 fingerprint deduplication and sliding-window cooldowns so the agent only wakes up for new error patterns, suppressing duplicates silently.
+6. Supported LLMs: DAA is model-agnostic. It supports Gemini, GPT-4, Claude, Vertex, and local air-gapped models via Ollama.
+7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
+8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
+
+                        aiSession = await window.ai.languageModel.create({
+                            systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
+                            temperature: 0.2
+                        });
+                        console.log("Chrome Built-in AI session created successfully.");
+                    }
+                }
+            } catch (e) {
+                console.warn("Chrome Built-in AI initialization failed, using fallback:", e);
+            }
+            aiSessionInitializing = false;
+        }
+
+        // Initialize on load
+        initAiSession();
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            appendMsg(text, 'user');
+            input.value = '';
+            
+            const ind = document.getElementById('typing-indicator');
+            ind.style.display = 'flex';
+            const msgs = document.getElementById('chat-messages');
+            msgs.scrollTop = msgs.scrollHeight;
+            
+            // Wait for init if it's currently initializing
+            if (aiSessionInitializing) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            try {
+                if (aiSession) {
+                    const answer = await aiSession.prompt(text);
+                    ind.style.display = 'none';
+                    appendMsg(answer, 'bot', true);
+                    return;
+                }
+            } catch (e) {
+                console.error("AI prompt failed, falling back to JS:", e);
+                if (aiSession) {
+                    try { aiSession.destroy(); } catch(err) {}
+                    aiSession = null;
+                }
+            }
+            
+            // Fallback to our simple keyword matcher
+            setTimeout(() => {
+                ind.style.display = 'none';
+                const answer = getBotAnswer(text);
+                appendMsg(answer, 'bot', true);
+            }, 800 + Math.random() * 800);
+        }
+        
+        function getBotAnswer(q) {
+            const ql = q.toLowerCase();
+            if(ql.includes('code') && (ql.includes('safe') || ql.includes('secure'))) {
+                return "Absolutely. DAA only analyzes the specific context around a triggered error (like stack traces and related commits). It does not scan or upload your entire codebase.";
+            }
+            if(ql.includes('disclose') || (ql.includes('code') && ql.includes('daa'))) {
+                return "No. DAA has no central server that receives your code. Context is sent directly from your self-hosted DAA instance to the LLM provider you configure.";
+            }
+            if(ql.includes('safe') || ql.includes('privacy')) {
+                return "Yes, DAA is self-hosted and private by design. It runs in your own environment (e.g., via Docker) and uses the API keys you provide.";
+            }
+            if(ql.includes('offline') || ql.includes('air-gap') || ql.includes('ollama')) {
+                return "Yes, you can configure DAA to use local LLMs (like Ollama) so no data ever leaves your network.";
+            }
+            if(ql.includes('how') && (ql.includes('work') || ql.includes('fix'))) {
+                return "DAA investigates Git commits, app logs, traces, and source code to find the root cause, then generates a code fix and opens a Pull Request on your repository automatically.";
+            }
+            if(ql.includes('hello') || ql.includes('hi')) {
+                return "Hello! I can answer your questions about DAA's security, privacy, and how it works.";
+            }
+            return "I'm a simple assistant. I can answer FAQs about DAA's code safety, privacy, and how it fixes bugs. Could you rephrase your question regarding these topics?";
+        }
+    </script>
 </body>
 </html>
