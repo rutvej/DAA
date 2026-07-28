@@ -183,6 +183,22 @@ Self-hosted and private by design. See [SECURITY.md](./SECURITY.md) for the full
 
 ---
 
+## FAQ
+
+**Q: Is DAA safe to use?**
+A: Yes, DAA is self-hosted and private by design. It runs in your own environment (e.g., via Docker) and uses the API keys you provide.
+
+**Q: Is my code safe?**
+A: Absolutely. DAA only analyzes the specific context around a triggered error (such as the stack trace, related Git commits, and the specific lines of code in the AST). It does not scan or upload your entire codebase.
+
+**Q: Is my code disclosed to the creators of DAA?**
+A: No. DAA has no central server that receives your code or data. Any code context is sent directly from your self-hosted DAA instance to the LLM provider you configure (like Google Gemini, OpenAI, or a local Ollama instance).
+
+**Q: Can it run entirely offline/air-gapped?**
+A: Yes, you can configure DAA to use local LLMs (like Ollama) so no data ever leaves your network.
+
+---
+
 ## Contributing
 
 [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [LICENSE](./LICENSE)
