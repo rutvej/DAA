@@ -2344,6 +2344,9 @@ ruff check .</pre>
         </button>
     </div>
     
+    <!-- DAA RAG Knowledge Base -->
+    <script src="daa-rag.js"></script>
+
     <script>
         function toggleChat() {
             const win = document.getElementById('chat-window');
@@ -2420,15 +2423,7 @@ ruff check .</pre>
             document.getElementById('chat-input-area').style.display = 'flex';
             document.getElementById('chat-status-text').innerText = 'Initializing…';
 
-            const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
-1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
-2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
-3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
-4. Code Privacy: DAA has no central server. It only sends specific context around an error (stack traces, specific Git commits) directly from your instance to your configured LLM provider. It never uploads your entire codebase.
-5. Alert Fatigue: DAA uses SHA-256 fingerprint deduplication and sliding-window cooldowns so the agent only wakes up for new error patterns, suppressing duplicates silently.
-6. Supported LLMs: DAA is model-agnostic. It supports Gemini, GPT-4, Claude, Vertex, and local air-gapped models via Ollama.
-7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
-8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
+            const baseSystem = `You are the official DAA Assistant. Answer the user's question accurately using ONLY the provided documentation context. If the answer is not in the context, say "I can only answer questions based on the DAA documentation."`;
 
             try {
                 aiSession = await LanguageModel.create({
@@ -2436,7 +2431,7 @@ ruff check .</pre>
                     expectedOutputLanguage: lang,
                     initialPrompts: [{
                         role: 'system',
-                        content: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say "I can only answer questions based on the DAA documentation."\n\n${daaDocs}`
+                        content: baseSystem
                     }],
                     monitor(m) {
                         m.addEventListener('downloadprogress', (e) => {
@@ -2445,7 +2440,8 @@ ruff check .</pre>
                         });
                     }
                 });
-                document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
+                selectedLang = lang;
+                document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano • RAG';
                 document.getElementById('chat-input').focus();
             } catch (e) {
                 console.error('Failed to create AI session:', e);
@@ -2460,7 +2456,7 @@ ruff check .</pre>
         async function sendChatMessage() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
-            if(!text) return;
+            if(!text || !aiSession) return;
             
             appendMsg(text, 'user');
             input.value = '';
@@ -2470,26 +2466,27 @@ ruff check .</pre>
             const msgs = document.getElementById('chat-messages');
             msgs.scrollTop = msgs.scrollHeight;
             
-            // Wait for init if it's currently initializing
-            if (aiSessionInitializing) {
-                await new Promise(r => setTimeout(r, 500));
-            }
-            
             try {
-                if (aiSession) {
-                    const stream = aiSession.promptStreaming(text);
-                    const msgs = document.getElementById('chat-messages');
-                    const indEl = document.getElementById('typing-indicator');
-                    indEl.style.display = 'none';
-                    const bubble = appendMsg('', 'bot', false);
-                    let full = '';
-                    for await (const chunk of stream) {
-                        full += chunk;
-                        bubble.textContent = full;
-                        msgs.scrollTop = msgs.scrollHeight;
-                    }
-                    return;
+                // RAG: retrieve the most relevant documentation chunks for this question
+                const context = (typeof retrieveContext === 'function')
+                    ? retrieveContext(text, 4)
+                    : '';
+
+                const ragPrompt = context
+                    ? `Using ONLY the following DAA documentation context, answer the user's question. If the answer is not in the context, say "I can only answer questions based on the DAA documentation."\n\nContext:\n${context}\n\nQuestion: ${text}`
+                    : text;
+
+                const stream = aiSession.promptStreaming(ragPrompt);
+                const indEl = document.getElementById('typing-indicator');
+                indEl.style.display = 'none';
+                const bubble = appendMsg('', 'bot', false);
+                let full = '';
+                for await (const chunk of stream) {
+                    full += chunk;
+                    bubble.textContent = full;
+                    msgs.scrollTop = msgs.scrollHeight;
                 }
+                return;
             } catch (e) {
                 console.error('AI prompt failed:', e);
                 document.getElementById('typing-indicator').style.display = 'none';
