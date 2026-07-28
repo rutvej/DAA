@@ -2326,6 +2326,7 @@ ruff check .</pre>
                 div.textContent = text;
                 msgs.scrollTop = msgs.scrollHeight;
             }
+            return div;
         }
         
         let aiSession = null;
@@ -2335,44 +2336,20 @@ ruff check .</pre>
             if (aiSessionInitializing || aiSession) return;
             aiSessionInitializing = true;
             try {
-                if (window.location.protocol === 'file:') {
-                    alert("WARNING: Chrome disables the Built-in AI on file:/// URLs. You must use a local server like http://localhost:8000/");
+                if (!('LanguageModel' in self)) {
+                    throw new Error('Prompt API not available');
                 }
 
-                let aiAPI = null;
-                if (window.ai && window.ai.languageModel) {
-                    aiAPI = window.ai.languageModel; // Chrome 127-147
-                } else if ('LanguageModel' in self) {
-                    aiAPI = self.LanguageModel; // Chrome 148+
-                } else if (window.ai && window.ai.createTextSession) {
-                    // Extremely old Chrome Canary
-                    aiAPI = {
-                        create: async (opts) => await window.ai.createTextSession(opts),
-                        capabilities: async () => ({ available: 'readily' })
-                    };
+                const availability = await LanguageModel.availability();
+
+                if (availability === 'unavailable') {
+                    throw new Error('Model unavailable on this device');
                 }
 
-                if (!aiAPI) {
-                    throw new Error("LanguageModel API is not available. You may need to enable Chrome flags or update your browser.");
-                }
-                
-                let availabilityStatus = 'readily';
-                if (aiAPI.capabilities) {
-                    const cap = await aiAPI.capabilities();
-                    availabilityStatus = cap.available || 'readily';
-                } else if (aiAPI.availability) {
-                    availabilityStatus = await aiAPI.availability();
+                if (availability === 'downloadable' || availability === 'downloading') {
+                    document.getElementById('chat-status-text').innerText = 'Downloading model…';
                 }
 
-                if (availabilityStatus === 'no' || availabilityStatus === 'unavailable') {
-                    throw new Error("Gemini Nano is explicitly unavailable on this device.");
-                }
-                
-                if (availabilityStatus === 'after-download' || availabilityStatus === 'downloadable' || availabilityStatus === 'downloading') {
-                    document.getElementById('chat-status-text').innerText = 'Downloading Model... (Check Console)';
-                    console.log("Gemini Nano model is downloading in the background...");
-                }
-                
                 const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
 1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
 2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
@@ -2383,21 +2360,24 @@ ruff check .</pre>
 7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
 8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
 
-                aiSession = await aiAPI.create({
-                    systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
-                    temperature: 0.2,
+                aiSession = await LanguageModel.create({
+                    initialPrompts: [{
+                        role: 'system',
+                        content: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say "I can only answer questions based on the DAA documentation."\n\n${daaDocs}`
+                    }],
                     monitor(m) {
-                        m.addEventListener("downloadprogress", (e) => {
-                            const percent = e.total ? Math.round((e.loaded / e.total) * 100) : Math.round(e.loaded * 100);
-                            document.getElementById('chat-status-text').innerText = `Downloading: ${percent}%`;
+                        m.addEventListener('downloadprogress', (e) => {
+                            const pct = e.total ? Math.round((e.loaded / e.total) * 100) : Math.round(e.loaded * 100);
+                            document.getElementById('chat-status-text').innerText = `Downloading: ${pct}%`;
                         });
                     }
                 });
-                console.log("Chrome Built-in AI session created successfully.");
+
+                console.log('Chrome Built-in AI session created successfully.');
                 document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
                 document.getElementById('chat-widget-container').style.display = 'block';
             } catch (e) {
-                console.warn("Chrome Built-in AI initialization failed, hiding chat:", e);
+                console.warn('Chrome Built-in AI initialization failed, hiding chat:', e);
                 document.getElementById('chat-widget-container').style.display = 'none';
             }
             aiSessionInitializing = false;
@@ -2426,15 +2406,23 @@ ruff check .</pre>
             
             try {
                 if (aiSession) {
-                    const answer = await aiSession.prompt(text);
-                    ind.style.display = 'none';
-                    appendMsg(answer, 'bot', true);
+                    const stream = aiSession.promptStreaming(text);
+                    const msgs = document.getElementById('chat-messages');
+                    const indEl = document.getElementById('typing-indicator');
+                    indEl.style.display = 'none';
+                    const bubble = appendMsg('', 'bot', false);
+                    let full = '';
+                    for await (const chunk of stream) {
+                        full += chunk;
+                        bubble.textContent = full;
+                        msgs.scrollTop = msgs.scrollHeight;
+                    }
                     return;
                 }
             } catch (e) {
-                console.error("AI prompt failed:", e);
-                ind.style.display = 'none';
-                appendMsg("Sorry, the local AI model encountered an error.", 'bot', true);
+                console.error('AI prompt failed:', e);
+                document.getElementById('typing-indicator').style.display = 'none';
+                appendMsg('Sorry, the local AI model encountered an error.', 'bot', false);
                 if (aiSession) {
                     try { aiSession.destroy(); } catch(err) {}
                     aiSession = null;
