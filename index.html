@@ -2335,21 +2335,31 @@ ruff check .</pre>
             if (aiSessionInitializing || aiSession) return;
             aiSessionInitializing = true;
             try {
+                if (window.location.protocol === 'file:') {
+                    alert("WARNING: Chrome disables the Built-in AI on file:/// URLs. You must use a local server like http://localhost:8000/");
+                }
+
                 let aiAPI = null;
                 if (window.ai && window.ai.languageModel) {
                     aiAPI = window.ai.languageModel; // Chrome 127-147
                 } else if ('LanguageModel' in self) {
                     aiAPI = self.LanguageModel; // Chrome 148+
+                } else if (window.ai && window.ai.createTextSession) {
+                    // Extremely old Chrome Canary
+                    aiAPI = {
+                        create: async (opts) => await window.ai.createTextSession(opts),
+                        capabilities: async () => ({ available: 'readily' })
+                    };
                 }
 
                 if (!aiAPI) {
                     throw new Error("LanguageModel API is not available. You may need to enable Chrome flags or update your browser.");
                 }
                 
-                let availabilityStatus = 'no';
+                let availabilityStatus = 'readily';
                 if (aiAPI.capabilities) {
                     const cap = await aiAPI.capabilities();
-                    availabilityStatus = cap.available;
+                    availabilityStatus = cap.available || 'readily';
                 } else if (aiAPI.availability) {
                     availabilityStatus = await aiAPI.availability();
                 }
