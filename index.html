@@ -2255,6 +2255,55 @@ ruff check .</pre>
         .chat-window { width: calc(100vw - 48px); height: 400px; }
         .chat-input { font-size: 16px; } /* Prevent iOS zoom */
     }
+    /* Language picker */
+    .lang-picker {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 24px;
+        text-align: center;
+    }
+    .lang-picker-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .lang-picker-sub {
+        font-size: 0.78rem;
+        color: var(--text-muted);
+        line-height: 1.5;
+    }
+    .lang-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        width: 100%;
+        margin-top: 4px;
+    }
+    .lang-btn {
+        padding: 10px 8px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        background: transparent;
+        color: var(--text-main);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'Inter', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    .lang-btn .lang-flag { font-size: 1.3rem; }
+    .lang-btn:hover {
+        background: rgba(124,58,237,0.12);
+        border-color: var(--accent-primary);
+        color: var(--accent-primary);
+    }
     </style>
     
     <div class="chat-widget" id="chat-widget-container" style="display: none;">
@@ -2263,16 +2312,29 @@ ruff check .</pre>
                 <div class="chat-header-icon"><i class="fa-solid fa-robot"></i></div>
                 <div>
                     <div class="chat-header-title">DAA Assistant</div>
-                    <div class="chat-header-status"><div class="status-dot"></div> <span id="chat-status-text">Standard Assistant</span></div>
+                    <div class="chat-header-status"><div class="status-dot"></div> <span id="chat-status-text">Powered by Gemini Nano</span></div>
                 </div>
             </div>
-            <div class="chat-messages" id="chat-messages">
-                <div class="chat-msg msg-bot">Hi! I can answer questions about DAA, like whether it's safe or how it accesses your code. Ask me anything!</div>
+            <!-- Language picker screen -->
+            <div class="lang-picker" id="lang-picker">
+                <div class="lang-picker-title">🌐 Choose a language</div>
+                <div class="lang-picker-sub">Select your preferred language to start chatting with the on-device AI assistant.</div>
+                <div class="lang-grid">
+                    <button class="lang-btn" onclick="startChatWithLang('en')"><span class="lang-flag">🇬🇧</span>English</button>
+                    <button class="lang-btn" onclick="startChatWithLang('de')"><span class="lang-flag">🇩🇪</span>Deutsch</button>
+                    <button class="lang-btn" onclick="startChatWithLang('es')"><span class="lang-flag">🇪🇸</span>Español</button>
+                    <button class="lang-btn" onclick="startChatWithLang('fr')"><span class="lang-flag">🇫🇷</span>Français</button>
+                    <button class="lang-btn" onclick="startChatWithLang('ja')"><span class="lang-flag">🇯🇵</span>日本語</button>
+                </div>
+            </div>
+            <!-- Chat messages screen -->
+            <div class="chat-messages" id="chat-messages" style="display:none;">
+                <div class="chat-msg msg-bot">Hi! I can answer questions about DAA — how it works, its security, deployment options, and more. Ask me anything!</div>
                 <div class="typing-indicator" id="typing-indicator">
                     <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
                 </div>
             </div>
-            <div class="chat-input-area">
+            <div class="chat-input-area" id="chat-input-area" style="display:none;">
                 <input type="text" class="chat-input" id="chat-input" placeholder="Type a question..." onkeypress="handleChatKeyPress(event)">
                 <button class="chat-send" onclick="sendChatMessage()"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
@@ -2290,7 +2352,8 @@ ruff check .</pre>
             if(win.classList.contains('active')) {
                 icon.classList.remove('fa-message');
                 icon.classList.add('fa-xmark');
-                document.getElementById('chat-input').focus();
+                // Only focus input if chat is already initialized (lang selected)
+                if (aiSession) document.getElementById('chat-input').focus();
             } else {
                 icon.classList.remove('fa-xmark');
                 icon.classList.add('fa-message');
@@ -2330,27 +2393,34 @@ ruff check .</pre>
         }
         
         let aiSession = null;
-        let aiSessionInitializing = false;
+        let aiAvailable = false;
 
+        // Phase 1: check availability on page load — show the widget if available
         async function initAiSession() {
-            if (aiSessionInitializing || aiSession) return;
-            aiSessionInitializing = true;
             try {
                 if (!('LanguageModel' in self)) {
                     throw new Error('Prompt API not available');
                 }
-
                 const availability = await LanguageModel.availability();
-
                 if (availability === 'unavailable') {
                     throw new Error('Model unavailable on this device');
                 }
+                aiAvailable = true;
+                document.getElementById('chat-widget-container').style.display = 'block';
+            } catch (e) {
+                console.warn('Chrome Built-in AI not available, hiding chat:', e);
+                document.getElementById('chat-widget-container').style.display = 'none';
+            }
+        }
 
-                if (availability === 'downloadable' || availability === 'downloading') {
-                    document.getElementById('chat-status-text').innerText = 'Downloading model…';
-                }
+        // Phase 2: called when user picks a language
+        async function startChatWithLang(lang) {
+            document.getElementById('lang-picker').style.display = 'none';
+            document.getElementById('chat-messages').style.display = 'flex';
+            document.getElementById('chat-input-area').style.display = 'flex';
+            document.getElementById('chat-status-text').innerText = 'Initializing…';
 
-                const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
+            const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
 1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
 2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
 3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
@@ -2360,7 +2430,10 @@ ruff check .</pre>
 7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
 8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
 
+            try {
                 aiSession = await LanguageModel.create({
+                    expectedInputLanguages: [lang],
+                    expectedOutputLanguage: lang,
                     initialPrompts: [{
                         role: 'system',
                         content: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say "I can only answer questions based on the DAA documentation."\n\n${daaDocs}`
@@ -2372,15 +2445,13 @@ ruff check .</pre>
                         });
                     }
                 });
-
-                console.log('Chrome Built-in AI session created successfully.');
                 document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
-                document.getElementById('chat-widget-container').style.display = 'block';
+                document.getElementById('chat-input').focus();
             } catch (e) {
-                console.warn('Chrome Built-in AI initialization failed, hiding chat:', e);
-                document.getElementById('chat-widget-container').style.display = 'none';
+                console.error('Failed to create AI session:', e);
+                document.getElementById('chat-status-text').innerText = 'Failed to start AI';
+                appendMsg('Sorry, failed to initialize the AI model: ' + e.message, 'bot', false);
             }
-            aiSessionInitializing = false;
         }
 
         // Initialize on load
