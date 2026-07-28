@@ -2327,7 +2327,43 @@ ruff check .</pre>
             }
         }
         
-        function sendChatMessage() {
+        let aiSession = null;
+        let aiSessionInitializing = false;
+
+        async function initAiSession() {
+            if (aiSessionInitializing || aiSession) return;
+            aiSessionInitializing = true;
+            try {
+                if (window.ai && window.ai.languageModel) {
+                    const capabilities = await window.ai.languageModel.capabilities();
+                    if (capabilities.available !== 'no') {
+                        const daaDocs = `DAA (Debugging Autonomous Agent) Documentation:
+1. What is DAA? DAA is an autonomous SRE platform. When an app crashes, DAA catches the error, uses an LLM agent to investigate logs, traces, and source code, and automatically opens a Pull Request with a fix.
+2. Architecture: The Backend API (FastAPI) receives error logs and queues jobs in RabbitMQ. A Python Agent (LangChain ReAct) consumes the job, analyzes the code, and creates a fix. An Admin Panel provides a web UI to view logs and fixes.
+3. Security & Privacy: DAA is self-hosted and private by design. Credentials use environment variables only. It uses your own API keys.
+4. Code Privacy: DAA has no central server. It only sends specific context around an error (stack traces, specific Git commits) directly from your instance to your configured LLM provider. It never uploads your entire codebase.
+5. Alert Fatigue: DAA uses SHA-256 fingerprint deduplication and sliding-window cooldowns so the agent only wakes up for new error patterns, suppressing duplicates silently.
+6. Supported LLMs: DAA is model-agnostic. It supports Gemini, GPT-4, Claude, Vertex, and local air-gapped models via Ollama.
+7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
+8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
+
+                        aiSession = await window.ai.languageModel.create({
+                            systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
+                            temperature: 0.2
+                        });
+                        console.log("Chrome Built-in AI session created successfully.");
+                    }
+                }
+            } catch (e) {
+                console.warn("Chrome Built-in AI initialization failed, using fallback:", e);
+            }
+            aiSessionInitializing = false;
+        }
+
+        // Initialize on load
+        initAiSession();
+
+        async function sendChatMessage() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if(!text) return;
@@ -2340,6 +2376,27 @@ ruff check .</pre>
             const msgs = document.getElementById('chat-messages');
             msgs.scrollTop = msgs.scrollHeight;
             
+            // Wait for init if it's currently initializing
+            if (aiSessionInitializing) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+            
+            try {
+                if (aiSession) {
+                    const answer = await aiSession.prompt(text);
+                    ind.style.display = 'none';
+                    appendMsg(answer, 'bot', true);
+                    return;
+                }
+            } catch (e) {
+                console.error("AI prompt failed, falling back to JS:", e);
+                if (aiSession) {
+                    try { aiSession.destroy(); } catch(err) {}
+                    aiSession = null;
+                }
+            }
+            
+            // Fallback to our simple keyword matcher
             setTimeout(() => {
                 ind.style.display = 'none';
                 const answer = getBotAnswer(text);
