@@ -2335,16 +2335,30 @@ ruff check .</pre>
             if (aiSessionInitializing || aiSession) return;
             aiSessionInitializing = true;
             try {
-                if (!('LanguageModel' in self)) {
-                    throw new Error("LanguageModel API is not available on this browser.");
+                let aiAPI = null;
+                if (window.ai && window.ai.languageModel) {
+                    aiAPI = window.ai.languageModel; // Chrome 127-147
+                } else if ('LanguageModel' in self) {
+                    aiAPI = self.LanguageModel; // Chrome 148+
+                }
+
+                if (!aiAPI) {
+                    throw new Error("LanguageModel API is not available. You may need to enable Chrome flags or update your browser.");
                 }
                 
-                const availability = await LanguageModel.availability();
-                if (availability === 'unavailable' || availability === 'no') {
+                let availabilityStatus = 'no';
+                if (aiAPI.capabilities) {
+                    const cap = await aiAPI.capabilities();
+                    availabilityStatus = cap.available;
+                } else if (aiAPI.availability) {
+                    availabilityStatus = await aiAPI.availability();
+                }
+
+                if (availabilityStatus === 'no' || availabilityStatus === 'unavailable') {
                     throw new Error("Gemini Nano is explicitly unavailable on this device.");
                 }
                 
-                if (availability === 'downloadable' || availability === 'downloading' || availability === 'after-download') {
+                if (availabilityStatus === 'after-download' || availabilityStatus === 'downloadable' || availabilityStatus === 'downloading') {
                     document.getElementById('chat-status-text').innerText = 'Downloading Model... (Check Console)';
                     console.log("Gemini Nano model is downloading in the background...");
                 }
@@ -2359,7 +2373,7 @@ ruff check .</pre>
 7. Deployment: Run it as a single Docker container, via Docker Compose for a persistent stack (Postgres + RabbitMQ), or Serverless (Cloud Run) using stateless webhook receivers.
 8. How the AI works: The agent uses a 3-phase loop (Pre-flight, Agent Core, Post-flight). It navigates the AST code, reads logs, and creates a Git branch/PR idempotently. It has a hard 8-tool-call budget cap to prevent runaway costs.`;
 
-                aiSession = await LanguageModel.create({
+                aiSession = await aiAPI.create({
                     systemPrompt: `You are the official DAA Assistant. Answer the user's question accurately using ONLY the following documentation. If the answer is not in the documentation, say 'I can only answer questions based on the DAA documentation.'\n\n${daaDocs}`,
                     temperature: 0.2,
                     monitor(m) {
