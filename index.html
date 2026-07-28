@@ -2167,6 +2167,7 @@ ruff check .</pre>
         border-radius: var(--radius-md);
         font-size: 0.9rem;
         line-height: 1.5;
+        white-space: pre-wrap;
         animation: fadeInMsg 0.3s ease;
     }
     @keyframes fadeInMsg {
@@ -2308,13 +2309,13 @@ ruff check .</pre>
             msgs.insertBefore(div, ind);
             
             if (stream && type === 'bot') {
-                div.innerText = '';
+                div.textContent = '';
                 const tokens = text.match(/\S+|\s+/g) || [];
                 let i = 0;
                 
                 function nextToken() {
                     if (i < tokens.length) {
-                        div.innerText += tokens[i];
+                        div.textContent += tokens[i];
                         msgs.scrollTop = msgs.scrollHeight;
                         i++;
                         setTimeout(nextToken, 20 + Math.random() * 40);
@@ -2322,7 +2323,7 @@ ruff check .</pre>
                 }
                 nextToken();
             } else {
-                div.innerText = text;
+                div.textContent = text;
                 msgs.scrollTop = msgs.scrollHeight;
             }
         }
