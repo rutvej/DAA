@@ -2263,7 +2263,7 @@ ruff check .</pre>
                 <div class="chat-header-icon"><i class="fa-solid fa-robot"></i></div>
                 <div>
                     <div class="chat-header-title">DAA Assistant</div>
-                    <div class="chat-header-status"><div class="status-dot"></div> Online</div>
+                    <div class="chat-header-status"><div class="status-dot"></div> <span id="chat-status-text">Standard Assistant</span></div>
                 </div>
             </div>
             <div class="chat-messages" id="chat-messages">
@@ -2353,6 +2353,7 @@ ruff check .</pre>
                             temperature: 0.2
                         });
                         console.log("Chrome Built-in AI session created successfully.");
+                        document.getElementById('chat-status-text').innerText = 'Powered by Gemini Nano (Local)';
                     }
                 }
             } catch (e) {
