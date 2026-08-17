@@ -48,10 +48,51 @@ You wake up, review the PR, and merge.
 
 ---
 
-## ⚡ Quickstart — Serverless Mode (1 Command)
+## 🚀 Quickstart — GitHub Action (Easiest)
 
-The easiest way to run DAA is as a stateless webhook receiver via the standalone Docker image. No databases or queues required. 
-It receives an alert, talks to the LLM, pushes a branch, and opens a PR.
+The fastest way to use DAA. No hosting, no PAT tokens, no Docker. Just add a workflow file and one secret.
+
+**Requirements:** A free [Gemini API key](https://aistudio.google.com/app/apikey). That's it.
+
+1. Add `GEMINI_API_KEY` to your repo secrets (Settings → Secrets → Actions)
+2. Create `.github/workflows/daa.yml`:
+
+```yaml
+name: DAA - Auto Debug
+on:
+  issues:
+    types: [opened, labeled]
+  workflow_dispatch:
+    inputs:
+      error_description:
+        description: 'Paste the error/stack trace'
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rutvej/DAA/action@main
+        with:
+          llm_provider: google
+          llm_api_key: ${{ secrets.GEMINI_API_KEY }}
+```
+
+Open an issue labeled `daa` with a bug description → DAA investigates and opens a fix PR.
+
+*Full docs: [action/README.md](./action/README.md) · Supports issues, manual dispatch, external webhooks (Sentry/PagerDuty), and scheduled scans.*
+
+---
+
+## ⚡ Quickstart — Serverless Mode (Docker)
+
+For production monitoring with real-time webhooks from Sentry/Prometheus/Datadog.
 
 **Requirements:** Docker, a free [Gemini API key](https://aistudio.google.com/app/apikey), and a GitHub Personal Access Token.
 
@@ -78,16 +119,22 @@ curl -X POST http://localhost:8000/ingest/prometheus \
 
 ---
 
-## 🔌 Two Ways to Integrate
+## 🔌 Three Ways to Integrate
 
-DAA is flexible. You can plug it into your existing alerting stack, or instrument your code directly.
+DAA is flexible. Pick the integration that matches your needs.
 
-### 1. Existing Log Aggregators & Webhooks (Recommended for Serverless)
+### 1. GitHub Action (Recommended to Start)
+Zero infrastructure. Add a workflow file and one secret to your repo. DAA runs on GitHub's free runners and opens PRs using the auto-injected `GITHUB_TOKEN`.
+- **No PAT tokens, no hosting, no Docker.**
+- Triggers: bug issues, manual dispatch, external webhooks, scheduled scans.
+- **[→ GitHub Action Quick Start](./action/README.md)**
+
+### 2. Existing Log Aggregators & Webhooks (Recommended for Production)
 You do **not** need to use our SDK or change your app code. You can just point your existing alerting tools (Sentry, Datadog, Prometheus, CloudWatch) to DAA's webhook endpoints.
 - **Auth:** Run DAA with `DAA_AUTH_ENABLED=false` and secure it behind your own API Gateway, AWS IAM, or Cloudflare Tunnel.
 - **Dedup:** Rely on your existing aggregator to group the errors, and let DAA handle the autonomous fixing.
 
-### 2. The DAA SDK (Recommended for Full-Stack)
+### 3. The DAA SDK (Recommended for Full-Stack)
 If you don't have centralized logging, use the DAA SDK. 
 - Requires deploying DAA with `DAA_AUTH_ENABLED=true` (usually via Docker Compose).
 - You register your app, get a `DAA_TOKEN`, and the SDK securely pushes exceptions to DAA.
@@ -131,6 +178,7 @@ daa.report_exception(exception, app_name="my-service")
 
 | Mode | Best for | How |
 |------|----------|-----|
+| **GitHub Action** | Zero-friction, open source | [Add workflow file](./action/README.md) |
 | **Single Docker container** | Try it out, small teams | `docker run -p 8000:8080 --env-file .env daa:latest` |
 | **Docker Compose** | Self-hosted, persistent | `daa redeploy` |
 | **Serverless** | Cloud Run / Fargate, zero-ops | `DAA_DB_PROVIDER=none DAA_GIT_MODE=api` |
@@ -150,6 +198,7 @@ DAA/
 │   ├── python-agent/   ← LangChain ReAct SRE agent (the brain)
 │   ├── admin-panel/    ← React dashboard
 │   └── daa-sdk/        ← Python SDK (Node/Go/Java/Ruby/.NET community)
+├── action/             ← GitHub Action vertical (zero-infra deployment)
 ├── daa                 ← CLI tool (daa init / register / test / logs)
 └── docs/               ← Documentation
 ```
