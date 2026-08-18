@@ -1,0 +1,99 @@
+name: 'DAA - Debugging Autonomous Agent'
+description: 'Your app breaks. DAA investigates the root cause and opens a pull request — inside GitHub Actions. No hosting, no PAT tokens.'
+author: 'rutvej'
+
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  llm_provider:
+    description: 'LLM provider to use (google, openai, anthropic, ollama)'
+    required: false
+    default: 'google'
+  llm_api_key:
+    description: 'API key for your LLM provider (e.g. GEMINI_API_KEY). Pass via secrets.'
+    required: true
+  llm_model:
+    description: 'Model name override (e.g. gemini-2.5-flash, gpt-4o, claude-sonnet-4-20250514)'
+    required: false
+    default: ''
+  error_description:
+    description: 'Error description or stack trace to investigate. Auto-extracted from issues/dispatch if not set.'
+    required: false
+    default: ''
+  app_name:
+    description: 'Application name. Defaults to the repository name.'
+    required: false
+    default: ''
+  agent_mode:
+    description: 'Agent investigation mode: full (4-dimension) or fast (quick fix only)'
+    required: false
+    default: 'full'
+  max_tool_calls:
+    description: 'Hard cap on agent tool calls (safety budget)'
+    required: false
+    default: '8'
+  target_branch:
+    description: 'Base branch to create fix PRs against'
+    required: false
+    default: 'main'
+  label_filter:
+    description: 'Only trigger on issues with this label (for issues trigger). Set to empty to trigger on all issues.'
+    required: false
+    default: 'daa'
+
+outputs:
+  pr_url:
+    description: 'URL of the pull request created by DAA (if any)'
+  outcome:
+    description: 'Result outcome: pr_created, escalated, skipped, error'
+  postmortem:
+    description: 'Path to the postmortem markdown file'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build and run DAA
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        INPUT_LLM_PROVIDER: ${{ inputs.llm_provider }}
+        INPUT_LLM_API_KEY: ${{ inputs.llm_api_key }}
+        INPUT_LLM_MODEL: ${{ inputs.llm_model }}
+        INPUT_ERROR_DESCRIPTION: ${{ inputs.error_description }}
+        INPUT_APP_NAME: ${{ inputs.app_name }}
+        INPUT_AGENT_MODE: ${{ inputs.agent_mode }}
+        INPUT_MAX_TOOL_CALLS: ${{ inputs.max_tool_calls }}
+        INPUT_TARGET_BRANCH: ${{ inputs.target_branch }}
+        INPUT_LABEL_FILTER: ${{ inputs.label_filter }}
+      run: |
+        # Build the Docker image from repo root context so all paths resolve
+        DAA_ACTION_DIR="${{ github.action_path }}"
+        REPO_ROOT="$(dirname "$DAA_ACTION_DIR")"
+
+        docker build \
+          -f "$DAA_ACTION_DIR/Dockerfile" \
+          -t daa-action:local \
+          "$REPO_ROOT"
+
+        # Run the action container with all env vars forwarded
+        docker run --rm \
+          -e GITHUB_TOKEN \
+          -e GITHUB_EVENT_NAME \
+          -e GITHUB_EVENT_PATH=/github/event.json \
+          -e GITHUB_REPOSITORY \
+          -e GITHUB_REPOSITORY_OWNER \
+          -e GITHUB_OUTPUT=/github/output \
+          -e INPUT_LLM_PROVIDER \
+          -e INPUT_LLM_API_KEY \
+          -e INPUT_LLM_MODEL \
+          -e INPUT_ERROR_DESCRIPTION \
+          -e INPUT_APP_NAME \
+          -e INPUT_AGENT_MODE \
+          -e INPUT_MAX_TOOL_CALLS \
+          -e INPUT_TARGET_BRANCH \
+          -e INPUT_LABEL_FILTER \
+          -v "$GITHUB_EVENT_PATH:/github/event.json:ro" \
+          -v "$GITHUB_OUTPUT:/github/output" \
+          daa-action:local
