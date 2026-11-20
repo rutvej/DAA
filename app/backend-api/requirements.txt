@@ -4,7 +4,7 @@ psycopg2-binary
 SQLAlchemy
 pika
 passlib
-python-jose
+python-jose[cryptography]>=3.4.0
 bcrypt==3.2.2
 pytest
 httpx

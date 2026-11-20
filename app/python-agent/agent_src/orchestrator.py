@@ -343,6 +343,9 @@ class FingerprintDedup:
                 "fix_id": str | None,
             }
         """
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            return {"status": "no_fix", "pr_url": None, "fix_id": None}
+
         url = f"{self.backend_url}/fixes/fingerprint/{fingerprint}"
         try:
             resp = requests.get(url, headers=self._headers, timeout=10)

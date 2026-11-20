@@ -41,7 +41,7 @@ else
 fi
 
 # ── 3. Derive repo info from GITHUB_REPOSITORY ────────────────────────────
-export GIT_HOST="${GIT_HOST:-https://github.com}"
+export GIT_HOST="${GIT_HOST:-${GITHUB_SERVER_URL:-https://github.com}}"
 export GIT_ORG="${GIT_ORG:-${GITHUB_REPOSITORY_OWNER:-$(echo $GITHUB_REPOSITORY | cut -d/ -f1)}}"
 export DAA_REPO_URL="${GIT_HOST}/${GITHUB_REPOSITORY}.git"
 

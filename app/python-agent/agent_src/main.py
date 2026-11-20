@@ -306,6 +306,8 @@ class ExecutionLogCallbackHandler(BaseCallbackHandler):
         self.logs = []
 
     def _send_log_line(self, line: str):
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            return
         import requests
 
         backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
