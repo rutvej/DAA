@@ -1,5 +1,5 @@
 # Stage 1: Build the React application
-FROM node:18-alpine as builder
+FROM node:22-alpine as builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Serve the application with Nginx
-FROM nginx:1.21.6-alpine
+FROM nginx:alpine
 
 # Copy the build output from the builder stage
 COPY --from=builder /app/build /usr/share/nginx/html

@@ -1,0 +1,69 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DAA GitHub Action — Example Workflow (All Triggers)
+# Copy this to .github/workflows/daa.yml in your repository.
+#
+# Setup: Add your LLM API key as a repository secret named GEMINI_API_KEY
+#        (Settings → Secrets and variables → Actions → New repository secret)
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: DAA - Auto Debug
+
+on:
+  # ── Trigger 1: Bug Issues ──────────────────────────────────────────────
+  # When someone opens or labels an issue with 'daa', DAA investigates.
+  issues:
+    types: [opened, labeled]
+
+  # ── Trigger 2: Manual Dispatch ─────────────────────────────────────────
+  # Paste a stack trace in the GitHub UI → get a fix PR.
+  workflow_dispatch:
+    inputs:
+      error_description:
+        description: 'Paste the error message or stack trace here'
+        required: true
+        type: string
+      error_file:
+        description: '(Optional) Path to the file with the error'
+        required: false
+        type: string
+
+  # ── Trigger 3: External Webhook ────────────────────────────────────────
+  # Sentry/PagerDuty/Datadog can POST to GitHub API → triggers this.
+  # curl -X POST https://api.github.com/repos/OWNER/REPO/dispatches \
+  #   -H "Authorization: Bearer $GITHUB_TOKEN" \
+  #   -d '{"event_type":"daa-alert","client_payload":{"exception_type":"NullPointerException","stack_trace":"..."}}'
+  repository_dispatch:
+    types: [daa-alert]
+
+  # ── Trigger 4: Scheduled Scan ──────────────────────────────────────────
+  # Periodically scan for open bug issues and auto-investigate.
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+# Permissions needed: read code, create branches, open PRs, comment on issues
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    # Don't run on schedule if there's nothing to investigate
+    # (the action handles this gracefully, but this saves runner minutes)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run DAA Investigation
+        uses: rutvej/DAA/action@main
+        with:
+          llm_provider: google
+          llm_api_key: ${{ secrets.GEMINI_API_KEY }}
+          # ── Optional overrides ──
+          # llm_model: 'gemini-2.5-flash'
+          # agent_mode: 'fast'          # Use 'fast' for quicker, lighter fixes
+          # max_tool_calls: '8'         # Safety budget cap
+          # target_branch: 'main'       # Base branch for fix PRs
+          # label_filter: 'daa'         # Only trigger on issues with this label
+          # app_name: 'my-service'      # Override auto-detected app name

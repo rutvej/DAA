@@ -138,9 +138,15 @@ class RepoCacheManager:
 
     FETCH_TTL_SECONDS = 300  # re-fetch only if cache is older than 5 min
 
-    def __init__(self, cache_root: str = "/var/daa/repo-cache") -> None:
+    def __init__(self, cache_root: str | None = None) -> None:
+        if cache_root is None:
+            cache_root = os.getenv("DAA_REPO_CACHE_ROOT", "/tmp/daa/repo-cache")
         self.cache_root = cache_root
-        os.makedirs(self.cache_root, exist_ok=True)
+        try:
+            os.makedirs(self.cache_root, exist_ok=True)
+        except (PermissionError, OSError):
+            self.cache_root = "/tmp/daa/repo-cache"
+            os.makedirs(self.cache_root, exist_ok=True)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -337,6 +343,9 @@ class FingerprintDedup:
                 "fix_id": str | None,
             }
         """
+        if os.environ.get("DAA_GIT_MODE") == "api":
+            return {"status": "no_fix", "pr_url": None, "fix_id": None}
+
         url = f"{self.backend_url}/fixes/fingerprint/{fingerprint}"
         try:
             resp = requests.get(url, headers=self._headers, timeout=10)
@@ -1188,14 +1197,22 @@ def run_preflight(job: dict, backend_url: str, token: str) -> dict:
     trace_id_ctx.set(tid)
 
     # ---- 1. Compute fingerprint ------------------------------------------
+    error_log_val = job.get("error_log")
+    error_log_content = ""
+    if hasattr(error_log_val, "content"):
+        error_log_content = str(error_log_val.content or "")
+    elif isinstance(error_log_val, dict):
+        error_log_content = str(error_log_val.get("content", "") or "")
+    elif error_log_val:
+        error_log_content = str(error_log_val)
+
     dedup = FingerprintDedup(backend_url=backend_url, token=token)
     fingerprint = job.get("fingerprint") or dedup.compute(
         app_name=app_name,
         exception_type=exception_type,
         error_file=error_file,
         line_number=line_number,
-        content_or_top_frame=job.get("stack_trace", "")
-        or str(job.get("error_log", {}).get("content", "")),
+        content_or_top_frame=job.get("stack_trace", "") or error_log_content,
     )
     logger.info("Fingerprint: %s", fingerprint)
 

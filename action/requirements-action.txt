@@ -1,0 +1,15 @@
+# DAA GitHub Action — minimal agent-only dependencies
+# No FastAPI, no RabbitMQ (pika), no admin panel, no SQLAlchemy
+requests>=2.26.0
+urllib3>=1.26.18
+GitPython==3.1.24
+langchain-community==0.0.29
+langchain-core>=0.1.45,<0.2.0
+langchain==0.1.11
+pydantic
+langchain-google-genai==1.0.4
+langchain-openai==0.0.8
+langchain-anthropic>=0.1.0
+python-json-logger
+tenacity
+PyGithub>=2.1.0

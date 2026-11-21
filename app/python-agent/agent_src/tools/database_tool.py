@@ -6,10 +6,12 @@ from .auth_helper import handle_request_with_retry
 
 def _send_request(data: dict) -> None:
     """Sends a POST request to the backend API to update the analysis status."""
+    if os.environ.get("DAA_GIT_MODE") == "api":
+        return
     logging.info(f"Sending request to backend-api with data: {data}")
     backend_url = os.environ.get("DAA_BACKEND_API_URL", "http://backend-api:80")
     url = f"{backend_url}/fixes"
-    response = handle_request_with_retry("POST", url, json=data)
+    response = handle_request_with_retry("POST", url, json=data, timeout=5.0)
     response.raise_for_status()
 
 

@@ -132,3 +132,5 @@ dmypy.json
 node_modules/
 /app/worker-service/.env
 auth.json
+docker-compose.local.yml
+download_gp.py
